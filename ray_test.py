@@ -22,16 +22,11 @@ def point_test(check_point, ray_len):
 
     for i in range(6):
         inside = p.rayTest(p_list_0[i], p_list_1[i])
-        # p.addUserDebugLine(p_list_1[i], p_list_0[i], [1,0,0])
-        # time.sleep(0.5)
-        # print(inside[0][-2])
-        if inside[0][-2] != (0.0,0.0,0.0):
-            count_x += 1
 
-    if count_x == 6:
-        return 1  # inside
-    else:
-        return 0  # outside
+        if inside[0][-2] == (0.0,0.0,0.0):
+            return 0  # outside
+
+    return 1 # inside
 
 def inside_data_sampling(n, box_size=1,filename="pcloud01.csv"):
     inside_data = []
@@ -77,5 +72,9 @@ if __name__ == "__main__":
     for _ in range(1000):
         p.stepSimulation()
 
-    inside_data_sampling(1000)
+    st = time.time()
+    inside_data_sampling(10000)
+    et = time.time()
+
+    print("Time: ", et-st)
     # print(point_test([0,0,0.3], 1))

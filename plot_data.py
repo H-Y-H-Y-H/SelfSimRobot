@@ -18,4 +18,4 @@ def plot_animation(data_len):
 
 
 if __name__ == "__main__":
-    plot_animation(20)
+    plot_animation(10)

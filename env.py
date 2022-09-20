@@ -39,13 +39,17 @@ if __name__ == "__main__":
     # p.addUserDebugLine([0.3,-0.3,0], [0.3,-0.3,0.4], [0.2,0,0])
     # p.addUserDebugLine([-0.3,-0.3,0], [-0.3,-0.3,0.4], [0.2,0,0])
     # p.addUserDebugLine([-0.3,0.3,0], [-0.3,0.3,0.4], [0.2,0,0])
-    for idx in range(20):
+
+    st = time.time()
+    for idx in range(10):
         angle01 = random.random()
         angle02 = random.random() * 0.8 - 1.4
         angle03 = random.random() -0.5 
         angle_sim(np.array([angle01, angle02, angle03]), robotid)
         pixel_sampling(filename="arm-pix%d.csv"%idx)
 
+    et = time.time()
+    print("Time: ", et-st)
 
     cubePos, cubeOrn = p.getBasePositionAndOrientation(robotid)
     print(cubePos,cubeOrn)
