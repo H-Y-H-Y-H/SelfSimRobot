@@ -5,7 +5,7 @@ import gym
 import random
 import numpy as np
 import scipy.linalg as linalg
-from ray_test import point_test, inside_data_sampling
+from ray_test import point_test, inside_data_sampling, pixel_sampling
 
 force = 1.8
 maxVelocity = 1.5
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         angle02 = random.random() * 0.8 - 1.4
         angle03 = random.random() -0.5 
         angle_sim(np.array([angle01, angle02, angle03]), robotid)
-        inside_data_sampling(1000, 0.5,"arm%d.csv"%idx)
+        pixel_sampling(filename="arm-pix%d.csv"%idx)
 
 
     cubePos, cubeOrn = p.getBasePositionAndOrientation(robotid)

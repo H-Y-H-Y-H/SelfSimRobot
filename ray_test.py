@@ -36,7 +36,7 @@ def point_test(check_point, ray_len):
 def inside_data_sampling(n, box_size=1,filename="pcloud01.csv"):
     inside_data = []
     while True:
-        point = [(random.random()-0.5)*box_size, random.random()-0.5*box_size, random.random()*box_size]
+        point = [(random.random()-0.5)*box_size, (random.random()-0.5)*box_size, random.random()*box_size]
         if point_test(point, 1)==1:
             # print(point)
             inside_data.append(point)
@@ -44,6 +44,19 @@ def inside_data_sampling(n, box_size=1,filename="pcloud01.csv"):
         if len(inside_data) == n:
             np.savetxt("data/"+filename, inside_data)
             break
+
+def pixel_sampling(one_step=0.005, steps=50, filename="hh.csv"):
+    half_len = one_step * steps
+    inside_data = []
+    for x in range(steps * 2):
+        for y in range(steps * 2):
+            for z in range(steps * 2):
+                point = [x*one_step-half_len,y*one_step-half_len,z*one_step]
+                if point_test(point, 1)==1:
+                    # print(point)
+                    inside_data.append(point)
+
+    np.savetxt("data/"+filename, inside_data)
     
 
 if __name__ == "__main__":
