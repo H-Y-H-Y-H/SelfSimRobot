@@ -5,7 +5,7 @@ import gym
 import random
 import numpy as np
 import scipy.linalg as linalg
-from ray_test import point_test, inside_data_sampling, pixel_sampling
+from ray_test import point_test, inside_data_sampling, pixel_sampling, face_sampling
 
 force = 1.8
 maxVelocity = 1.5
@@ -46,7 +46,8 @@ if __name__ == "__main__":
         angle02 = random.random() * 0.8 - 1.4
         angle03 = random.random() -0.5 
         angle_sim(np.array([angle01, angle02, angle03]), robotid)
-        pixel_sampling(filename="arm-pix%d.csv"%idx)
+        pixel_sampling(filename="arm-pix-{a1:.2f}-{a2:.2f}-{a3:.2f}.csv".format(a1=angle01, a2=angle02+1.4, a3=angle03+0.5))
+        # face_sampling(box_len=0.4, num_points=63, filename="arm-pix%d.csv"%idx)
 
     et = time.time()
     print("Time: ", et-st)

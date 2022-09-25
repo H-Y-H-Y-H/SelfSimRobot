@@ -28,6 +28,67 @@ def point_test(check_point, ray_len):
 
     return 1 # inside
 
+
+def face_sampling(box_len, num_points, filename="facecloud01.csv"):
+    """get the point cloud for the robot surface"""
+    face_num = num_points * num_points
+    start_p = -box_len / 2
+    end_p = box_len / 2
+    x_p = np.linspace(start_p, end_p, num_points)
+    y_p = np.linspace(start_p, end_p, num_points)
+    z_p = np.linspace(0, end_p*2, num_points)
+    xx, zz = np.meshgrid(x_p, z_p)
+    y0 = np.zeros((face_num, 1)) + start_p
+    y1 = np.zeros((face_num, 1)) + end_p
+    x1 = xx.reshape(face_num, 1)
+    z1 = zz.reshape(face_num, 1)
+
+    # front and back
+    face_0 = np.concatenate((x1, y0, z1), axis=1)
+    face_1 = np.concatenate((x1, y1, z1), axis=1)
+
+    # left and right
+    face_2 = np.concatenate((y0, x1, z1), axis=1)
+    face_3 = np.concatenate((y1, x1, z1), axis=1)
+
+    # up and down
+    face_4 = np.concatenate((x1, z1 + start_p, y0 + end_p), axis=1)
+    face_5 = np.concatenate((x1, z1 + start_p, y1 + end_p), axis=1)
+
+    hit_pos = []
+    ray_test_1 = p.rayTestBatch(face_0, face_1)
+    for t in ray_test_1:
+        if t[3] != (0.0,0.0,0.0):
+            hit_pos.append(t[3])
+
+    ray_test_2 = p.rayTestBatch(face_1, face_0)
+    for t in ray_test_2:
+        if t[3] != (0.0,0.0,0.0):
+            hit_pos.append(t[3])
+
+    ray_test_3 = p.rayTestBatch(face_2, face_3)
+    for t in ray_test_3:
+        if t[3] != (0.0,0.0,0.0):
+            hit_pos.append(t[3])
+
+    ray_test_4 = p.rayTestBatch(face_3, face_2)
+    for t in ray_test_4:
+        if t[3] != (0.0,0.0,0.0):
+            hit_pos.append(t[3])
+
+    ray_test_5 = p.rayTestBatch(face_4, face_5)
+    for t in ray_test_5:
+        if t[3] != (0.0,0.0,0.0):
+            hit_pos.append(t[3])
+
+    ray_test_6 = p.rayTestBatch(face_5, face_4)
+    for t in ray_test_6:
+        if t[3] != (0.0,0.0,0.0):
+            hit_pos.append(t[3])
+
+    np.savetxt("data/"+filename, hit_pos)
+
+
 def inside_data_sampling(n, box_size=1,filename="pcloud01.csv"):
     inside_data = []
     while True:
@@ -73,7 +134,8 @@ if __name__ == "__main__":
         p.stepSimulation()
 
     st = time.time()
-    inside_data_sampling(10000)
+    # inside_data_sampling(10000)
+    face_sampling(box_len=1, num_points=60)
     et = time.time()
 
     print("Time: ", et-st)
