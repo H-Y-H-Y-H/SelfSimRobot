@@ -29,7 +29,11 @@ if __name__ == "__main__":
     planeId = p.loadURDF("plane.urdf")
     startPos = [0,0,0]
     startOrientation = p.getQuaternionFromEuler([0,0,0])
-    robotid = p.loadURDF("arm3dof/urdf/arm3dof.urdf",startPos, startOrientation,useFixedBase=1)
+
+    # urdf_path = 'arm3dof/urdf/arm3dof.urdf'
+    urdf_path = 'robot_arm/robot_arm1.urdf'
+
+    robotid = p.loadURDF(urdf_path ,startPos, startOrientation,useFixedBase=1)
     basePos, baseOrn = p.getBasePositionAndOrientation(robotid)  # Get model position
     basePos_list = [basePos[0], basePos[1], 0.3]
     p.resetDebugVisualizerCamera(cameraDistance=0.6, cameraYaw=75, cameraPitch=-20,

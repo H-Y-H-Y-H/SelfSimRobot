@@ -4,6 +4,7 @@ import numpy as np
 import os
 import time
 import random
+from PIL import Image as im
 
 
 def point_test(check_point, ray_len):
@@ -101,7 +102,7 @@ def inside_data_sampling(n, box_size=1,filename="pcloud01.csv"):
             np.savetxt("data/"+filename, inside_data)
             break
 
-def pixel_sampling(one_step=0.005, steps=50, filename="hh.csv"):
+def pixel_sampling(one_step=0.005, steps=80, filename="hh.csv"):
     half_len = one_step * steps
     inside_data = []
     for x in range(steps * 2):
@@ -112,8 +113,40 @@ def pixel_sampling(one_step=0.005, steps=50, filename="hh.csv"):
                     # print(point)
                     inside_data.append(point)
 
-    np.savetxt("data/"+filename, inside_data)
-    
+    np.savetxt("data_with_para/"+filename, inside_data)
+
+def get_shadow(box_len, num_points, filename="ray_test01.csv"):
+    start_p = -box_len / 2
+    end_p = box_len / 2
+
+    step_size = box_len / num_points
+    x_p = np.linspace(start_p, end_p, num_points).reshape(num_points, 1)
+    y0 = np.zeros((num_points, 1)) + start_p
+    y1 = np.zeros((num_points, 1)) + end_p
+
+    shadow_matrix = np.zeros((num_points, num_points))
+
+    for i in range(num_points):
+        z_p = np.array([box_len - i * step_size] * num_points).reshape(num_points, 1)
+        line_0 = np.concatenate((x_p, y0, z_p), axis=1)
+        line_1 = np.concatenate((x_p, y1, z_p), axis=1)
+        # print(line_0.shape)
+        ray_test = p.rayTestBatch(line_0, line_1)
+        for x, value in enumerate(ray_test):
+            if value[3] != (0.0,0.0,0.0):
+                shadow_matrix[i, x] = 1
+
+    # print(shadow_matrix.astype(np.uint8))
+    # shadow_matrix = shadow_matrix * 255
+    # data = im.fromarray(shadow_matrix)
+    # data.show()
+    np.savetxt("shadow_data/"+filename,shadow_matrix)
+    return shadow_matrix
+
+
+
+
+
 
 if __name__ == "__main__":
 
@@ -135,7 +168,8 @@ if __name__ == "__main__":
 
     st = time.time()
     # inside_data_sampling(10000)
-    face_sampling(box_len=1, num_points=60)
+    # face_sampling(box_len=1, num_points=60)
+    get_shadow(box_len=1, num_points=101)
     et = time.time()
 
     print("Time: ", et-st)

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 def check_face(box_len=1, num_points=5):
     face_num = num_points * num_points
@@ -24,17 +25,21 @@ def check_face(box_len=1, num_points=5):
 
 
 def plot_animation(data_len):
+    file_name = "data_with_para/"
+    file_list = os.listdir(file_name)
+
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
 
-    for i in range(data_len):
-        data = np.loadtxt("data/arm-pix%d.csv"%i)
+    for i in range(len(file_list)):
+        # data = np.loadtxt("data/arm-pix%d.csv"%i)
+        data = np.loadtxt(file_name + file_list[i])
         # for p in data:
         ax.cla()
         ax.scatter(data[:, 0],data[:, 1], data[:, 2],s=1)
-        ax.set_xlim([-0.2,0.2])
-        ax.set_ylim([-0.2,0.2])
-        ax.set_zlim([0,0.3])
+        ax.set_xlim([-0.4,0.4])
+        ax.set_ylim([-0.4,0.4])
+        ax.set_zlim([0,0.8])
         plt.pause(0.5)
     plt.show()
 
