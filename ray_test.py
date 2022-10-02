@@ -139,10 +139,10 @@ def get_shadow(box_len, num_points, filename="ray_test01.csv"):
 
     np.savetxt("shadow_data/"+filename,shadow_matrix)
 
-    print(shadow_matrix.astype(np.uint8))
-    shadow_matrix = shadow_matrix * 255
-    data = im.fromarray(shadow_matrix)
-    data.show()
+    # print(shadow_matrix.astype(np.uint8))
+    # shadow_matrix = shadow_matrix * 255
+    # data = im.fromarray(shadow_matrix)
+    # data.show()
 
     return shadow_matrix
 

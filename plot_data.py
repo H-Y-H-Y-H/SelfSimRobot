@@ -54,6 +54,10 @@ def plot_oneframe(file):
     plt.show()
 
 
+def plot_shadow_data():
+    pass
+
+
 if __name__ == "__main__":
     plot_animation(10)
     # plot_oneframe("data/facecloud01.csv")
