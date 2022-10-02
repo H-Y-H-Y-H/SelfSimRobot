@@ -24,7 +24,7 @@ projection_matrix = p.computeProjectionMatrixFOV(
     fov=45.0,
     aspect=1.0,
     nearVal=0.1,
-    farVal=10.0)
+    farVal=3.0)
 """camera parameters"""
 
 
@@ -46,10 +46,11 @@ if __name__ == "__main__":
     physicsClient = p.connect(p.GUI)  # or p.DIRECT for non-graphical version
     p.setAdditionalSearchPath(pd.getDataPath())  # optionally
     p.setGravity(0, 0, -10)
-    # planeId = p.loadURDF("plane.urdf")
+    planeId = p.loadURDF("plane.urdf")
     textureId = p.loadTexture("green.png")
-    WallId_front = p.loadURDF("plane.urdf", [0, 5, 0], p.getQuaternionFromEuler([1.57, 0, 0]))
+    WallId_front = p.loadURDF("plane.urdf", [0, 1, 0], p.getQuaternionFromEuler([1.57, 0, 0]))
     p.changeVisualShape(WallId_front, -1, textureUniqueId=textureId)
+    p.changeVisualShape(planeId, -1, textureUniqueId=textureId)
     startPos = [0, 0, 0]
     startOrientation = p.getQuaternionFromEuler([0, 0, 0])
 
