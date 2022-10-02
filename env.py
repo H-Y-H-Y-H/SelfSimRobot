@@ -42,6 +42,7 @@ def angle_sim(angle_list, robot_id):
 
 
 if __name__ == "__main__":
+    DATA_PATH = "image/01/"
     physicsClient = p.connect(p.GUI)  # or p.DIRECT for non-graphical version
     p.setAdditionalSearchPath(pd.getDataPath())  # optionally
     p.setGravity(0, 0, -10)
@@ -80,7 +81,7 @@ if __name__ == "__main__":
         rgbBuffer = img[2]
 
         img = Image.fromarray(rgbBuffer[:, :, :3], 'RGB')
-        img.save('my.png')
+        img.save(DATA_PATH + "%d.png" % idx)
         img.show()
         print(rgbBuffer.shape)
 
