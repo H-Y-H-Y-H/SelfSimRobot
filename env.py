@@ -41,8 +41,20 @@ def angle_sim(angle_list, robot_id):
         time.sleep(1. / 240.)
 
 
+def get_musk(rgb_data):
+    mask_data = np.zeros((height, width))
+    for row in range(height):
+        for col in range(width):
+            if rgb_data[row, col][0] < 100 and rgb_data[row, col][1] > 100 and rgb_data[row, col][2] < 100:
+                pass
+            else:
+                mask_data[row, col] = 1
+
+    return mask_data
+
+
 if __name__ == "__main__":
-    DATA_PATH = "image/01/"
+    DATA_PATH = "image/array_01/"
     physicsClient = p.connect(p.GUI)  # or p.DIRECT for non-graphical version
     p.setAdditionalSearchPath(pd.getDataPath())  # optionally
     p.setGravity(0, 0, -10)
@@ -60,8 +72,8 @@ if __name__ == "__main__":
     robotid = p.loadURDF(urdf_path, startPos, startOrientation, useFixedBase=1)
     basePos, baseOrn = p.getBasePositionAndOrientation(robotid)  # Get model position
     basePos_list = [basePos[0], basePos[1], 0.3]
-    # p.resetDebugVisualizerCamera(cameraDistance=0.6, cameraYaw=75, cameraPitch=-20,
-    #                              cameraTargetPosition=basePos_list)  # fix camera onto model
+    p.resetDebugVisualizerCamera(cameraDistance=0.6, cameraYaw=75, cameraPitch=-20,
+                                 cameraTargetPosition=basePos_list)  # fix camera onto model
 
     # p.addUserDebugLine([0.3,0.3,0], [0.3,0.3,0.4], [0.2,0,0])
     # p.addUserDebugLine([0.3,-0.3,0], [0.3,-0.3,0.4], [0.2,0,0])
@@ -79,12 +91,12 @@ if __name__ == "__main__":
         # face_sampling(box_len=0.4, num_points=63, filename="arm-pix%d.csv"%idx)
         img = p.getCameraImage(width, height, view_matrix, projection_matrix, renderer=p.ER_BULLET_HARDWARE_OPENGL)
 
-        rgbBuffer = img[2]
-
-        img = Image.fromarray(rgbBuffer[:, :, :3], 'RGB')
-        img.save(DATA_PATH + "%d.png" % idx)
-        img.show()
-        print(rgbBuffer.shape)
+        rgbBuffer = img[2][:, :, :3]
+        musk = get_musk(rgbBuffer)
+        np.savetxt(DATA_PATH + "%d.csv" % idx, musk)
+        # img = Image.fromarray(rgbBuffer, 'RGB')
+        # img.save(DATA_PATH + "%d.png" % idx)
+        # img.show()
 
     et = time.time()
     print("Time: ", et - st)
