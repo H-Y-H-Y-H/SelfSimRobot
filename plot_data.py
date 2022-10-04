@@ -33,9 +33,9 @@ def plot_animation(data_len):
     ax = fig.add_subplot(projection='3d')
 
     for i in range(len(file_list)):
-        # data = np.loadtxt("data/arm-pix%d.csv"%i)
+        # musk_data = np.loadtxt("musk_data/arm-pix%d.csv"%i)
         data = np.loadtxt(file_name + file_list[i])
-        # for p in data:
+        # for p in musk_data:
         ax.cla()
         ax.scatter(data[:, 0], data[:, 1], data[:, 2], s=1)
         ax.set_xlim([-0.4, 0.4])
@@ -67,6 +67,6 @@ def plot_musk_data():
 
 if __name__ == "__main__":
     # plot_animation(10)
-    # plot_oneframe("data/facecloud01.csv")
+    # plot_oneframe("musk_data/facecloud01.csv")
     # check_face()
     plot_musk_data()

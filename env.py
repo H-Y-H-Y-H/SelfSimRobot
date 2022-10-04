@@ -8,6 +8,7 @@ from PIL import Image
 import scipy.linalg as linalg
 from ray_test import point_test, inside_data_sampling, pixel_sampling, face_sampling, get_shadow
 
+DATA_PATH = "musk_data/dataset01"
 force = 1.8
 maxVelocity = 1.5
 
@@ -37,7 +38,7 @@ def angle_sim(angle_list, robot_id):
                                     maxVelocity=maxVelocity)
 
         p.stepSimulation()
-        # get_shadow(box_len=1, num_points=1001, filename="data-02/arm-shadow%d.csv" % idx)
+        # get_shadow(box_len=1, num_points=1001, filename="musk_data-02/arm-shadow%d.csv" % idx)
         time.sleep(1. / 240.)
 
 
@@ -53,8 +54,17 @@ def get_musk(rgb_data):
     return mask_data
 
 
+def get_image_and_save_data(index):
+    img = p.getCameraImage(width, height, view_matrix, projection_matrix, renderer=p.ER_BULLET_HARDWARE_OPENGL)
+    rgbBuffer = img[2][:, :, :3]
+    musk = get_musk(rgbBuffer)
+    np.savetxt(DATA_PATH + "array_01/" + "%d.csv" % index, musk)
+    # img = Image.fromarray(rgbBuffer, 'RGB')
+    # img.save(DATA_PATH + "%d.png" % idx)
+    # img.show()
+
+
 if __name__ == "__main__":
-    DATA_PATH = "image/array_01/"
     physicsClient = p.connect(p.GUI)  # or p.DIRECT for non-graphical version
     p.setAdditionalSearchPath(pd.getDataPath())  # optionally
     p.setGravity(0, 0, -10)
@@ -86,17 +96,10 @@ if __name__ == "__main__":
         angle02 = random.random() * 0.8 - 1.4
         angle03 = random.random() - 0.5
         angle_sim(np.array([angle01, angle02, angle03]), robotid)
-        # pixel_sampling(filename="arm-pix-{a1:.2f}-{a2:.2f}-{a3:.2f}.csv".format(a1=angle01, a2=angle02+1.4, a3=angle03+0.5))
-        # get_shadow(box_len=1, num_points=1001, filename="data-01/arm-shadow%d.csv"%idx)
-        # face_sampling(box_len=0.4, num_points=63, filename="arm-pix%d.csv"%idx)
-        img = p.getCameraImage(width, height, view_matrix, projection_matrix, renderer=p.ER_BULLET_HARDWARE_OPENGL)
+        get_image_and_save_data(idx)
 
-        rgbBuffer = img[2][:, :, :3]
-        musk = get_musk(rgbBuffer)
-        np.savetxt(DATA_PATH + "%d.csv" % idx, musk)
-        # img = Image.fromarray(rgbBuffer, 'RGB')
-        # img.save(DATA_PATH + "%d.png" % idx)
-        # img.show()
+
+
 
     et = time.time()
     print("Time: ", et - st)

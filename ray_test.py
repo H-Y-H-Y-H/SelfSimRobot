@@ -87,7 +87,7 @@ def face_sampling(box_len, num_points, filename="facecloud01.csv"):
         if t[3] != (0.0,0.0,0.0):
             hit_pos.append(t[3])
 
-    np.savetxt("data/"+filename, hit_pos)
+    np.savetxt("musk_data/"+filename, hit_pos)
 
 
 def inside_data_sampling(n, box_size=1,filename="pcloud01.csv"):
@@ -99,7 +99,7 @@ def inside_data_sampling(n, box_size=1,filename="pcloud01.csv"):
             inside_data.append(point)
 
         if len(inside_data) == n:
-            np.savetxt("data/"+filename, inside_data)
+            np.savetxt("musk_data/"+filename, inside_data)
             break
 
 def pixel_sampling(one_step=0.005, steps=80, filename="hh.csv"):
@@ -141,8 +141,8 @@ def get_shadow(box_len, num_points, filename="ray_test01.csv"):
 
     # print(shadow_matrix.astype(np.uint8))
     # shadow_matrix = shadow_matrix * 255
-    # data = im.fromarray(shadow_matrix)
-    # data.show()
+    # musk_data = im.fromarray(shadow_matrix)
+    # musk_data.show()
 
     return shadow_matrix
 
