@@ -55,18 +55,27 @@ def plot_oneframe(file):
     ax.set_zlim([0, 1])
     plt.show()
 
+def num_order(x):
+    return int(x.split(".")[0])
 
-def plot_musk_data():
-    file_name = "image/array_01/"
+def plot_musk_data(index):
+    file_name = "musk_data/dataset01/" + str(index) + "/"
     file_list = os.listdir(file_name)
+    file_list = sorted(file_list, key=num_order)  # sort the filename by number
+    print(file_list)
+    fig = plt.figure()
+    ax = fig.add_subplot()
     for f in file_list:
         data = np.loadtxt(file_name + f)
+        ax.cla()
         plt.imshow(data)
-        plt.show()
+        plt.pause(0.001)
+    plt.show()
 
 
 if __name__ == "__main__":
     # plot_animation(10)
     # plot_oneframe("musk_data/facecloud01.csv")
     # check_face()
-    plot_musk_data()
+    for i in range(10):
+        plot_musk_data(i)

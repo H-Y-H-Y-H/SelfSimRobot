@@ -4,11 +4,12 @@ import pybullet_data as pd
 import gym
 import random
 import numpy as np
+import os
 from PIL import Image
 import scipy.linalg as linalg
 from ray_test import point_test, inside_data_sampling, pixel_sampling, face_sampling, get_shadow
 
-DATA_PATH = "musk_data/dataset01"
+DATA_PATH = "musk_data/dataset01/"
 force = 1.8
 maxVelocity = 1.5
 
@@ -29,17 +30,34 @@ projection_matrix = p.computeProjectionMatrixFOV(
 """camera parameters"""
 
 
-def angle_sim(angle_list, robot_id):
-    for i in range(200):
+def angle_sim(angle_list, robot_id, file_dir):
+    link_num = 3
+    joint_data = []
+    for i in range(500):
         pos_value = angle_list * np.pi
-        for joint in range(3):
+        for joint in range(link_num):
             p.setJointMotorControl2(robot_id, joint, controlMode=p.POSITION_CONTROL, targetPosition=pos_value[joint],
                                     force=force,
                                     maxVelocity=maxVelocity)
 
         p.stepSimulation()
-        # get_shadow(box_len=1, num_points=1001, filename="musk_data-02/arm-shadow%d.csv" % idx)
+
+        joint_list = []
+        for j in range(link_num):
+            joint_state = p.getJointState(robot_id, j)[0]
+            joint_list.append(joint_state)
+        joint_data.append(joint_list)
+
+        if i % 10 == 0:
+            get_image_and_save_data(sub_dir=file_dir, index=i)
+
+        if abs(joint_list[0]-pos_value[0])+abs(joint_list[1]-pos_value[1])+abs(joint_list[2]-pos_value[2]) < 0.003:
+            print("reached")
+            break
+
         time.sleep(1. / 240.)
+
+    return joint_data
 
 
 def get_musk(rgb_data):
@@ -54,11 +72,16 @@ def get_musk(rgb_data):
     return mask_data
 
 
-def get_image_and_save_data(index):
+def get_image_and_save_data(sub_dir, index):
     img = p.getCameraImage(width, height, view_matrix, projection_matrix, renderer=p.ER_BULLET_HARDWARE_OPENGL)
     rgbBuffer = img[2][:, :, :3]
     musk = get_musk(rgbBuffer)
-    np.savetxt(DATA_PATH + "array_01/" + "%d.csv" % index, musk)
+    path = DATA_PATH + sub_dir
+    if not os.path.exists(path):
+        os.makedirs(path)
+        print("make dirs")
+
+    np.savetxt(path + "%d.csv" % index, musk)
     # img = Image.fromarray(rgbBuffer, 'RGB')
     # img.save(DATA_PATH + "%d.png" % idx)
     # img.show()
@@ -90,16 +113,18 @@ if __name__ == "__main__":
     # p.addUserDebugLine([-0.3,-0.3,0], [-0.3,-0.3,0.4], [0.2,0,0])
     # p.addUserDebugLine([-0.3,0.3,0], [-0.3,0.3,0.4], [0.2,0,0])
 
+    joint_path = DATA_PATH + "joint_data/"
+    if not os.path.exists(joint_path):
+        os.makedirs(joint_path)
+
     st = time.time()
     for idx in range(10):
+        # 0< angle01 <1, 0.1< angle02 <0.9, -0.5< angle03 <0.5
         angle01 = random.random()
-        angle02 = random.random() * 0.8 - 1.4
+        angle02 = random.random() * 0.8 + 0.1
         angle03 = random.random() - 0.5
-        angle_sim(np.array([angle01, angle02, angle03]), robotid)
-        get_image_and_save_data(idx)
-
-
-
+        jointData = angle_sim(np.array([angle01, angle02, angle03]), robotid, str(idx) + "/")
+        np.savetxt(joint_path + "%d.csv" % idx, jointData)
 
     et = time.time()
     print("Time: ", et - st)
