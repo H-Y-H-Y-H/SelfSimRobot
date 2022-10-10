@@ -58,8 +58,8 @@ def read_matrix_and_visualize(path):
     pc_l2 = mesh_l2_c.sample_points_poisson_disk(1000)
     pc_l3 = mesh_l3_c.sample_points_poisson_disk(1000)
 
-    o3d.visualization.draw_geometries([mesh_base_c, mesh_l1_c, mesh_l2_c, mesh_l3_c])
-    # o3d.visualization.draw_geometries([pc_base, pc_l1, pc_l2, pc_l3])
+    # o3d.visualization.draw_geometries([mesh_base_c, mesh_l1_c, mesh_l2_c, mesh_l3_c])
+    o3d.visualization.draw_geometries([pc_base, pc_l1, pc_l2, pc_l3])
 
 
 def prepare_check():
@@ -94,23 +94,23 @@ if __name__ == "__main__":
     # test_orig_matrix()
 
     """check saved data"""
-    # for i in range(3):
-    #     data_path = "transform_data/data_%d/" % i
-    #     read_matrix_and_visualize(path=data_path)
+    for i in range(3):
+        data_path = "transform_data/data_%d/" % i
+        read_matrix_and_visualize(path=data_path)
 
     """check occupancy"""
-    check_sen = prepare_check()
-    box_size = 0.05
-    points = []
-    for i in range(1000000):
-        points.append([(random.random() - 0.5) * box_size, (random.random() - 0.5) * box_size, random.random() * box_size])
-    print('done')
-
-    st = time.time()
-    for i in range(len(points)):
-        occ = check_occupancy(points[i], check_sen)
-        # if occ[0] == 1:
-        #     print("1")
-
-    et = time.time()
-    print("time used: ", et-st)
+    # check_sen = prepare_check()
+    # box_size = 0.05
+    # points = []
+    # for i in range(1000000):
+    #     points.append([(random.random() - 0.5) * box_size, (random.random() - 0.5) * box_size, random.random() * box_size])
+    # print('done')
+    #
+    # st = time.time()
+    # for i in range(len(points)):
+    #     occ = check_occupancy(points[i], check_sen)
+    #     # if occ[0] == 1:
+    #     #     print("1")
+    #
+    # et = time.time()
+    # print("time used: ", et-st)
