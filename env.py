@@ -5,6 +5,7 @@ import gym
 import random
 import numpy as np
 import os
+from scipy.spatial.transform import Rotation as R
 from PIL import Image
 import scipy.linalg as linalg
 from ray_test import point_test, inside_data_sampling, pixel_sampling, face_sampling, get_shadow
@@ -51,7 +52,8 @@ def angle_sim(angle_list, robot_id, file_dir):
         if i % 10 == 0:
             get_image_and_save_data(sub_dir=file_dir, index=i)
 
-        if abs(joint_list[0]-pos_value[0])+abs(joint_list[1]-pos_value[1])+abs(joint_list[2]-pos_value[2]) < 0.003:
+        if abs(joint_list[0] - pos_value[0]) + abs(joint_list[1] - pos_value[1]) + abs(
+                joint_list[2] - pos_value[2]) < 0.003:
             print("reached")
             break
 
@@ -86,9 +88,24 @@ def get_image_and_save_data(sub_dir, index):
     # img.save(DATA_PATH + "%d.png" % idx)
     # img.show()
 
+def get_link_transform_matrix(link_id, is_save=True):
+    path = "transform_data/data_01/"
+    link_state = p.getLinkState(robotid, link_id)
+    link_pos = np.array(link_state[0]).reshape(3, 1)
+    link_ori = link_state[1]
+    r = R.from_quat(link_ori)
+    r_m = r.as_matrix()
+    transform_m = np.append(r_m, link_pos, axis=1)
+    transform_m = np.append(transform_m, [[0, 0, 0, 1]], axis=0)
+    print(transform_m)
+    if is_save:
+        np.savetxt(path + "link%d.csv" % link_id, transform_m)
+    return transform_m
+
 
 if __name__ == "__main__":
-    physicsClient = p.connect(p.GUI)  # or p.DIRECT for non-graphical version
+    # physicsClient = p.connect(p.GUI)  # or p.DIRECT for non-graphical version
+    physicsClient = p.connect(p.DIRECT)
     p.setAdditionalSearchPath(pd.getDataPath())  # optionally
     p.setGravity(0, 0, -10)
     planeId = p.loadURDF("plane.urdf")
@@ -118,13 +135,17 @@ if __name__ == "__main__":
         os.makedirs(joint_path)
 
     st = time.time()
-    for idx in range(10):
-        # 0< angle01 <1, 0.1< angle02 <0.9, -0.5< angle03 <0.5
-        angle01 = random.random()
-        angle02 = random.random() * 0.8 + 0.1
-        angle03 = random.random() - 0.5
-        jointData = angle_sim(np.array([angle01, angle02, angle03]), robotid, str(idx) + "/")
-        np.savetxt(joint_path + "%d.csv" % idx, jointData)
+
+    for i in range(3):
+        get_link_transform_matrix(link_id=i, is_save=True)
+
+    # for idx in range(10):
+    #     # 0< angle01 <1, 0.1< angle02 <0.9, -0.5< angle03 <0.5
+    #     angle01 = random.random()
+    #     angle02 = random.random() * 0.8 + 0.1
+    #     angle03 = random.random() - 0.5
+    #     jointData = angle_sim(np.array([angle01, angle02, angle03]), robotid, str(idx) + "/")
+    #     np.savetxt(joint_path + "%d.csv" % idx, jointData)
 
     et = time.time()
     print("Time: ", et - st)
