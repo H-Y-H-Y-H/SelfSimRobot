@@ -1,6 +1,11 @@
 import pybullet as p
 import time
 import pybullet_data as pd
+
+from urdfpy import URDF
+
+robot_for_fk = URDF.load('arm3dof/urdf/arm3dof.urdf')
+
 import gym
 import random
 import numpy as np
@@ -31,11 +36,11 @@ projection_matrix = p.computeProjectionMatrixFOV(
 """camera parameters"""
 
 
-def angle_sim(angle_list, robot_id, file_dir):
+def angle_sim(angle_list, robot_id, file_dir, sim_only=False):
     link_num = 3
     joint_data = []
     for i in range(500):
-        pos_value = angle_list * np.pi
+        pos_value = angle_list
         for joint in range(link_num):
             p.setJointMotorControl2(robot_id, joint, controlMode=p.POSITION_CONTROL, targetPosition=pos_value[joint],
                                     force=force,
@@ -49,8 +54,11 @@ def angle_sim(angle_list, robot_id, file_dir):
             joint_list.append(joint_state)
         joint_data.append(joint_list)
 
-        if i % 10 == 0:
-            get_image_and_save_data(sub_dir=file_dir, index=i)
+        if sim_only:
+            pass
+        else:
+            if i % 10 == 0:
+                get_image_and_save_data(sub_dir=file_dir, index=i)
 
         if abs(joint_list[0] - pos_value[0]) + abs(joint_list[1] - pos_value[1]) + abs(
                 joint_list[2] - pos_value[2]) < 0.003:
@@ -74,7 +82,7 @@ def get_musk(rgb_data):
     return mask_data
 
 
-def get_image_and_save_data(sub_dir, index):
+def get_image_and_save_data(sub_dir, index, is_save=True):
     img = p.getCameraImage(width, height, view_matrix, projection_matrix, renderer=p.ER_BULLET_HARDWARE_OPENGL)
     rgbBuffer = img[2][:, :, :3]
     musk = get_musk(rgbBuffer)
@@ -83,12 +91,15 @@ def get_image_and_save_data(sub_dir, index):
         os.makedirs(path)
         print("make dirs")
 
-    np.savetxt(path + "%d.csv" % index, musk)
+    if is_save:
+        np.savetxt(path + "%d.csv" % index, musk)
     # img = Image.fromarray(rgbBuffer, 'RGB')
     # img.save(DATA_PATH + "%d.png" % idx)
     # img.show()
 
+
 def get_link_transform_matrix(link_id, is_save=True):
+    """not use, urdfpy instead"""
     path = "transform_data/data_01/"
     link_state = p.getLinkState(robotid, link_id)
     link_pos = np.array(link_state[0]).reshape(3, 1)
@@ -101,6 +112,28 @@ def get_link_transform_matrix(link_id, is_save=True):
     if is_save:
         np.savetxt(path + "link%d.csv" % link_id, transform_m)
     return transform_m
+
+
+def get_ik(loop_id, angle_list):
+    parent_dir = "transform_data/"
+    sub_dir = "data_" + str(loop_id) + "/"
+    path = parent_dir + sub_dir
+
+    if not os.path.exists(path):
+        os.makedirs(path)
+        print("make dirs: " + path)
+
+    #  update fk
+    fk = robot_for_fk.link_fk(cfg={
+        'base_link1': angle_list[0],
+        'link1_link2': angle_list[1],
+        'link2_link3': angle_list[2],
+    })
+
+    # fk = robot_for_fk.link_fk()
+    for i in range(1, 4):
+        # print(i, fk[robot_for_fk.links[i]])
+        np.savetxt(path + "link%d.csv" % i, fk[robot_for_fk.links[i]])
 
 
 if __name__ == "__main__":
@@ -136,16 +169,15 @@ if __name__ == "__main__":
 
     st = time.time()
 
-    for i in range(3):
-        get_link_transform_matrix(link_id=i, is_save=True)
-
-    # for idx in range(10):
-    #     # 0< angle01 <1, 0.1< angle02 <0.9, -0.5< angle03 <0.5
-    #     angle01 = random.random()
-    #     angle02 = random.random() * 0.8 + 0.1
-    #     angle03 = random.random() - 0.5
-    #     jointData = angle_sim(np.array([angle01, angle02, angle03]), robotid, str(idx) + "/")
-    #     np.savetxt(joint_path + "%d.csv" % idx, jointData)
+    for idx in range(10):
+        # 0< angle01 <1, 0.1< angle02 <0.9, -0.5< angle03 <0.5
+        angle01 = random.random()
+        angle02 = random.random() * 0.8 + 0.1
+        angle03 = random.random() - 0.5
+        a_list = np.array([angle01, angle02, angle03]) * np.pi
+        jointData = angle_sim(a_list, robotid, str(idx) + "/", sim_only=True)
+        get_ik(loop_id=idx, angle_list=a_list)
+        # np.savetxt(joint_path + "%d.csv" % idx, jointData)
 
     et = time.time()
     print("Time: ", et - st)

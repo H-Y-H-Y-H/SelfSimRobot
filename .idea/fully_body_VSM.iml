@@ -4,6 +4,9 @@
     <content url="file://$MODULE_DIR$" />
     <orderEntry type="jdk" jdkName="Python 3.8 (robot_learning)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="workspace" level="project" />
+    <orderEntry type="library" name="ROS" level="project" />
+    <orderEntry type="library" name="workspace" level="project" />
   </component>
   <component name="PyDocumentationSettings">
     <option name="format" value="PLAIN" />
