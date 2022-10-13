@@ -1,11 +1,7 @@
 import pybullet as p
 import time
 import pybullet_data as pd
-
 from urdfpy import URDF
-
-robot_for_fk = URDF.load('arm3dof/urdf/arm3dof.urdf')
-
 import gym
 import random
 import numpy as np
@@ -15,9 +11,11 @@ from PIL import Image
 import scipy.linalg as linalg
 from ray_test import point_test, inside_data_sampling, pixel_sampling, face_sampling, get_shadow
 
-DATA_PATH = "musk_data/dataset01/"
+# DATA_PATH = "musk_data/dataset01/"
+DATA_PATH = "/Users/jionglin/Downloads/vsm_data/"
 force = 1.8
 maxVelocity = 1.5
+robot_for_fk = URDF.load('arm3dof/urdf/arm3dof.urdf')
 
 """camera parameters"""
 width = 256
@@ -40,9 +38,8 @@ def angle_sim(angle_list, robot_id, file_dir, sim_only=False):
     link_num = 3
     joint_data = []
     for i in range(500):
-        pos_value = angle_list
         for joint in range(link_num):
-            p.setJointMotorControl2(robot_id, joint, controlMode=p.POSITION_CONTROL, targetPosition=pos_value[joint],
+            p.setJointMotorControl2(robot_id, joint, controlMode=p.POSITION_CONTROL, targetPosition=angle_list[joint],
                                     force=force,
                                     maxVelocity=maxVelocity)
 
@@ -60,8 +57,8 @@ def angle_sim(angle_list, robot_id, file_dir, sim_only=False):
             if i % 10 == 0:
                 get_image_and_save_data(sub_dir=file_dir, index=i)
 
-        if abs(joint_list[0] - pos_value[0]) + abs(joint_list[1] - pos_value[1]) + abs(
-                joint_list[2] - pos_value[2]) < 0.003:
+        if abs(joint_list[0] - angle_list[0]) + abs(joint_list[1] - angle_list[1]) + abs(
+                joint_list[2] - angle_list[2]) < 0.003:
             print("reached")
             break
 
@@ -169,15 +166,16 @@ if __name__ == "__main__":
 
     st = time.time()
 
-    for idx in range(10):
+    for idx in range(128):
         # 0< angle01 <1, 0.1< angle02 <0.9, -0.5< angle03 <0.5
         angle01 = random.random()
         angle02 = random.random() * 0.8 + 0.1
         angle03 = random.random() - 0.5
         a_list = np.array([angle01, angle02, angle03]) * np.pi
-        jointData = angle_sim(a_list, robotid, str(idx) + "/", sim_only=True)
+        jointData = angle_sim(a_list, robotid, str(idx) + "/", sim_only=False)
+        print(len(jointData))
         get_ik(loop_id=idx, angle_list=a_list)
-        # np.savetxt(joint_path + "%d.csv" % idx, jointData)
+        np.savetxt(joint_path + "%d.csv" % idx, jointData)
 
     et = time.time()
     print("Time: ", et - st)
