@@ -12,14 +12,16 @@ import scipy.linalg as linalg
 from ray_test import point_test, inside_data_sampling, pixel_sampling, face_sampling, get_shadow
 
 # DATA_PATH = "musk_data/dataset01/"
-DATA_PATH = "/Users/jionglin/Downloads/vsm_data/"
+DATA_PATH = "/Users/jionglin/Downloads/vsm/vsm_data_02/"
 force = 1.8
 maxVelocity = 1.5
 robot_for_fk = URDF.load('arm3dof/urdf/arm3dof.urdf')
 
 """camera parameters"""
-width = 256
-height = 256
+# width = 256
+# height = 256
+width = 128
+height = 128
 
 view_matrix = p.computeViewMatrix(
     cameraEyePosition=[0, -1, 0.2],
@@ -86,7 +88,7 @@ def get_image_and_save_data(sub_dir, index, is_save=True):
     path = DATA_PATH + sub_dir
     if not os.path.exists(path):
         os.makedirs(path)
-        print("make dirs")
+        print("make dirs: ", path)
 
     if is_save:
         np.savetxt(path + "%d.csv" % index, musk)
@@ -112,7 +114,7 @@ def get_link_transform_matrix(link_id, is_save=True):
 
 
 def get_ik(loop_id, angle_list):
-    parent_dir = "transform_data/"
+    parent_dir = DATA_PATH + "transform_data/"
     sub_dir = "data_" + str(loop_id) + "/"
     path = parent_dir + sub_dir
 
@@ -166,7 +168,7 @@ if __name__ == "__main__":
 
     st = time.time()
 
-    for idx in range(128):
+    for idx in range(100):
         # 0< angle01 <1, 0.1< angle02 <0.9, -0.5< angle03 <0.5
         angle01 = random.random()
         angle02 = random.random() * 0.8 + 0.1
