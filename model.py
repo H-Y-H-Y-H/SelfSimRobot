@@ -49,7 +49,7 @@ class SequentialVisualSelfModel(nn.Module):
 
         self.drop = nn.Dropout(p=0.2)
 
-        self.seq_net = nn.LSTM(input_size=256, hidden_size=128, num_layers=2)
+        self.seq_net = nn.LSTM(input_size=256, hidden_size=64*64, num_layers=1)
 
         self.fc1_action = nn.Linear(3, 32)
         self.fc2_action = nn.Linear(32, 128)
@@ -99,6 +99,7 @@ class SequentialVisualSelfModel(nn.Module):
         seq_output, _ = self.seq_net(seq_input)
 
         print(seq_output[-1].shape)
+        return seq_output[-1]
 
     def loss(self, pred, target):
         return torch.mean((pred - target) ** 2)
