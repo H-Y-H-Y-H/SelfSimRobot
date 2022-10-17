@@ -12,7 +12,8 @@ import scipy.linalg as linalg
 from ray_test import point_test, inside_data_sampling, pixel_sampling, face_sampling, get_shadow
 
 # DATA_PATH = "musk_data/dataset01/"
-DATA_PATH = "/Users/jionglin/Downloads/vsm/vsm_data_02/"
+# DATA_PATH = "/Users/jionglin/Downloads/vsm/vsm_data_03/"
+DATA_PATH = "data/"
 force = 1.8
 maxVelocity = 1.5
 robot_for_fk = URDF.load('arm3dof/urdf/arm3dof.urdf')
@@ -61,7 +62,7 @@ def angle_sim(angle_list, robot_id, file_dir, sim_only=False):
 
         if abs(joint_list[0] - angle_list[0]) + abs(joint_list[1] - angle_list[1]) + abs(
                 joint_list[2] - angle_list[2]) < 0.003:
-            print("reached")
+            # print("reached")
             break
 
         time.sleep(1. / 240.)
@@ -81,17 +82,24 @@ def get_musk(rgb_data):
     return mask_data
 
 
-def get_image_and_save_data(sub_dir, index, is_save=True):
+def get_image_and_save_data(sub_dir, index, is_save=True, no_sub=False):
     img = p.getCameraImage(width, height, view_matrix, projection_matrix, renderer=p.ER_BULLET_HARDWARE_OPENGL)
     rgbBuffer = img[2][:, :, :3]
     musk = get_musk(rgbBuffer)
-    path = DATA_PATH + sub_dir
-    if not os.path.exists(path):
-        os.makedirs(path)
-        print("make dirs: ", path)
-
-    if is_save:
-        np.savetxt(path + "%d.csv" % index, musk)
+    if no_sub:
+        path = DATA_PATH + "img/"
+        if not os.path.exists(path):
+            os.makedirs(path)
+            print("make dirs: ", path)
+        if is_save:
+            np.savetxt(path + sub_dir+".csv", musk)
+    else:
+        path = DATA_PATH + sub_dir
+        if not os.path.exists(path):
+            os.makedirs(path)
+            print("make dirs: ", path)
+        if is_save:
+            np.savetxt(path + "%d.csv" % index, musk)
     # img = Image.fromarray(rgbBuffer, 'RGB')
     # img.save(DATA_PATH + "%d.png" % idx)
     # img.show()
@@ -120,7 +128,7 @@ def get_ik(loop_id, angle_list):
 
     if not os.path.exists(path):
         os.makedirs(path)
-        print("make dirs: " + path)
+        # print("make dirs: " + path)
 
     #  update fk
     fk = robot_for_fk.link_fk(cfg={
@@ -157,27 +165,38 @@ if __name__ == "__main__":
     p.resetDebugVisualizerCamera(cameraDistance=0.6, cameraYaw=75, cameraPitch=-20,
                                  cameraTargetPosition=basePos_list)  # fix camera onto model
 
-    # p.addUserDebugLine([0.3,0.3,0], [0.3,0.3,0.4], [0.2,0,0])
-    # p.addUserDebugLine([0.3,-0.3,0], [0.3,-0.3,0.4], [0.2,0,0])
-    # p.addUserDebugLine([-0.3,-0.3,0], [-0.3,-0.3,0.4], [0.2,0,0])
-    # p.addUserDebugLine([-0.3,0.3,0], [-0.3,0.3,0.4], [0.2,0,0])
-
-    joint_path = DATA_PATH + "joint_data/"
-    if not os.path.exists(joint_path):
-        os.makedirs(joint_path)
-
     st = time.time()
+    discrete = True
+    if discrete:
+        """discrete angles, +-30"""
+        angle_idx_list = np.linspace(-30, 30, 61)
+        idx = 0
+        for angle01 in angle_idx_list:
+            for angle02 in angle_idx_list:
+                for angle03 in angle_idx_list:
+                    a_list = np.array([angle01, angle02 + 90, angle03]) * np.pi / 180
+                    angle_sim(a_list, robotid, "n" + "/", sim_only=True)
+                    get_image_and_save_data(sub_dir=str(angle01)+"_"+str(angle01)+"_"+str(angle03), index=idx, no_sub=True)
+                    get_ik(loop_id=idx, angle_list=a_list)
+                    idx += 1
+                    print(idx)
 
-    for idx in range(100):
-        # 0< angle01 <1, 0.1< angle02 <0.9, -0.5< angle03 <0.5
-        angle01 = random.random()
-        angle02 = random.random() * 0.8 + 0.1
-        angle03 = random.random() - 0.5
-        a_list = np.array([angle01, angle02, angle03]) * np.pi
-        jointData = angle_sim(a_list, robotid, str(idx) + "/", sim_only=False)
-        print(len(jointData))
-        get_ik(loop_id=idx, angle_list=a_list)
-        np.savetxt(joint_path + "%d.csv" % idx, jointData)
+    else:
+        joint_path = DATA_PATH + "joint_data/"
+        if not os.path.exists(joint_path):
+            os.makedirs(joint_path)
+        for idx in range(100):
+            # 0< angle01 <1, 0.1< angle02 <0.9, -0.5< angle03 <0.5
+            """random angles version"""
+            angle01 = random.random()
+            angle02 = random.random() * 0.8 + 0.1
+            angle03 = random.random() - 0.5
+            a_list = np.array([angle01, angle02, angle03]) * np.pi
+
+            jointData = angle_sim(a_list, robotid, str(idx) + "/", sim_only=True)
+            print(len(jointData))
+            get_ik(loop_id=idx, angle_list=a_list)
+            np.savetxt(joint_path + "%d.csv" % idx, jointData)
 
     et = time.time()
     print("Time: ", et - st)
