@@ -10,11 +10,7 @@ class QueryModel(nn.Module):
 
         self.b_size = bsize
         self.ray_length = 128
-
-        # 59*2, 113*2
         self.input_size = 6
-
-        # 15
         self.output_size = 1
 
         self.fc1 = nn.Linear(self.input_size, 256)
