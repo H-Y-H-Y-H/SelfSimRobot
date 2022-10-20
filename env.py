@@ -12,8 +12,8 @@ import scipy.linalg as linalg
 from ray_test import point_test, inside_data_sampling, pixel_sampling, face_sampling, get_shadow
 
 # DATA_PATH = "musk_data/dataset01/"
-# DATA_PATH = "/Users/jionglin/Downloads/vsm/vsm_data_03/"
-DATA_PATH = "data/"
+DATA_PATH = "/Users/jionglin/Downloads/vsm/vsm_data_03/"
+# DATA_PATH = "data/"
 force = 1.8
 maxVelocity = 1.5
 robot_for_fk = URDF.load('arm3dof/urdf/arm3dof.urdf')
@@ -169,14 +169,15 @@ if __name__ == "__main__":
     discrete = True
     if discrete:
         """discrete angles, +-30"""
-        angle_idx_list = np.linspace(-30, 30, 61)
+        angle_idx_list = np.linspace(-15, 15, 31)
+        print(angle_idx_list)
         idx = 0
         for angle01 in angle_idx_list:
             for angle02 in angle_idx_list:
                 for angle03 in angle_idx_list:
                     a_list = np.array([angle01, angle02 + 90, angle03]) * np.pi / 180
                     angle_sim(a_list, robotid, "n" + "/", sim_only=True)
-                    get_image_and_save_data(sub_dir=str(angle01)+"_"+str(angle01)+"_"+str(angle03), index=idx, no_sub=True)
+                    get_image_and_save_data(sub_dir=str(angle01)+"_"+str(angle02)+"_"+str(angle03), index=idx, no_sub=True)
                     get_ik(loop_id=idx, angle_list=a_list)
                     idx += 1
                     print(idx)

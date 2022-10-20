@@ -49,7 +49,7 @@ class SequentialVisualSelfModel(nn.Module):
 
         self.drop = nn.Dropout(p=0.2)
 
-        self.seq_net = nn.LSTM(input_size=256, hidden_size=64*64, num_layers=1)
+        self.seq_net = nn.LSTM(input_size=256, hidden_size=64*64, num_layers=1)  # 3d output size too big
 
         self.fc1_action = nn.Linear(3, 32)
         self.fc2_action = nn.Linear(32, 128)
