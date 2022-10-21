@@ -22,6 +22,7 @@ class QueryModel(nn.Module):
         x = F.relu(self.fc2(x), inplace=True)
         x = F.relu(self.fc2(x), inplace=True)
         x = F.relu(self.fc2(x), inplace=True)
+        x = F.relu(self.fc2(x), inplace=True)
         x = torch.sigmoid(self.fc3(x))
 
         return x
@@ -42,3 +43,31 @@ def volume_rendering(ray):
         Q = torch.cat((Q, torch.tensor([T * ray[i]])))
 
     return torch.sum(Q)
+
+
+if __name__ == "__main__":
+    """check rendering function"""
+    # import matplotlib.pyplot as plt
+    # plot_list = []
+    # for i in range(1000):
+    #     test_ray = torch.rand(128)
+    #     out = volume_rendering(test_ray)
+    #     plot_list.append(out.numpy())
+    #     print(out)
+    #
+    # plt.figure()
+    # plt.plot(plot_list)
+    # plt.ylim([0,1])
+    # plt.show()
+    # test_ray = torch.rand(128)
+    list_len1 = []
+    list_len2 = []
+    list_len3 = []
+    for i in range(128-1):
+        test_ray = torch.cat((torch.zeros(128-2-i), torch.ones(1)/2, torch.ones(1), torch.zeros(i)))
+        # print(test_ray)
+        out = volume_rendering(test_ray)
+        print(out)
+
+
+
