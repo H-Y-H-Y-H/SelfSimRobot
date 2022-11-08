@@ -1,1 +1,0 @@
-# fully_body_VSM![](arm.png)
