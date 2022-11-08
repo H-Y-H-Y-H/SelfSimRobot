@@ -9,8 +9,7 @@ import cv2
 
 
 class FBVSM_Env(gym.Env):
-    def __init__(self, width = 400, height = 400,render_flag = False):
-
+    def __init__(self, width=400, height=400, render_flag=False):
 
         self.width = width
         self.height = height
@@ -18,7 +17,7 @@ class FBVSM_Env(gym.Env):
         self.force = 1.8
         self.maxVelocity = 1.5
         self.action_space = 50
-        self.action_shift = np.asarray([90,90,0])
+        self.action_shift = np.asarray([90, 90, 0])
         self.render_flag = render_flag
 
         """camera parameters"""
@@ -35,7 +34,6 @@ class FBVSM_Env(gym.Env):
 
         self.reset()
 
-
     def get_obs(self):
         img = p.getCameraImage(self.width, self.height,
                                self.view_matrix, self.projection_matrix,
@@ -50,13 +48,12 @@ class FBVSM_Env(gym.Env):
             joint_state = p.getJointState(self.robot_id, j)[0]
             joint_list.append(joint_state)
 
-
-        obs_data = [joint_list, img]
+        obs_data = [np.array(joint_list), img]
         return obs_data
 
     def act(self, angle_array):
         angle_array = angle_array * self.action_space + self.action_shift
-        angle_array = (angle_array /180) * np.pi
+        angle_array = (angle_array / 180) * np.pi
         while 1:
             joint_list = []
             for i in range(self.link_num):
@@ -67,10 +64,11 @@ class FBVSM_Env(gym.Env):
                 joint_state = p.getJointState(self.robot_id, i)[0]
                 joint_list.append(joint_state)
 
-            p.stepSimulation()
+            for _ in range(5):
+                p.stepSimulation()
 
             if abs(joint_list[0] - angle_array[0]) + abs(joint_list[1] - angle_array[1]) + abs(
-                    joint_list[2] - angle_array[2]) < 0.0003:
+                    joint_list[2] - angle_array[2]) < 0.0001:
                 # print("reached")
                 break
 
@@ -95,6 +93,13 @@ class FBVSM_Env(gym.Env):
         basePos_list = [basePos[0], basePos[1], .8]
         p.resetDebugVisualizerCamera(cameraDistance=1, cameraYaw=75, cameraPitch=-20,
                                      cameraTargetPosition=basePos_list)  # fix camera onto model
+        angle_array = [np.pi/2,np.pi/2,0 ]
+        for i in range(self.link_num):
+            p.setJointMotorControl2(self.robot_id, i, controlMode=p.POSITION_CONTROL, targetPosition=angle_array[i],
+                                    force=self.force,
+                                    maxVelocity=self.maxVelocity)
+        for _ in range(500):
+            p.stepSimulation()
 
         return self.get_obs()
 
@@ -108,37 +113,44 @@ class FBVSM_Env(gym.Env):
         return obs, r, done, {}
 
 
+def get_traj(c_pos, t_pos, step_size=1, steps=10):
+
+    angle_array = np.array([])
+    return angle_array
+
+
 if __name__ == '__main__':
     RENDER = True
-
 
     if RENDER:
         physicsClient = p.connect(p.GUI)
     else:
         physicsClient = p.connect(p.DIRECT)
 
-    env = FBVSM_Env(width= 100,
-                    height=100,
-                    render_flag= RENDER)
+    env = FBVSM_Env(width=64,
+                    height=64,
+                    render_flag=RENDER)
 
     line_array = np.linspace(-1.0, 1.0, num=21)
 
+    # for angle01 in line_array:
+    #     for angle02 in line_array:
+    #         for angle03 in line_array:
+    #             a = [angle01, angle02, angle03]
+    #             a = np.asarray(a)
+    #             obs, _, _, _ = env.step(a)
+    #             print(obs[0] * 180. / np.pi)
 
-    for angle01 in line_array:
-        for angle02 in line_array:
-            for angle03 in line_array:
-                a = [angle01,angle02,angle03]
-                a = np.asarray(a)
-                env.step(a)
+    cur_pos = env.get_obs()
+    target_angle = np.random.choice(line_array, 3)
+    print(cur_pos[0] * 180. / np.pi)
 
-    # cur_pos = env.get_obs()
-    #
     # for i in range(100):
     #
-    #     tar_pos = np.random.uniform(-1,1,size = 3)
+    #     tar_pos = np.random.uniform(-1, 1, size=3)
     #
     #     a_array = get_traj(cur_pos, tar_pos)
     #
     #     for traj_i in range(a_array):
-    #         obs, _,_,_ = env.step(a_array[traj_i])
+    #         obs, _, _, _ = env.step(a_array[traj_i])
     #         img = obs[1]

@@ -7,7 +7,8 @@ import numpy as np
 import os
 import time
 from rays_check import my_rays
-from data_collection import *
+# from data_collection import *
+from env import FBVSM_Env
 
 n, f, nf, ff, f_box = my_rays(H=400, W=400, D=64)
 print("box shape: ", f_box.shape)
@@ -88,14 +89,15 @@ training
 """
 
 
-def train_model(model, batch_size, lr, num_epoch, log_path, id_list):
+def train_model(env, model, batch_size, lr, num_epoch, log_path, id_list):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     train_list = id_list[:int(data_size * 0.8)]
     test_list = id_list[int(data_size * 0.8):]
     print("train, test, ", train_list.shape, test_list.shape)
     for epoch in range(num_epoch):
+
         for idx in train_list:
-            img = iio.imread(DATA_PATH + "image/%d.png" % idx)
+            # img = iio.imread(DATA_PATH + "image/%d.png" % idx)
             img = (img / 255.).astype(np.float32)
             img = torch.Tensor(img).to(device)  # .to(device)
             angles = angle_list[idx]
@@ -157,5 +159,5 @@ if __name__ == "__main__":
     torch.manual_seed(0)
     random_id_list = torch.randperm(data_size)
     print(random_id_list.shape)
-    train_model(model=Model, batch_size=Batch_size, lr=Lr, num_epoch=Num_epoch, log_path=Log_path,
+    train_model(env=env, model=Model, batch_size=Batch_size, lr=Lr, num_epoch=Num_epoch, log_path=Log_path,
                 id_list=random_id_list)
