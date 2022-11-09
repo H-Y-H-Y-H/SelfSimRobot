@@ -78,7 +78,7 @@ def v_render(box_points, network, ang, ray_d):
 
     alpha = raw2alpha(outputs[..., 3], dists)  # [N_rays, N_samples]
     # weights = alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)), 1. - alpha + 1e-10], -1), -1)[:, :-1]
-    weights = alpha * torch.cumprod(1.-alpha + 1e-10, -1)
+    weights = alpha * torch.cumprod(1. - alpha + 1e-10, -1)
     rgb_map = torch.sum(weights[..., None] * rgb, -2)  # [N_rays, 3]
 
     return rgb_map
@@ -129,7 +129,47 @@ def train_model(env, model, batch_size, lr, num_epoch, log_path, id_list):
                     one_image_loss += img_loss.item()
                     print("t-loss: ", img_loss.item())
 
-            print("one image loss: ", one_image_loss / (4*4))
+            print("one image loss: ", one_image_loss / (4 * 4))
+
+
+"""
+online version
+"""
+def update_model(obs, model, lr):
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    a_list, img = obs[0], obs[1]
+    # print(img)
+    # print(a_list)
+    img = (img / 255.).astype(np.float32)
+    img = torch.Tensor(img).to(device)
+    angles = torch.Tensor(a_list).to(device)
+    xs = torch.randperm(400).reshape(4, 100)
+    ys = torch.randperm(400).reshape(4, 100)
+    one_image_loss = 0
+    for x in xs:
+        for y in ys:
+            box_p = f_box.clone().to(device)
+            box_p = torch.index_select(box_p, 0, x)
+            box_p = torch.index_select(box_p, 1, y)
+            label = img.clone().to(device)
+            label = torch.index_select(label, 0, x)
+            label = torch.index_select(label, 1, y)
+
+            d = ff.clone().to(device)
+            d = torch.index_select(d, 0, x)
+            d = torch.index_select(d, 1, y)
+            # 400*400 rays and pixels, split into 100*100 rays and pixels, loop 16 times
+            prediction = v_render(box_p, model, angles, d)
+
+            optimizer.zero_grad()
+            # print(prediction.shape, label.shape)
+            img_loss = img2mse(prediction, label)
+            img_loss.backward()
+            optimizer.step()
+            one_image_loss += img_loss.item()
+            print("t-loss: ", img_loss.item())
+
+    print("one image loss: ", one_image_loss / (4 * 4))
 
 
 if __name__ == "__main__":
@@ -154,10 +194,42 @@ if __name__ == "__main__":
         pass
     Model = VsmModel().to(device)
 
-    angle_list = np.loadtxt(DATA_PATH + "angles.csv")
-    data_size = angle_list.shape[0]
+    # angle_list = np.loadtxt(DATA_PATH + "angles.csv")
+    # data_size = angle_list.shape[0]
     torch.manual_seed(0)
-    random_id_list = torch.randperm(data_size)
-    print(random_id_list.shape)
-    train_model(env=env, model=Model, batch_size=Batch_size, lr=Lr, num_epoch=Num_epoch, log_path=Log_path,
-                id_list=random_id_list)
+    # random_id_list = torch.randperm(data_size)
+    # print(random_id_list.shape)
+    # train_model(env=env, model=Model, batch_size=Batch_size, lr=Lr, num_epoch=Num_epoch, log_path=Log_path,
+    #             id_list=random_id_list)
+
+    import pybullet as p
+    RENDER = False
+    if RENDER:
+        physicsClient = p.connect(p.GUI)
+    else:
+        physicsClient = p.connect(p.DIRECT)
+    env = FBVSM_Env()
+    line_array = np.linspace(-1.0, 1.0, num=21)
+    for i in range(100):
+        a_array = env.get_traj(line_array)
+
+
+        for a1 in a_array['a1']:
+            new_a = env.expect_angles.copy()
+            new_a[0] = a1
+            obs, _, _, _ = env.step(new_a)
+            update_model(obs, Model, Lr)
+
+        for a2 in a_array['a2']:
+            new_a = env.expect_angles.copy()
+            new_a[1] = a2
+            env.step(new_a)
+            obs, _, _, _ = env.step(new_a)
+            update_model(obs, Model, Lr)
+
+        for a3 in a_array['a3']:
+            new_a = env.expect_angles.copy()
+            new_a[2] = a3
+            env.step(new_a)
+            obs, _, _, _ = env.step(new_a)
+            update_model(obs, Model, Lr)

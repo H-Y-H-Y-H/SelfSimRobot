@@ -11,6 +11,7 @@ import cv2
 class FBVSM_Env(gym.Env):
     def __init__(self, width=400, height=400, render_flag=False):
 
+        self.expect_angles = np.array([.0, .0, .0])
         self.width = width
         self.height = height
         self.link_num = 3
@@ -52,6 +53,7 @@ class FBVSM_Env(gym.Env):
         return obs_data
 
     def act(self, angle_array):
+        aa_record = angle_array.copy()
         angle_array = angle_array * self.action_space + self.action_shift
         angle_array = (angle_array / 180) * np.pi
         while 1:
@@ -70,6 +72,7 @@ class FBVSM_Env(gym.Env):
             if abs(joint_list[0] - angle_array[0]) + abs(joint_list[1] - angle_array[1]) + abs(
                     joint_list[2] - angle_array[2]) < 0.0001:
                 # print("reached")
+                self.expect_angles = aa_record
                 break
 
             if self.render_flag:
@@ -93,7 +96,7 @@ class FBVSM_Env(gym.Env):
         basePos_list = [basePos[0], basePos[1], .8]
         p.resetDebugVisualizerCamera(cameraDistance=1, cameraYaw=75, cameraPitch=-20,
                                      cameraTargetPosition=basePos_list)  # fix camera onto model
-        angle_array = [np.pi/2,np.pi/2,0 ]
+        angle_array = [np.pi / 2, np.pi / 2, 0]
         for i in range(self.link_num):
             p.setJointMotorControl2(self.robot_id, i, controlMode=p.POSITION_CONTROL, targetPosition=angle_array[i],
                                     force=self.force,
@@ -112,11 +115,16 @@ class FBVSM_Env(gym.Env):
 
         return obs, r, done, {}
 
-
-def get_traj(c_pos, t_pos, step_size=1, steps=10):
-
-    angle_array = np.array([])
-    return angle_array
+    def get_traj(self, l_array, step_size=0.1):
+        t_angle = np.random.choice(l_array, 3)
+        c_angle = self.expect_angles
+        # print("-------")
+        # print(c_angle, t_angle)
+        a_array1 = np.linspace(c_angle[0], t_angle[0], round(abs((t_angle[0] - c_angle[0]) / step_size) + 1))
+        a_array2 = np.linspace(c_angle[1], t_angle[1], round(abs((t_angle[1] - c_angle[1]) / step_size) + 1))
+        a_array3 = np.linspace(c_angle[2], t_angle[2], round(abs((t_angle[2] - c_angle[2]) / step_size) + 1))
+        a_array = {"a1": a_array1, "a2": a_array2, "a3": a_array3}
+        return a_array
 
 
 if __name__ == '__main__':
@@ -141,16 +149,24 @@ if __name__ == '__main__':
     #             obs, _, _, _ = env.step(a)
     #             print(obs[0] * 180. / np.pi)
 
-    cur_pos = env.get_obs()
-    target_angle = np.random.choice(line_array, 3)
-    print(cur_pos[0] * 180. / np.pi)
+    # cur_pos = env.get_obs()
+    # target_angle = np.random.choice(line_array, 3)
+    # print(cur_pos[0] * 180. / np.pi)
 
-    # for i in range(100):
-    #
-    #     tar_pos = np.random.uniform(-1, 1, size=3)
-    #
-    #     a_array = get_traj(cur_pos, tar_pos)
-    #
-    #     for traj_i in range(a_array):
-    #         obs, _, _, _ = env.step(a_array[traj_i])
-    #         img = obs[1]
+    for i in range(100):
+        a_array = env.get_traj(line_array)
+        for a1 in a_array['a1']:
+            new_a = env.expect_angles.copy()
+            new_a[0] = a1
+            env.step(new_a)
+            print(env.get_obs()[0])
+        for a2 in a_array['a2']:
+            new_a = env.expect_angles.copy()
+            new_a[1] = a2
+            env.step(new_a)
+            print(env.get_obs()[0])
+        for a3 in a_array['a3']:
+            new_a = env.expect_angles.copy()
+            new_a[2] = a3
+            env.step(new_a)
+            print(env.get_obs()[0])
