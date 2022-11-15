@@ -13,6 +13,11 @@ from env import FBVSM_Env
 n, f, nf, ff, f_box = my_rays(H=400, W=400, D=64)
 print("box shape: ", f_box.shape)
 img2mse = lambda x, y: torch.mean((x - y) ** 2)
+if torch.cuda.is_available():
+    device = 'cuda'
+else:
+    device = 'cpu'
+print("start", device)
 """
 MLP model
 """
@@ -62,7 +67,7 @@ def batchify(fn, chunk=1024 * 64):
 def v_render(box_points, network, ang, ray_d):
     raw2alpha = lambda raw, dists, act_fn=F.relu: 1. - torch.exp(-act_fn(raw) * dists)
 
-    z_vals = torch.linspace(0.5, 1.1, 64)  # near 0.5, far 1.1, num=100
+    z_vals = torch.linspace(0.5, 1.1, 64).to(device)  # near 0.5, far 1.1, num=100
     box_flat = torch.reshape(box_points, [-1, 3])
     ang_b = torch.broadcast_to(ang, box_flat.shape)
     input_6 = torch.cat((box_flat, ang_b), 1)
@@ -70,7 +75,7 @@ def v_render(box_points, network, ang, ray_d):
     outputs = torch.reshape(output_4, list(box_points.shape[:-1]) + [output_4.shape[-1]])
 
     dists = z_vals[..., 1:] - z_vals[..., :-1]
-    dists = torch.cat([dists, torch.Tensor([1e10]).expand(dists[..., :1].shape)], -1)  # [N_rays, N_samples]
+    dists = torch.cat([dists, torch.Tensor([1e10]).expand(dists[..., :1].shape).to(device)], -1)  # [N_rays, N_samples]
 
     dists = dists * torch.norm(ray_d[..., None, :], dim=-1)
 
@@ -135,6 +140,8 @@ def train_model(env, model, batch_size, lr, num_epoch, log_path, id_list):
 """
 online version
 """
+
+
 def update_model(obs, model, lr):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     a_list, img = obs[0], obs[1]
@@ -143,21 +150,21 @@ def update_model(obs, model, lr):
     img = (img / 255.).astype(np.float32)
     img = torch.Tensor(img).to(device)
     angles = torch.Tensor(a_list).to(device)
-    xs = torch.randperm(400).reshape(4, 100)
-    ys = torch.randperm(400).reshape(4, 100)
+    xs = torch.randperm(400).reshape(4, 100).to(device)
+    ys = torch.randperm(400).reshape(4, 100).to(device)
     one_image_loss = 0
     for x in xs:
         for y in ys:
             box_p = f_box.clone().to(device)
-            box_p = torch.index_select(box_p, 0, x)
-            box_p = torch.index_select(box_p, 1, y)
+            box_p = torch.index_select(box_p, 0, x).to(device)
+            box_p = torch.index_select(box_p, 1, y).to(device)
             label = img.clone().to(device)
-            label = torch.index_select(label, 0, x)
-            label = torch.index_select(label, 1, y)
+            label = torch.index_select(label, 0, x).to(device)
+            label = torch.index_select(label, 1, y).to(device)
 
             d = ff.clone().to(device)
-            d = torch.index_select(d, 0, x)
-            d = torch.index_select(d, 1, y)
+            d = torch.index_select(d, 0, x).to(device)
+            d = torch.index_select(d, 1, y).to(device)
             # 400*400 rays and pixels, split into 100*100 rays and pixels, loop 16 times
             prediction = v_render(box_p, model, angles, d)
 
@@ -167,17 +174,13 @@ def update_model(obs, model, lr):
             img_loss.backward()
             optimizer.step()
             one_image_loss += img_loss.item()
-            print("t-loss: ", img_loss.item())
+            # print("t-loss: ", img_loss.item())
 
     print("one image loss: ", one_image_loss / (4 * 4))
+    return one_image_loss / (4 * 4)
 
 
 if __name__ == "__main__":
-    if torch.cuda.is_available():
-        device = 'cuda'
-    else:
-        device = 'cpu'
-    print("start", device)
 
     DATA_PATH = "general_data/data_white/"
 
@@ -186,7 +189,7 @@ if __name__ == "__main__":
     b_size = 400
     Num_epoch = 100
 
-    Log_path = "./log_01/"
+    Log_path = "./log_02/"
 
     try:
         os.mkdir(Log_path)
@@ -203,6 +206,7 @@ if __name__ == "__main__":
     #             id_list=random_id_list)
 
     import pybullet as p
+
     RENDER = False
     if RENDER:
         physicsClient = p.connect(p.GUI)
@@ -210,26 +214,53 @@ if __name__ == "__main__":
         physicsClient = p.connect(p.DIRECT)
     env = FBVSM_Env()
     line_array = np.linspace(-1.0, 1.0, num=21)
-    for i in range(100):
+    i = 0
+    j = 0
+    min_loss = 1.
+    loss_record = []
+    for _ in range(500):
         a_array = env.get_traj(line_array)
-
-
+        print("new path ---------------")
+        j += 1
         for a1 in a_array['a1']:
             new_a = env.expect_angles.copy()
             new_a[0] = a1
             obs, _, _, _ = env.step(new_a)
-            update_model(obs, Model, Lr)
+            im_loss = update_model(obs, Model, Lr)
+            loss_record.append(im_loss)
+            if im_loss < min_loss:
+                min_loss = im_loss
+                torch.save(Model.state_dict(), Log_path + 'best_model_MSE.pt')
+                # print("saved")
+            i += 1
+            print("path: ", j, " update times: ", i)
 
         for a2 in a_array['a2']:
             new_a = env.expect_angles.copy()
             new_a[1] = a2
             env.step(new_a)
             obs, _, _, _ = env.step(new_a)
-            update_model(obs, Model, Lr)
+            im_loss = update_model(obs, Model, Lr)
+            loss_record.append(im_loss)
+            if im_loss < min_loss:
+                min_loss = im_loss
+                torch.save(Model.state_dict(), Log_path + 'best_model_MSE.pt')
+                # print("saved")
+            i += 1
+            print("path: ", j, " update times: ", i)
 
         for a3 in a_array['a3']:
             new_a = env.expect_angles.copy()
             new_a[2] = a3
             env.step(new_a)
             obs, _, _, _ = env.step(new_a)
-            update_model(obs, Model, Lr)
+            im_loss = update_model(obs, Model, Lr)
+            loss_record.append(im_loss)
+            if im_loss < min_loss:
+                min_loss = im_loss
+                torch.save(Model.state_dict(), Log_path + 'best_model_MSE.pt')
+                # print("saved")
+            i += 1
+            print("path: ", j, " update times: ", i)
+
+    np.savetxt(Log_path + "training_MSE.csv", np.asarray(loss_record))

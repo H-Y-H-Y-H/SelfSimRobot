@@ -41,6 +41,7 @@ class FBVSM_Env(gym.Env):
                                renderer=p.ER_BULLET_HARDWARE_OPENGL,
                                shadow=0)
         img = img[2][:, :, :3]
+        img = green_black(img)
         # cv2.imshow('Windows', img)
         # cv2.waitKey(1)
 
@@ -125,6 +126,17 @@ class FBVSM_Env(gym.Env):
         a_array3 = np.linspace(c_angle[2], t_angle[2], round(abs((t_angle[2] - c_angle[2]) / step_size) + 1))
         a_array = {"a1": a_array1, "a2": a_array2, "a3": a_array3}
         return a_array
+
+
+def green_black(img):
+    img = np.array(img)
+    t = 60
+    # print(img)
+    for x in range(img.shape[0]):
+        for y in range(img.shape[1]):
+            if img[x, y, 1] > 100:
+                img[x, y] = np.array([255., 255., 255.])
+    return img
 
 
 if __name__ == '__main__':
