@@ -26,7 +26,7 @@ class FBVSM_Env(gym.Env):
         self.camera_pos = [0.8, 0, self.z_offset]
         self.camera_line = None
         self.camera_line_m = None
-        cube_size = 0.3
+        cube_size = 0.2
         self.pos_sphere = np.asarray([
             [cube_size, cube_size, 0],
             [cube_size, -cube_size, 0],
@@ -106,24 +106,33 @@ class FBVSM_Env(gym.Env):
 
         full_matrix = np.dot(rot_Z(action_norm[0] * 50 / 180 * np.pi), rot_Y(action_norm[1] * 50 / 180 * np.pi))
 
-        # Move camera with the robot arm.
-        self.camera_pos = np.dot(full_matrix, np.asarray([0.8, 0, 0, 1]))[:3]
-        self.camera_pos[2] += self.z_offset
-        self.view_matrix = p.computeViewMatrix(
-            cameraEyePosition=self.camera_pos,
-            cameraTargetPosition=[0, 0, self.z_offset],
-            cameraUpVector=[0, 0, 1])
 
-        p.removeUserDebugItem(self.camera_line)
-        self.camera_line = p.addUserDebugLine(self.camera_pos, [0, 0, self.z_offset], [1, 0, 0])
-        self.camera_pos = np.dot(full_matrix, np.asarray([0.8, 0, 0, 1]))[:3]
 
+        self.camera_pos_inverse = np.dot(np.linalg.inv(full_matrix), np.asarray([0.8, 0, 0, 1]))[:3]
+        self.camera_pos_inverse[2] += self.z_offset
+
+        ##### Move camera with the robot arm. ########
+
+        # self.camera_pos = np.dot(full_matrix, np.asarray([0.8, 0, 0, 1]))[:3]
+        # self.camera_pos[2] += self.z_offset
+        # self.view_matrix = p.computeViewMatrix(
+        #     cameraEyePosition=self.camera_pos,
+        #     cameraTargetPosition=[0, 0, self.z_offset],
+        #     cameraUpVector=[0, 0, 1])
+        # p.removeUserDebugItem(self.camera_line)
+        # self.camera_line = p.addUserDebugLine(self.camera_pos, [0, 0, self.z_offset], [1, 0, 0])
+
+
+        p.removeUserDebugItem(self.camera_line_inverse)
+
+
+        self.camera_line_inverse = p.addUserDebugLine(self.camera_pos_inverse, [0, 0, self.z_offset], [0, 0, 1])
 
         # ONLY for visualization
         if self.render_flag:
-            box_pos =  np.dot(
+            box_pos = np.dot(
                 full_matrix,
-                np.hstack((self.pos_sphere,np.ones((8,1)) )).T
+                np.hstack((self.pos_sphere, np.ones((8, 1)))).T
             )[:3]
             box_pos[2] += self.z_offset
 
@@ -132,15 +141,12 @@ class FBVSM_Env(gym.Env):
             for i in range(12):
                 p.removeUserDebugItem(self.cube_line[i])
 
-                if i in [0,1,2,4,5,6]:
-                    self.cube_line[i] = p.addUserDebugLine(box_pos[i], box_pos[i+1], [1, 0, 0])
-                elif i in [3,7]:
-                    self.cube_line[i]=p.addUserDebugLine(box_pos[i], box_pos[i-3], [1, 0, 0])
+                if i in [0, 1, 2, 4, 5, 6]:
+                    self.cube_line[i] = p.addUserDebugLine(box_pos[i], box_pos[i + 1], [1, 0, 0])
+                elif i in [3, 7]:
+                    self.cube_line[i] = p.addUserDebugLine(box_pos[i], box_pos[i - 3], [1, 0, 0])
                 else:
-                    self.cube_line[i]=p.addUserDebugLine(box_pos[i-8], box_pos[i-4], [1, 0, 0])
-
-
-
+                    self.cube_line[i] = p.addUserDebugLine(box_pos[i - 8], box_pos[i - 4], [1, 0, 0])
 
     def reset(self):
         p.resetSimulation()
@@ -151,6 +157,7 @@ class FBVSM_Env(gym.Env):
         WallId_front = p.loadURDF("plane.urdf", [-1, 0, 0], p.getQuaternionFromEuler([0, 1.57, 0]))
         p.changeVisualShape(WallId_front, -1, textureUniqueId=textureId)
         p.changeVisualShape(planeId, -1, textureUniqueId=textureId)
+
         startPos = [0, 0, 1]
         startOrientation = p.getQuaternionFromEuler([0, 0, 0])
 
@@ -170,29 +177,34 @@ class FBVSM_Env(gym.Env):
             p.stepSimulation()
 
         # visualize camera
-        self.camera_line = p.addUserDebugLine(self.camera_pos, [0, 0, 1.106], [1, 0, 0])
+        self.camera_line = p.addUserDebugLine(self.camera_pos, [0, 0, 1.106], [1, 1, 0])
         self.camera_line_m = p.addUserDebugLine(self.camera_pos, [0, 0, 1.106], [0.8, 0.8, 0])
+        self.camera_line_inverse = p.addUserDebugLine(self.camera_pos, [0, 0, 1.106], [0.0, 0.8, 0.8])
 
         # visualize sphere
         self.colSphereId_1 = p.createCollisionShape(p.GEOM_SPHERE, radius=0.01)
 
         cube_size = 0.3
 
-
         # self.circle = []
         # for i in range(8):
         #     self.pos_sphere[i][2] += self.z_offset
         #     self.circle.append(p.createMultiBody(0, self.colSphereId_1, -1, self.pos_sphere[i], [0, 0, 0, 1]))
 
+        pos_sphere_ = np.copy(self.pos_sphere)
+        pos_sphere_[:, 2] += self.z_offset
         self.cube_line = []
+        self.cube_line_copy = []
         for i in range(12):
-            if i in [0,1,2,4,5,6]:
-                self.cube_line.append(p.addUserDebugLine(self.pos_sphere[i], self.pos_sphere[i+1], [0, 0, 1]))
-            elif i in [3,7]:
-                self.cube_line.append(p.addUserDebugLine(self.pos_sphere[i], self.pos_sphere[i-3], [0, 0, 1]))
+            if i in [0, 1, 2, 4, 5, 6]:
+                self.cube_line.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i + 1], [0, 0, 1]))
+                self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i + 1], [0, 0, 1]))
+            elif i in [3, 7]:
+                self.cube_line.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i - 3], [0, 0, 1]))
+                self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i - 3], [0, 0, 1]))
             else:
-                self.cube_line.append(p.addUserDebugLine(self.pos_sphere[i-8], self.pos_sphere[i-4], [0, 0, 1]))
-
+                self.cube_line.append(p.addUserDebugLine(pos_sphere_[i - 8], pos_sphere_[i - 4], [0, 0, 1]))
+                self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i - 8], pos_sphere_[i - 4], [0, 0, 1]))
 
         return self.get_obs()
 
