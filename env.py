@@ -114,13 +114,13 @@ class FBVSM_Env(gym.Env):
             cameraTargetPosition=[0, 0, self.z_offset],
             cameraUpVector=[0, 0, 1])
 
+        p.removeUserDebugItem(self.camera_line)
+        self.camera_line = p.addUserDebugLine(self.camera_pos, [0, 0, self.z_offset], [1, 0, 0])
+        self.camera_pos = np.dot(full_matrix, np.asarray([0.8, 0, 0, 1]))[:3]
+
 
         # ONLY for visualization
         if self.render_flag:
-            p.removeAllUserDebugItems()
-            self.camera_line = p.addUserDebugLine(self.camera_pos, [0, 0, self.z_offset], [1, 0, 0])
-            self.camera_pos = np.dot(full_matrix, np.asarray([0.8, 0, 0, 1]))[:3]
-
             box_pos =  np.dot(
                 full_matrix,
                 np.hstack((self.pos_sphere,np.ones((8,1)) )).T
@@ -130,6 +130,8 @@ class FBVSM_Env(gym.Env):
             box_pos = box_pos.T
 
             for i in range(12):
+                p.removeUserDebugItem(self.cube_line[i])
+
                 if i in [0,1,2,4,5,6]:
                     self.cube_line[i] = p.addUserDebugLine(box_pos[i], box_pos[i+1], [1, 0, 0])
                 elif i in [3,7]:
