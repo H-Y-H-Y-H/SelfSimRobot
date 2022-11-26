@@ -106,10 +106,25 @@ class FBVSM_Env(gym.Env):
 
         full_matrix = np.dot(rot_Z(action_norm[0] * 50 / 180 * np.pi), rot_Y(action_norm[1] * 50 / 180 * np.pi))
 
-
-
         self.camera_pos_inverse = np.dot(np.linalg.inv(full_matrix), np.asarray([0.8, 0, 0, 1]))[:3]
         self.camera_pos_inverse[2] += self.z_offset
+
+        ##### update view frame #####
+        orig_view_square = np.array([
+            [0, self.view_edge_len, self.view_edge_len],
+            [0, self.view_edge_len, -self.view_edge_len],
+            [0, -self.view_edge_len, -self.view_edge_len],
+            [0, -self.view_edge_len, self.view_edge_len],
+            [0.8, 0, 0]
+        ])
+
+        new_view_square = np.dot(
+            np.linalg.inv(full_matrix),
+            np.hstack((orig_view_square, np.ones((5, 1)))).T
+        )[:3]
+
+        new_view_square[2] += self.z_offset
+        new_view_square = new_view_square.T
 
         ##### Move camera with the robot arm. ########
 
@@ -123,13 +138,22 @@ class FBVSM_Env(gym.Env):
         # self.camera_line = p.addUserDebugLine(self.camera_pos, [0, 0, self.z_offset], [1, 0, 0])
 
 
-        p.removeUserDebugItem(self.camera_line_inverse)
-
-
-        self.camera_line_inverse = p.addUserDebugLine(self.camera_pos_inverse, [0, 0, self.z_offset], [0, 0, 1])
 
         # ONLY for visualization
         if self.render_flag:
+
+            p.removeUserDebugItem(self.camera_line_inverse)
+
+            self.camera_line_inverse = p.addUserDebugLine(self.camera_pos_inverse, [0, 0, self.z_offset], [0, 0, 1])
+
+            for i in range(8):
+                p.removeUserDebugItem(self.move_frame_edges[i])
+                if i in [0, 1, 2, 3]:
+                    self.move_frame_edges[i] = p.addUserDebugLine(new_view_square[i],
+                                                                  new_view_square[(i + 1) % 4], [1, 1, 1])
+                else:
+                    self.move_frame_edges[i] = p.addUserDebugLine(new_view_square[4], new_view_square[i - 4], [1, 1, 1])
+
             box_pos = np.dot(
                 full_matrix,
                 np.hstack((self.pos_sphere, np.ones((8, 1)))).T
@@ -142,11 +166,11 @@ class FBVSM_Env(gym.Env):
                 p.removeUserDebugItem(self.cube_line[i])
 
                 if i in [0, 1, 2, 4, 5, 6]:
-                    self.cube_line[i] = p.addUserDebugLine(box_pos[i], box_pos[i + 1], [1, 0, 0])
+                    self.cube_line[i] = p.addUserDebugLine(box_pos[i], box_pos[i + 1], [1, 1, 0])
                 elif i in [3, 7]:
-                    self.cube_line[i] = p.addUserDebugLine(box_pos[i], box_pos[i - 3], [1, 0, 0])
+                    self.cube_line[i] = p.addUserDebugLine(box_pos[i], box_pos[i - 3], [1, 1, 0])
                 else:
-                    self.cube_line[i] = p.addUserDebugLine(box_pos[i - 8], box_pos[i - 4], [1, 0, 0])
+                    self.cube_line[i] = p.addUserDebugLine(box_pos[i - 8], box_pos[i - 4], [1, 1, 0])
 
     def reset(self):
         p.resetSimulation()
@@ -178,8 +202,31 @@ class FBVSM_Env(gym.Env):
 
         # visualize camera
         self.camera_line = p.addUserDebugLine(self.camera_pos, [0, 0, 1.106], [1, 1, 0])
-        self.camera_line_m = p.addUserDebugLine(self.camera_pos, [0, 0, 1.106], [0.8, 0.8, 0])
-        self.camera_line_inverse = p.addUserDebugLine(self.camera_pos, [0, 0, 1.106], [0.0, 0.8, 0.8])
+        # self.camera_line_m = p.addUserDebugLine(self.camera_pos, [0, 0, 1.106], [1, 1, 1])
+
+        # nov 23, visual frame edges
+        self.view_edge_len = 0.1
+        self.view_square = np.array([
+            [0, self.view_edge_len, 1.106 + self.view_edge_len],
+            [0, self.view_edge_len, 1.106 - self.view_edge_len],
+            [0, -self.view_edge_len, 1.106 - self.view_edge_len],
+            [0, -self.view_edge_len, 1.106 + self.view_edge_len]
+        ])
+
+        self.frame_edges = []
+        self.move_frame_edges = []
+        for eid in range(4):
+            self.frame_edges.append(
+                p.addUserDebugLine(self.view_square[eid], self.view_square[(eid + 1) % 4], [1, 1, 0]))
+            self.move_frame_edges.append(
+                p.addUserDebugLine(self.view_square[eid], self.view_square[(eid + 1) % 4], [0, 0, 1]))
+
+        for eid in range(4):
+            self.frame_edges.append(p.addUserDebugLine(self.camera_pos, self.view_square[eid], [1, 1, 0]))
+            self.move_frame_edges.append(p.addUserDebugLine(self.camera_pos, self.view_square[eid], [0, 0, 1]))
+
+        # inverse camera line for updating
+        self.camera_line_inverse = p.addUserDebugLine(self.camera_pos, [0, 0, 1.106], [0.0, 0.0, 1.0])
 
         # visualize sphere
         self.colSphereId_1 = p.createCollisionShape(p.GEOM_SPHERE, radius=0.01)
@@ -225,6 +272,16 @@ class FBVSM_Env(gym.Env):
 
         return act_list
 
+    def back_orig(self):
+        angle_array = [np.pi / 2, np.pi / 2, 0]
+
+        for i in range(self.num_motor):
+            p.setJointMotorControl2(self.robot_id, i, controlMode=p.POSITION_CONTROL, targetPosition=angle_array[i],
+                                    force=self.force,
+                                    maxVelocity=self.maxVelocity)
+        for _ in range(500):
+            p.stepSimulation()
+
 
 def green_black(img):
     img = np.array(img)
@@ -247,15 +304,15 @@ if __name__ == '__main__':
     else:
         physicsClient = p.connect(p.DIRECT)
 
-    env = FBVSM_Env(width=64,
-                    height=64,
+    env = FBVSM_Env(width=300,
+                    height=300,
                     render_flag=RENDER,
                     num_motor=NUM_MOTOR)
 
     line_array = np.linspace(-1.0, 1.0, num=21)
 
     obs = env.reset()
-    for i in range(100):
+    for i in range(10):
         t_angle = np.random.choice(line_array, NUM_MOTOR)
         c_angle = obs[0]
         act_list = []
@@ -271,3 +328,9 @@ if __name__ == '__main__':
                 c_angle[m_id] = single_cmd_value
                 obs, _, _, _ = env.step(c_angle)
                 print(env.get_obs()[0])
+
+    env.back_orig()
+
+    for _ in range(1000000):
+        p.stepSimulation()
+        time.sleep(1 / 240)

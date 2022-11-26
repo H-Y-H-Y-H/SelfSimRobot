@@ -28,6 +28,7 @@ def pose_spherical(theta, phi, radius):
     c2w = torch.Tensor(np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])) @ c2w
     return c2w
 
+
 def camera_spherical(theta, phi, radius):
     w2c = trans_t(radius)
     w2c = rot_theta(-theta / 180. * np.pi) @ w2c
@@ -50,7 +51,7 @@ def get_rays(H, W, focal, c2w):
     return rays_o, rays_d
 
 
-def my_rays(H, W, D, c_h = 1.106):  # c_h: camera height
+def my_rays(H, W, D, c_h=1.106):  # c_h: camera height
     rate = np.tan(21 * np.pi / 180)  # fov = 42
     # co = torch.Tensor([0.8, 0, 0.606])
     #
@@ -69,8 +70,8 @@ def my_rays(H, W, D, c_h = 1.106):  # c_h: camera height
 
     n_y_list = (torch.linspace(near[0, 0, 1], near[0, 1, 1], W + 1) + 0.5 * (near[0, 1, 1] - near[0, 0, 1]) / W)[:-1]
     n_z_list = (torch.linspace(near[0, 0, 2], near[1, 0, 2], H + 1) + 0.5 * (near[1, 0, 2] - near[0, 0, 2]) / H)[:-1]
-    f_y_list = (torch.linspace( far[0, 0, 1],  far[0, 1, 1], W + 1) + 0.5 * ( far[0, 1, 1] -  far[0, 0, 1]) / W)[:-1]
-    f_z_list = (torch.linspace( far[0, 0, 2],  far[1, 0, 2], H + 1) + 0.5 * ( far[1, 0, 2] -  far[0, 0, 2]) / H)[:-1]
+    f_y_list = (torch.linspace(far[0, 0, 1], far[0, 1, 1], W + 1) + 0.5 * (far[0, 1, 1] - far[0, 0, 1]) / W)[:-1]
+    f_z_list = (torch.linspace(far[0, 0, 2], far[1, 0, 2], H + 1) + 0.5 * (far[1, 0, 2] - far[0, 0, 2]) / H)[:-1]
 
     ny, nz = torch.meshgrid(n_y_list, n_z_list)
     near_face = torch.stack([0.3 * torch.ones_like(ny.t()), ny.t(), nz.t()], -1)

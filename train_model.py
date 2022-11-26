@@ -94,47 +94,47 @@ training
 """
 
 
-def train_model(env, model, batch_size, lr, num_epoch, log_path, id_list):
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    train_list = id_list[:int(data_size * 0.8)]
-    test_list = id_list[int(data_size * 0.8):]
-    print("train, test, ", train_list.shape, test_list.shape)
-    for epoch in range(num_epoch):
-
-        for idx in train_list:
-            # img = iio.imread(DATA_PATH + "image/%d.png" % idx)
-            img = (img / 255.).astype(np.float32)
-            img = torch.Tensor(img).to(device)  # .to(device)
-            angles = angle_list[idx]
-            angles = torch.Tensor(angles).to(device)
-            # split 400 to 4 * 100 in x-axis and y-axis
-            xs = torch.randperm(400).reshape(4, 100)
-            ys = torch.randperm(400).reshape(4, 100)
-            one_image_loss = 0
-            for x in xs:
-                for y in ys:
-                    box_p = f_box.clone().to(device)
-                    box_p = torch.index_select(box_p, 0, x)
-                    box_p = torch.index_select(box_p, 1, y)
-                    label = img.clone().to(device)
-                    label = torch.index_select(label, 0, x)
-                    label = torch.index_select(label, 1, y)
-
-                    d = ff.clone().to(device)
-                    d = torch.index_select(d, 0, x)
-                    d = torch.index_select(d, 1, y)
-                    # 400*400 rays and pixels, split into 100*100 rays and pixels, loop 16 times
-                    prediction = v_render(box_p, model, angles, d)
-
-                    optimizer.zero_grad()
-                    # print(prediction.shape, label.shape)
-                    img_loss = img2mse(prediction, label)
-                    img_loss.backward()
-                    optimizer.step()
-                    one_image_loss += img_loss.item()
-                    print("t-loss: ", img_loss.item())
-
-            print("one image loss: ", one_image_loss / (4 * 4))
+# def train_model(env, model, batch_size, lr, num_epoch, log_path, id_list):
+#     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+#     train_list = id_list[:int(data_size * 0.8)]
+#     test_list = id_list[int(data_size * 0.8):]
+#     print("train, test, ", train_list.shape, test_list.shape)
+#     for epoch in range(num_epoch):
+#
+#         for idx in train_list:
+#             # img = iio.imread(DATA_PATH + "image/%d.png" % idx)
+#             img = (img / 255.).astype(np.float32)
+#             img = torch.Tensor(img).to(device)  # .to(device)
+#             angles = angle_list[idx]
+#             angles = torch.Tensor(angles).to(device)
+#             # split 400 to 4 * 100 in x-axis and y-axis
+#             xs = torch.randperm(400).reshape(4, 100)
+#             ys = torch.randperm(400).reshape(4, 100)
+#             one_image_loss = 0
+#             for x in xs:
+#                 for y in ys:
+#                     box_p = f_box.clone().to(device)
+#                     box_p = torch.index_select(box_p, 0, x)
+#                     box_p = torch.index_select(box_p, 1, y)
+#                     label = img.clone().to(device)
+#                     label = torch.index_select(label, 0, x)
+#                     label = torch.index_select(label, 1, y)
+#
+#                     d = ff.clone().to(device)
+#                     d = torch.index_select(d, 0, x)
+#                     d = torch.index_select(d, 1, y)
+#                     # 400*400 rays and pixels, split into 100*100 rays and pixels, loop 16 times
+#                     prediction = v_render(box_p, model, angles, d)
+#
+#                     optimizer.zero_grad()
+#                     # print(prediction.shape, label.shape)
+#                     img_loss = img2mse(prediction, label)
+#                     img_loss.backward()
+#                     optimizer.step()
+#                     one_image_loss += img_loss.item()
+#                     print("t-loss: ", img_loss.item())
+#
+#             print("one image loss: ", one_image_loss / (4 * 4))
 
 
 """
