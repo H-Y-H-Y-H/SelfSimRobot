@@ -84,12 +84,16 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from rays_check import my_rays
 
-    _, _, _, _, my_box = rays_np(H=6, W=6, D=6)
+    _, _, _, ff, my_box = rays_np(H=6, W=6, D=6)
+
     box_shape = my_box.shape
     # my_box[:, :, :, 2] -= 1.106
     print(box_shape)
-    print(my_box)
-    new_box, f_new_box = transfer_box(vbox=my_box, norm_angles=[0.5, 0.5])
+    # print(my_box)
+    print(ff.shape)
+    print(my_box[:, :, 0, :].shape)
+    new_box, f_new_box = transfer_box(vbox=my_box, norm_angles=[0.5, 0.2])
+    print(new_box.shape)
     print(f_new_box.shape)
     # new_box = my_box.reshape(box_shape[0]*box_shape[1]*box_shape[2], box_shape[-1])
     # print(new_box.shape)
@@ -107,15 +111,20 @@ if __name__ == "__main__":
     #
     fig = plt.figure()
     ax = plt.axes(projection='3d')
+    # ax.scatter3D(
+    #     my_box[:, :, :, 0],
+    #     my_box[:, :, :, 1],
+    #     my_box[:, :, :, 2]
+    # )
     ax.scatter3D(
-        my_box[:, :, :, 0],
-        my_box[:, :, :, 1],
-        my_box[:, :, :, 2]
+        new_box[:, :, 0, 0],
+        new_box[:, :, 0, 1],
+        new_box[:, :, 0, 2]
     )
     ax.scatter3D(
-        new_box[:, :, :, 0],
-        new_box[:, :, :, 1],
-        new_box[:, :, :, 2]
+        ff[:, :, 0],
+        ff[:, :, 1],
+        ff[:, :, 2]
     )
     ax.set_xlim([-0.5, 0.5])
     ax.set_ylim([-0.5, 0.5])

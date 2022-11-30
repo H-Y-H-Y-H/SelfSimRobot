@@ -267,6 +267,11 @@ class FBVSM_Env(gym.Env):
     def get_traj(self, l_array, step_size=0.1):
         t_angle = np.random.choice(l_array, 3)
         c_angle = self.expect_angles
+        act_list = []
+        for act_i in range(3):
+            act_list.append(np.linspace(c_angle[act_i], t_angle[act_i],
+                                        round(abs((t_angle[act_i] - c_angle[act_i]) / step_size) + 1)))
+
         # print("-------")
         # print(c_angle, t_angle)
 
@@ -312,7 +317,7 @@ if __name__ == '__main__':
     line_array = np.linspace(-1.0, 1.0, num=21)
 
     obs = env.reset()
-    for i in range(10):
+    for i in range(2):
         t_angle = np.random.choice(line_array, NUM_MOTOR)
         c_angle = obs[0]
         act_list = []
@@ -329,6 +334,7 @@ if __name__ == '__main__':
                 obs, _, _, _ = env.step(c_angle)
                 print(env.get_obs()[0])
 
+    # print(1, c_angle)
     env.back_orig()
 
     for _ in range(1000000):
