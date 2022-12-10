@@ -4,7 +4,7 @@ from train_model import *
 
 
 def check_training_plot():
-    log_file = np.loadtxt("./log_01/training_MSE.csv")
+    log_file = np.loadtxt("./log_03/training_MSE.csv")
     print(log_file.shape)
 
     ax = plt.subplot()
@@ -26,14 +26,14 @@ def prepare_bullet():
 
 
 def check_model():
-    PATH = "./log_01/best_model_MSE.pt"
+    PATH = "./log_03/best_model_MSE.pt"
     model = VsmModel().to(device)
-    model.load_state_dict(torch.load(PATH))
+    model.load_state_dict(torch.load(PATH, map_location='cpu'))
     model.eval()
 
     env = prepare_bullet()
     l_array = np.linspace(-1.0, 1.0, num=21)
-    t_angle = np.random.choice(l_array, 3)
+    t_angle = np.random.choice(l_array, 2)
     obs, _, _, _ = env.step(t_angle)
     a_list, img = obs[0], obs[1]
     # print(img)
@@ -46,16 +46,30 @@ def check_model():
     ys = torch.randperm(400).reshape(4, 100).to(device)
     for x in xs:
         for y in ys:
-            box_p = f_box.clone().to(device)
+            # box_p = f_box.clone().to(device)
+            # box_p = torch.index_select(box_p, 0, x).to(device)
+            # box_p = torch.index_select(box_p, 1, y).to(device)
+            # label = img.clone().to(device)
+            # label = torch.index_select(label, 0, x).to(device)
+            # label = torch.index_select(label, 1, y).to(device)
+            #
+            # d = ff.clone().to(device)
+            # d = torch.index_select(d, 0, x).to(device)
+            # d = torch.index_select(d, 1, y).to(device)
+            f_box_t = torch.Tensor(f_box).to(device)
+            box_p = f_box_t.clone().to(device)
+            # box_p = f_box.clone().to(device)
             box_p = torch.index_select(box_p, 0, x).to(device)
             box_p = torch.index_select(box_p, 1, y).to(device)
             label = img.clone().to(device)
             label = torch.index_select(label, 0, x).to(device)
             label = torch.index_select(label, 1, y).to(device)
 
-            d = ff.clone().to(device)
-            d = torch.index_select(d, 0, x).to(device)
-            d = torch.index_select(d, 1, y).to(device)
+            # d = ff.clone().to(device)
+            # d = torch.index_select(d, 0, x).to(device)
+            # d = torch.index_select(d, 1, y).to(device)
+
+            d = box_p[:, :, -1, :]
             # 400*400 rays and pixels, split into 100*100 rays and pixels, loop 16 times
             prediction = v_render(box_p, model, angles, d)
             print(prediction.shape)
@@ -64,5 +78,5 @@ def check_model():
 
 
 if __name__ == "__main__":
-    # check_training_plot()
-    check_model()
+    check_training_plot()
+    # check_model()
