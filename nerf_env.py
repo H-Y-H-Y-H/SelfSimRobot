@@ -1,12 +1,16 @@
 import os
 
+import cv2
 import pybullet as p
 import time
 import pybullet_data as pd
 from func import *
-from train_model import VsmModel
+from train_model import VsmModel, update_model
 import torch
 
+WIDTH = 100
+HEIGHT = 100
+DEPTH = 64
 
 class Camera:
     def __init__(self, static_angles, render_flag=True):
@@ -15,8 +19,8 @@ class Camera:
         """
         self.camera_line = None
         self.num_motor = 3
-        self.width = 400
-        self.height = 400
+        self.width = WIDTH
+        self.height = HEIGHT
         self.force = 1.8
         self.maxVelocity = 1.5
         self.action_space = 50
@@ -92,11 +96,24 @@ class Camera:
         else:
             p.stepSimulation()
 
-    def get_img(self):
-        pass
+        return self.get_obs(action_norm)
+
+    def get_obs(self, norm_a):
+        img = p.getCameraImage(self.width, self.height,
+                               self.view_matrix, self.projection_matrix,
+                               renderer=p.ER_BULLET_HARDWARE_OPENGL,
+                               shadow=0)
+        img = img[2][:, :, :3]
+        # img = green_black(img)
+        cv2.imshow('Windows', img)
+        cv2.waitKey(1)
+
+        obs_data = [norm_a, img]
+        return obs_data
 
 
-def train_nerf_arm(env):
+def train_nerf_arm(env: Camera):
+    _, _, _, _, orig_box = rays_np(H=WIDTH, W=HEIGHT, D=DEPTH)
     if torch.cuda.is_available():
         device = 'cuda'
     else:
@@ -104,9 +121,9 @@ def train_nerf_arm(env):
     print("start", device)
 
     Lr = 1e-6
-    Batch_size = 1  # 128
-    b_size = 400
-    Num_epoch = 100
+    # Batch_size = 1  # 128
+    # b_size = 400
+    Num_epoch = 50
 
     Log_path = "./log_nerf_01/"
 
@@ -115,13 +132,23 @@ def train_nerf_arm(env):
     except OSError:
         pass
     Model = VsmModel().to(device)
-    Model.input_size = 8
+    Model.input_size = 3
 
-    # todo : check forward box function
+    loss_record = []
+    min_loss = 1.
+    for ep_id in range(Num_epoch):
+        action = np.random.rand(2)
+        Obs = env.step(action)
+        Mybox, _ = transfer_box(orig_box, Obs[0], forward_flag=True)
+        im_loss = update_model(Obs, Model, Lr, Mybox, WIDTH, HEIGHT)
+        loss_record.append(im_loss)
+        if im_loss < min_loss:
+            min_loss = im_loss
+            torch.save(Model.state_dict(), Log_path + 'best_model_MSE.pt')
 
 
 if __name__ == "__main__":
-    RENDER = True
+    RENDER = False
 
     if RENDER:
         physicsClient = p.connect(p.GUI)
@@ -129,5 +156,7 @@ if __name__ == "__main__":
         physicsClient = p.connect(p.DIRECT)
     static_a = np.array([0, 0, 0])
     cam_env = Camera(static_angles=static_a, render_flag=RENDER)
-    while 1:
-        cam_env.step(np.random.rand(2))
+    # cam_env.step(np.array([0.75, 0.5]))
+    # while 1:
+    #     cam_env.step(np.random.rand(2))
+    train_nerf_arm(cam_env)

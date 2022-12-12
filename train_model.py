@@ -143,7 +143,7 @@ online version
 """
 
 
-def update_model(obs, model, lr, mybox):
+def update_model(obs, model, lr, mybox, W=400, H=400):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     a_list, img = obs[0], obs[1]
     # print(img)
@@ -151,8 +151,8 @@ def update_model(obs, model, lr, mybox):
     img = (img / 255.).astype(np.float32)
     img = torch.Tensor(img).to(device)
     angles = torch.Tensor(a_list).to(device)
-    xs = torch.randperm(400).reshape(4, 100).to(device)
-    ys = torch.randperm(400).reshape(4, 100).to(device)
+    xs = torch.randperm(W).reshape(4, int(W / 4)).to(device)
+    ys = torch.randperm(H).reshape(4, int(H / 4)).to(device)
     one_image_loss = 0
     for x in xs:
         for y in ys:

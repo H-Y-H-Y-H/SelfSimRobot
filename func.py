@@ -68,13 +68,15 @@ def transfer_box(vbox, norm_angles, c_h=1.106, forward_flag=False):
     vb_shape = vbox.shape
     flatten_box = vbox.reshape(vb_shape[0] * vb_shape[1] * vb_shape[2], 3)
     flatten_box[:, 2] -= c_h
-    full_matrix = np.dot(rot_Z(norm_angles[0] * 50 / 180 * np.pi), rot_Y(norm_angles[1] * 50 / 180 * np.pi))
+    full_matrix = np.dot(rot_Z(norm_angles[0] * 360 / 180 * np.pi), rot_Y(norm_angles[1] * 90 / 180 * np.pi))
     if forward_flag:
+        # static arm, moving camera
         flatten_new_view_box = np.dot(
             full_matrix,
             np.hstack((flatten_box, np.ones((flatten_box.shape[0], 1)))).T
         )[:3]
     else:
+        # static camera, moving arm
         flatten_new_view_box = np.dot(
             np.linalg.inv(full_matrix),
             np.hstack((flatten_box, np.ones((flatten_box.shape[0], 1)))).T
@@ -97,7 +99,7 @@ if __name__ == "__main__":
     # print(my_box)
     print(ff.shape)
     print(my_box[:, :, 0, :].shape)
-    new_box, f_new_box = transfer_box(vbox=my_box, norm_angles=[0.5, 0.2], forward_flag=True)
+    new_box, f_new_box = transfer_box(vbox=my_box, norm_angles=[0.75, 0.5], forward_flag=True)
     print(new_box.shape)
     print(f_new_box.shape)
     # new_box = my_box.reshape(box_shape[0]*box_shape[1]*box_shape[2], box_shape[-1])
@@ -116,21 +118,21 @@ if __name__ == "__main__":
     #
     fig = plt.figure()
     ax = plt.axes(projection='3d')
+    ax.scatter3D(
+        my_box[:, :, :, 0],
+        my_box[:, :, :, 1],
+        my_box[:, :, :, 2]
+    )
+    ax.scatter3D(
+        new_box[:, :, :, 0],
+        new_box[:, :, :, 1],
+        new_box[:, :, :, 2]
+    )
     # ax.scatter3D(
-    #     my_box[:, :, :, 0],
-    #     my_box[:, :, :, 1],
-    #     my_box[:, :, :, 2]
+    #     ff[:, :, 0],
+    #     ff[:, :, 1],
+    #     ff[:, :, 2]
     # )
-    ax.scatter3D(
-        new_box[:, :, 0, 0],
-        new_box[:, :, 0, 1],
-        new_box[:, :, 0, 2]
-    )
-    ax.scatter3D(
-        ff[:, :, 0],
-        ff[:, :, 1],
-        ff[:, :, 2]
-    )
     ax.set_xlim([-0.5, 0.5])
     ax.set_ylim([-0.5, 0.5])
     ax.set_zlim([1.-0.5, 1.+0.5])
