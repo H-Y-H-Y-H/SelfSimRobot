@@ -1,16 +1,19 @@
 import os
 
 import cv2
+import numpy as np
 import pybullet as p
 import time
 import pybullet_data as pd
 from func import *
 from train_model import VsmModel, update_model
 import torch
+from rays_check import pose_spherical
 
 WIDTH = 100
 HEIGHT = 100
 DEPTH = 64
+
 
 class Camera:
     def __init__(self, static_angles, render_flag=True):
@@ -147,6 +150,33 @@ def train_nerf_arm(env: Camera):
             torch.save(Model.state_dict(), Log_path + 'best_model_MSE.pt')
 
 
+def data_collection(env: Camera):
+    """
+    use pose_spherical to get c2w
+    theta = (1-a[0]) * 360,    (0, 360) inverse
+    phi = -a[1] * 90,    (-90, 0)
+    radius = 0.8
+    near, far = 0.8-0.3, 0.8+0.3
+    """
+    data_size = 110
+    record_img = []
+    record_c2w = []
+    for data in range(data_size):
+        action = action = np.random.rand(2)
+        Obs = env.step(action)
+        act = Obs[0]
+        img = Obs[1] / 255.
+        c2w = pose_spherical(theta=(1 - act[0]) * 360., phi=-act[1] * 90, radius=0.8)
+        record_img.append(img)
+        record_c2w.append(np.array(c2w))
+
+    record_img = np.array(record_img)
+    record_c2w = np.array(record_c2w)
+    print(record_img.shape, record_c2w.shape)
+    np.save("./log_nerf_01/collect_data/" + "img.npy", record_img)
+    np.save("./log_nerf_01/collect_data/" + "c2w.npy", record_c2w)
+
+
 if __name__ == "__main__":
     RENDER = False
 
@@ -156,7 +186,8 @@ if __name__ == "__main__":
         physicsClient = p.connect(p.DIRECT)
     static_a = np.array([0, 0, 0])
     cam_env = Camera(static_angles=static_a, render_flag=RENDER)
-    # cam_env.step(np.array([0.75, 0.5]))
+    # cam_env.step(np.array([0.25, 0.5]))
     # while 1:
     #     cam_env.step(np.random.rand(2))
-    train_nerf_arm(cam_env)
+    # train_nerf_arm(cam_env)
+    data_collection(cam_env)
