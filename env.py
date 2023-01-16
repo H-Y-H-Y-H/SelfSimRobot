@@ -137,14 +137,12 @@ class FBVSM_Env(gym.Env):
         # p.removeUserDebugItem(self.camera_line)
         # self.camera_line = p.addUserDebugLine(self.camera_pos, [0, 0, self.z_offset], [1, 0, 0])
 
-
-
         # ONLY for visualization
         if self.render_flag:
 
             p.removeUserDebugItem(self.camera_line_inverse)
 
-            self.camera_line_inverse = p.addUserDebugLine(self.camera_pos_inverse, [0, 0, self.z_offset], [0, 0, 1])
+            self.camera_line_inverse = p.addUserDebugLine(self.camera_pos_inverse, [0, 0, self.z_offset], [1, 1, 1])
 
             for i in range(8):
                 p.removeUserDebugItem(self.move_frame_edges[i])
@@ -162,15 +160,15 @@ class FBVSM_Env(gym.Env):
 
             box_pos = box_pos.T
 
-            for i in range(12):
-                p.removeUserDebugItem(self.cube_line[i])
-
-                if i in [0, 1, 2, 4, 5, 6]:
-                    self.cube_line[i] = p.addUserDebugLine(box_pos[i], box_pos[i + 1], [1, 1, 0])
-                elif i in [3, 7]:
-                    self.cube_line[i] = p.addUserDebugLine(box_pos[i], box_pos[i - 3], [1, 1, 0])
-                else:
-                    self.cube_line[i] = p.addUserDebugLine(box_pos[i - 8], box_pos[i - 4], [1, 1, 0])
+            # for i in range(12):
+            #     p.removeUserDebugItem(self.cube_line[i])
+            #
+            #     if i in [0, 1, 2, 4, 5, 6]:
+            #         self.cube_line[i] = p.addUserDebugLine(box_pos[i], box_pos[i + 1], [1, 1, 0])
+            #     elif i in [3, 7]:
+            #         self.cube_line[i] = p.addUserDebugLine(box_pos[i], box_pos[i - 3], [1, 1, 0])
+            #     else:
+            #         self.cube_line[i] = p.addUserDebugLine(box_pos[i - 8], box_pos[i - 4], [1, 1, 0])
 
     def reset(self):
         p.resetSimulation()
@@ -189,7 +187,7 @@ class FBVSM_Env(gym.Env):
 
         basePos, baseOrn = p.getBasePositionAndOrientation(self.robot_id)  # Get model position
         basePos_list = [basePos[0], basePos[1], .8]
-        p.resetDebugVisualizerCamera(cameraDistance=1, cameraYaw=75, cameraPitch=-20,
+        p.resetDebugVisualizerCamera(cameraDistance=1.2, cameraYaw=75, cameraPitch=-20,
                                      cameraTargetPosition=basePos_list)  # fix camera onto model
         angle_array = [np.pi / 2, np.pi / 2, 0]
 
@@ -205,7 +203,7 @@ class FBVSM_Env(gym.Env):
         # self.camera_line_m = p.addUserDebugLine(self.camera_pos, [0, 0, 1.106], [1, 1, 1])
 
         # nov 23, visual frame edges
-        self.view_edge_len = 0.1
+        self.view_edge_len = 0.2
         self.view_square = np.array([
             [0, self.view_edge_len, 1.106 + self.view_edge_len],
             [0, self.view_edge_len, 1.106 - self.view_edge_len],
@@ -242,16 +240,16 @@ class FBVSM_Env(gym.Env):
         pos_sphere_[:, 2] += self.z_offset
         self.cube_line = []
         self.cube_line_copy = []
-        for i in range(12):
-            if i in [0, 1, 2, 4, 5, 6]:
-                self.cube_line.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i + 1], [0, 0, 1]))
-                self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i + 1], [0, 0, 1]))
-            elif i in [3, 7]:
-                self.cube_line.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i - 3], [0, 0, 1]))
-                self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i - 3], [0, 0, 1]))
-            else:
-                self.cube_line.append(p.addUserDebugLine(pos_sphere_[i - 8], pos_sphere_[i - 4], [0, 0, 1]))
-                self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i - 8], pos_sphere_[i - 4], [0, 0, 1]))
+        # for i in range(12):
+        #     if i in [0, 1, 2, 4, 5, 6]:
+        #         self.cube_line.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i + 1], [0, 0, 1]))
+        #         self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i + 1], [0, 0, 1]))
+        #     elif i in [3, 7]:
+        #         self.cube_line.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i - 3], [0, 0, 1]))
+        #         self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i - 3], [0, 0, 1]))
+        #     else:
+        #         self.cube_line.append(p.addUserDebugLine(pos_sphere_[i - 8], pos_sphere_[i - 4], [0, 0, 1]))
+        #         self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i - 8], pos_sphere_[i - 4], [0, 0, 1]))
 
         return self.get_obs()
 
@@ -317,8 +315,10 @@ if __name__ == '__main__':
     line_array = np.linspace(-1.0, 1.0, num=21)
 
     obs = env.reset()
-    for i in range(2):
-        t_angle = np.random.choice(line_array, NUM_MOTOR)
+    fix_list = [[0.6, -0.6], [0.6, 0.1]]
+    for i in range(1):
+        # t_angle = np.random.choice(line_array, NUM_MOTOR)
+        t_angle = fix_list[i]
         c_angle = obs[0]
         act_list = []
 
@@ -335,7 +335,7 @@ if __name__ == '__main__':
                 print(env.get_obs()[0])
 
     # print(1, c_angle)
-    env.back_orig()
+    # env.back_orig()
 
     for _ in range(1000000):
         p.stepSimulation()
