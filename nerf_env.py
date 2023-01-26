@@ -161,20 +161,37 @@ def data_collection(env: Camera):
     data_size = 110
     record_img = []
     record_c2w = []
+    record_angles = []
     for data in range(data_size):
-        action = action = np.random.rand(2)
+        action = np.random.rand(2)
         Obs = env.step(action)
         act = Obs[0]
         img = Obs[1] / 255.
+        print(act)
         c2w = pose_spherical(theta=(1 - act[0]) * 360., phi=-act[1] * 90, radius=0.8)
         record_img.append(img)
         record_c2w.append(np.array(c2w))
+        record_angles.append(np.array([
+            (1 - act[0]) * 360., -act[1] * 90
+        ]))
 
     record_img = np.array(record_img)
     record_c2w = np.array(record_c2w)
+    record_angles = np.array(record_angles)
     print(record_img.shape, record_c2w.shape)
-    np.save("./log_nerf_01/collect_data/" + "img.npy", record_img)
-    np.save("./log_nerf_01/collect_data/" + "c2w.npy", record_c2w)
+    np.save("./log_nerf_02/collect_data/" + "img.npy", record_img)
+    np.save("./log_nerf_02/collect_data/" + "c2w.npy", record_c2w)
+    np.save("./log_nerf_02/collect_data/" + "ang.npy", record_angles)
+
+
+def check_camera_angle(env: Camera, in_act):
+    action = in_act
+    Obs = env.step(action)
+    act = Obs[0]
+    img = Obs[1] / 255.
+    print(in_act, act)
+    c2w = pose_spherical(theta=(1 - act[0]) * 360., phi=-act[1] * 90, radius=0.8)
+    print((1 - act[0]) * 360., -act[1] * 90)
 
 
 if __name__ == "__main__":
@@ -191,3 +208,7 @@ if __name__ == "__main__":
     #     cam_env.step(np.random.rand(2))
     # train_nerf_arm(cam_env)
     data_collection(cam_env)
+    # for a1 in range(11):
+    #     for a2 in range(11):
+    #         check_camera_angle(cam_env, np.array([1 - a1 / 10., 1 - a2 / 10.]))
+    # time.sleep(1)
