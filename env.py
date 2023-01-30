@@ -12,6 +12,7 @@ import cv2
 class FBVSM_Env(gym.Env):
     def __init__(self, width=400, height=400, render_flag=False, num_motor=2):
 
+        self.camera_pos_inverse = None
         self.expect_angles = np.array([.0, .0, .0])
         self.width = width
         self.height = height
@@ -19,7 +20,7 @@ class FBVSM_Env(gym.Env):
         self.maxVelocity = 1.5
         self.action_space = 50
         self.num_motor = num_motor
-
+        #  camera z offset
         self.z_offset = 1.106
         self.action_shift = np.asarray([90, 90, 0])[:num_motor]
         self.render_flag = render_flag
@@ -44,6 +45,7 @@ class FBVSM_Env(gym.Env):
             cameraTargetPosition=[0, 0, self.z_offset],
             cameraUpVector=[0, 0, 1])
 
+        #  fov, camera view angle
         self.projection_matrix = p.computeProjectionMatrixFOV(
             fov=42.0,
             aspect=1.0,
@@ -53,6 +55,7 @@ class FBVSM_Env(gym.Env):
         self.reset()
 
     def get_obs(self):
+        """ self.view_matrix is updating with action"""
         img = p.getCameraImage(self.width, self.height,
                                self.view_matrix, self.projection_matrix,
                                renderer=p.ER_BULLET_HARDWARE_OPENGL,
@@ -106,10 +109,11 @@ class FBVSM_Env(gym.Env):
 
         full_matrix = np.dot(rot_Z(action_norm[0] * 50 / 180 * np.pi), rot_Y(action_norm[1] * 50 / 180 * np.pi))
 
+        """ inverse of full matrix as the camera view matrix """
         self.camera_pos_inverse = np.dot(np.linalg.inv(full_matrix), np.asarray([0.8, 0, 0, 1]))[:3]
         self.camera_pos_inverse[2] += self.z_offset
 
-        ##### update view frame #####
+        """ update view frame """
         orig_view_square = np.array([
             [0, self.view_edge_len, self.view_edge_len],
             [0, self.view_edge_len, -self.view_edge_len],
