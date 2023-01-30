@@ -301,6 +301,12 @@ def green_black(img):
     return img
 
 
+def data_collection_with_env(data_env: FBVSM_Env):
+    d_obs = data_env.reset()
+
+    # todo: two angles and images collection
+
+
 if __name__ == '__main__':
     RENDER = True
     NUM_MOTOR = 2

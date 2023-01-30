@@ -201,11 +201,10 @@ def compare_two_matrix(theta, phi):
     """
     c2w = pose_spherical(theta, phi, 4.)
     full_matrix = np.dot(rot_Z(theta), rot_Y(phi))
+    full_matrix_2 = np.dot(rot_X(theta), rot_Y(phi))
     camera_pos = np.dot(full_matrix, np.asarray([0.8, 0, 0, 1]))
     print(c2w)
-    print(full_matrix)
-
-
+    print(full_matrix_2)
 
 
 if __name__ == "__main__":
