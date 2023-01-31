@@ -328,3 +328,6 @@ if __name__ == "__main__":
 
     print('')
     print(f'Done!')
+
+    torch.save(model.state_dict(), 'nerf.pt')
+    torch.save(fine_model.state_dict(), 'nerf-fine.pt')
