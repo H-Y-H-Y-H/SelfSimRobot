@@ -12,12 +12,22 @@ images = data['images']
 poses = data['poses']
 focal = data['focal']
 
-height, width = images.shape[1:3]
 near, far = 2., 6.
 
 n_training = 100
 testimg_idx = 101
 testimg, testpose = images[testimg_idx], poses[testimg_idx]
+
+# Gather as torch tensors
+images = torch.from_numpy(data['images'][:n_training]).to(device)
+poses = torch.from_numpy(data['poses']).to(device)
+focal = torch.from_numpy(data['focal']).to(device)
+testimg = torch.from_numpy(data['images'][testimg_idx]).to(device)
+testpose = torch.from_numpy(data['poses'][testimg_idx]).to(device)
+
+# Grab rays from sample image
+
+height, width = images.shape[1:3]
 
 # Encoders
 d_input = 3  # Number of input dimensions
@@ -311,7 +321,7 @@ if __name__ == "__main__":
     # Run training session(s)
     for _ in range(n_restarts):
         model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper = init_models()
-        success, train_psnrs, val_psnrs = train()
+        success, train_psnrs, val_psnrs = train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
         if success and val_psnrs[-1] >= warmup_min_fitness:
             print('Training successful!')
             break

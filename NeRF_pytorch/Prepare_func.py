@@ -3,6 +3,7 @@ import torch
 from torch import nn
 import matplotlib.pyplot as plt
 import os
+from tqdm import trange
 from typing import Optional, Tuple, List, Union, Callable
 
 
