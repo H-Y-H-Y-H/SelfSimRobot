@@ -67,7 +67,7 @@ class Camera:
         basePos_list = [basePos[0], basePos[1], .8]
         p.resetDebugVisualizerCamera(cameraDistance=1, cameraYaw=75, cameraPitch=-20,
                                      cameraTargetPosition=basePos_list)  # fix camera onto model
-        angle_array = [np.pi / 2, np.pi / 2, 0]
+        angle_array = [np.pi / 2, np.pi / 4, np.pi / 2]
 
         for i in range(self.num_motor):
             p.setJointMotorControl2(self.robot_id, i, controlMode=p.POSITION_CONTROL, targetPosition=angle_array[i],
@@ -179,9 +179,9 @@ def data_collection(env: Camera):
     record_c2w = np.array(record_c2w)
     record_angles = np.array(record_angles)
     print(record_img.shape, record_c2w.shape)
-    np.save("./log_nerf_02/collect_data/" + "img.npy", record_img)
-    np.save("./log_nerf_02/collect_data/" + "c2w.npy", record_c2w)
-    np.save("./log_nerf_02/collect_data/" + "ang.npy", record_angles)
+    np.save("./log_nerf_02/collect_data_2/" + "img.npy", record_img)
+    np.save("./log_nerf_02/collect_data_2/" + "c2w.npy", record_c2w)
+    np.save("./log_nerf_02/collect_data_2/" + "ang.npy", record_angles)
 
 
 def check_camera_angle(env: Camera, in_act):
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     # train_nerf_arm(cam_env)
 
     """data collection"""
-    # data_collection(cam_env)
+    data_collection(cam_env)
 
     """debug angles"""
     # for a1 in range(11):
@@ -231,5 +231,5 @@ if __name__ == "__main__":
     # time.sleep(1)
 
     """compare matrix"""
-    compare_two_matrix(120, -30)
+    # compare_two_matrix(120, -30)
 

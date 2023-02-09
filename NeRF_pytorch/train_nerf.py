@@ -3,6 +3,7 @@ from Nerf_model import NeRF
 from Prepare_func import *
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(device)
 
 """
 prepare data and parameters
@@ -285,24 +286,24 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             iternums.append(i)
 
             # Plot example outputs
-            fig, ax = plt.subplots(1, 4, figsize=(24, 4), gridspec_kw={'width_ratios': [1, 1, 1, 3]})
-            ax[0].imshow(rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy())
-            ax[0].set_title(f'Iteration: {i}')
-            ax[1].imshow(testimg.detach().cpu().numpy())
-            ax[1].set_title(f'Target')
-            ax[2].plot(range(0, i + 1), train_psnrs, 'r')
-            ax[2].plot(iternums, val_psnrs, 'b')
-            ax[2].set_title('PSNR (train=red, val=blue')
-            z_vals_strat = outputs['z_vals_stratified'].view((-1, n_samples))
-            z_sample_strat = z_vals_strat[z_vals_strat.shape[0] // 2].detach().cpu().numpy()
-            if 'z_vals_hierarchical' in outputs:
-                z_vals_hierarch = outputs['z_vals_hierarchical'].view((-1, n_samples_hierarchical))
-                z_sample_hierarch = z_vals_hierarch[z_vals_hierarch.shape[0] // 2].detach().cpu().numpy()
-            else:
-                z_sample_hierarch = None
-            _ = plot_samples(z_sample_strat, z_sample_hierarch, ax=ax[3])
-            ax[3].margins(0)
-            plt.show()
+            # fig, ax = plt.subplots(1, 4, figsize=(24, 4), gridspec_kw={'width_ratios': [1, 1, 1, 3]})
+            # ax[0].imshow(rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy())
+            # ax[0].set_title(f'Iteration: {i}')
+            # ax[1].imshow(testimg.detach().cpu().numpy())
+            # ax[1].set_title(f'Target')
+            # ax[2].plot(range(0, i + 1), train_psnrs, 'r')
+            # ax[2].plot(iternums, val_psnrs, 'b')
+            # ax[2].set_title('PSNR (train=red, val=blue')
+            # z_vals_strat = outputs['z_vals_stratified'].view((-1, n_samples))
+            # z_sample_strat = z_vals_strat[z_vals_strat.shape[0] // 2].detach().cpu().numpy()
+            # if 'z_vals_hierarchical' in outputs:
+            #     z_vals_hierarch = outputs['z_vals_hierarchical'].view((-1, n_samples_hierarchical))
+            #     z_sample_hierarch = z_vals_hierarch[z_vals_hierarch.shape[0] // 2].detach().cpu().numpy()
+            # else:
+            #     z_sample_hierarch = None
+            # _ = plot_samples(z_sample_strat, z_sample_hierarch, ax=ax[3])
+            # ax[3].margins(0)
+            # plt.show()
 
         # Check PSNR for issues and stop if any are found.
         if i == warmup_iters - 1:
