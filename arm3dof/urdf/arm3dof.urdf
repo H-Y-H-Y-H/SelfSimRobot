@@ -29,9 +29,9 @@
           filename="../meshes/base.STL" />
       </geometry>
       <material
-        name="black">
+        name="clear">
         <color
-          rgba="0 0 0 1" />
+          rgba="0 0 0 0" />
       </material>
     </visual>
     <collision>
@@ -69,9 +69,9 @@
           filename="../meshes/link1.STL" />
       </geometry>
       <material
-        name="">
+        name="clear">
         <color
-          rgba="0 0 0 1" />
+          rgba="0 0 0 0" />
       </material>
     </visual>
     <collision>
