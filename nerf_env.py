@@ -128,7 +128,7 @@ def train_nerf_arm(env: Camera):
     # b_size = 400
     Num_epoch = 50
 
-    Log_path = "./log_nerf_01/"
+    Log_path = "previous_files/log_nerf_01/"
 
     try:
         os.mkdir(Log_path)

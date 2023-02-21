@@ -4,7 +4,7 @@ from train_model import *
 
 
 def check_training_plot():
-    log_file = np.loadtxt("./log_03/training_MSE.csv")
+    log_file = np.loadtxt("previous_files/log_03/training_MSE.csv")
     print(log_file.shape)
 
     ax = plt.subplot()
@@ -26,7 +26,7 @@ def prepare_bullet():
 
 
 def check_model():
-    PATH = "./log_03/best_model_MSE.pt"
+    PATH = "previous_files/log_03/best_model_MSE.pt"
     model = VsmModel().to(device)
     model.load_state_dict(torch.load(PATH, map_location='cpu'))
     model.eval()

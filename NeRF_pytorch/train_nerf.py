@@ -15,7 +15,7 @@ focal = data['focal']
 
 near, far = 2., 6.
 
-n_training = 100
+n_training = 10
 testimg_idx = 101
 testimg, testpose = images[testimg_idx], poses[testimg_idx]
 

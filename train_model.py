@@ -194,7 +194,7 @@ if __name__ == "__main__":
     b_size = 400
     Num_epoch = 100
 
-    Log_path = "./log_03/"
+    Log_path = "previous_files/log_03/"
 
     try:
         os.mkdir(Log_path)
