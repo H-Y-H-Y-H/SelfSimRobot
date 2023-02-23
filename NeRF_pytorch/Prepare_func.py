@@ -1,7 +1,9 @@
 import numpy as np
 import torch
 from torch import nn
+from torchvision.utils import save_image
 import matplotlib.pyplot as plt
+import matplotlib.image
 import os
 from tqdm import trange
 from typing import Optional, Tuple, List, Union, Callable

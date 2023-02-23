@@ -8,7 +8,7 @@ print(device)
 """
 prepare data and parameters
 """
-data = np.load('tiny_nerf_data.npz')
+data = np.load('NeRF_pytorch/tiny_nerf_data.npz')
 images = data['images']
 poses = data['poses']
 focal = data['focal']
@@ -305,6 +305,11 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             # ax[3].margins(0)
             # plt.show()
 
+            # save test image
+            np_image = rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy()
+            matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png' % i, np_image)
+
+
         # Check PSNR for issues and stop if any are found.
         if i == warmup_iters - 1:
             if val_psnr < warmup_min_fitness:
@@ -320,6 +325,14 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
 if __name__ == "__main__":
     # Run training session(s)
+    LOG_PATH = "train_log/log01/"
+    try:
+        os.mkdir(LOG_PATH)
+        os.mkdir(LOG_PATH + "image/")
+        print("done mkdir")
+    except OSError:
+        pass
+
     for _ in range(n_restarts):
         model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper = init_models()
         success, train_psnrs, val_psnrs = train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
@@ -330,5 +343,5 @@ if __name__ == "__main__":
     print('')
     print(f'Done!')
 
-    torch.save(model.state_dict(), 'nerf.pt')
-    torch.save(fine_model.state_dict(), 'nerf-fine.pt')
+    torch.save(model.state_dict(), LOG_PATH + 'nerf.pt')
+    torch.save(fine_model.state_dict(), LOG_PATH + 'nerf-fine.pt')
