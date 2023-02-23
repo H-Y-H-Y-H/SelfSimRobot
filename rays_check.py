@@ -3,18 +3,21 @@ import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
 
+# tran z
 trans_t = lambda t: torch.Tensor([
     [1, 0, 0, 0],
     [0, 1, 0, 0],
     [0, 0, 1, t],
     [0, 0, 0, 1]]).float()
 
+# rot x
 rot_phi = lambda phi: torch.Tensor([
     [1, 0, 0, 0],
     [0, np.cos(phi), -np.sin(phi), 0],
     [0, np.sin(phi), np.cos(phi), 0],
     [0, 0, 0, 1]]).float()
 
+# rot y
 rot_theta = lambda th: torch.Tensor([
     [np.cos(th), 0, -np.sin(th), 0],
     [0, 1, 0, 0],
@@ -26,7 +29,7 @@ def pose_spherical(theta, phi, radius):
     c2w = trans_t(radius)
     c2w = rot_phi(phi / 180. * np.pi) @ c2w
     c2w = rot_theta(theta / 180. * np.pi) @ c2w
-    c2w = torch.Tensor(np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])) @ c2w
+    # c2w = torch.Tensor(np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])) @ c2w
     return c2w
 
 
@@ -34,7 +37,7 @@ def camera_spherical(theta, phi, radius):
     w2c = trans_t(radius)
     w2c = rot_theta(-theta / 180. * np.pi) @ w2c
     w2c = rot_phi(-phi / 180. * np.pi) @ w2c
-    w2c = torch.Tensor(np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])) @ w2c
+    # w2c = torch.Tensor(np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])) @ w2c
     return w2c
 
 

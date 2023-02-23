@@ -21,7 +21,7 @@ class FBVSM_Env(gym.Env):
         self.height = height
         self.force = 1.8
         self.maxVelocity = 1.5
-        self.action_space = 50
+        self.action_space = 90
         self.num_motor = num_motor
         #  camera z offset
         self.z_offset = 1.106
@@ -93,7 +93,7 @@ class FBVSM_Env(gym.Env):
         action_degree = action_norm * self.action_space + self.action_shift
         action = (action_degree / 180) * np.pi
 
-        if not show_moving_cam:
+        if not self.show_moving_cam:
             for moving_times in range(100):
                 joint_pos = []
                 for i in range(self.num_motor):
@@ -105,7 +105,7 @@ class FBVSM_Env(gym.Env):
                     joint_pos.append(joint_state)
                 joint_pos = np.asarray(joint_pos)
 
-                for _ in range(5):
+                for _ in range(50):
                     p.stepSimulation()
 
                 # compute dist between target and current:
@@ -113,14 +113,14 @@ class FBVSM_Env(gym.Env):
 
                 if joint_error < 0.0001:
                     break
-                elif moving_times == 99:
-                    print("MOVING TIME OUT, Please check the act function in the env class")
-                    quit()
+                # elif moving_times == 99:
+                #     print("MOVING TIME OUT, Please check the act function in the env class")
+                #     quit()
 
                 if self.render_flag:
                     time.sleep(1. / 960.)
 
-        full_matrix = np.dot(rot_Z(action_norm[0] * 50 / 180 * np.pi), rot_Y(action_norm[1] * 50 / 180 * np.pi))
+        full_matrix = np.dot(rot_Z(action_norm[0] * self.action_space / 180 * np.pi), rot_Y(action_norm[1] * self.action_space / 180 * np.pi))
 
         """ inverse of full matrix as the camera view matrix """
         self.camera_pos_inverse = np.dot(np.linalg.inv(full_matrix), np.asarray([0.8, 0, 0, 1]))[:3]
