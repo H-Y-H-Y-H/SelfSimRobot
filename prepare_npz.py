@@ -55,7 +55,7 @@ def prepare_data(my_env, path):
     my_env.reset()
     # theta = np.linspace(0.0, 4.0, 11) # 0 ~ 360
     # phi = np.linspace(0.0, -1.0, 11) # 0 ~ -90
-    num_data = 110
+    num_data = 210
 
     image_record = []
     pose_record = []
@@ -84,7 +84,7 @@ def prepare_data(my_env, path):
         # print(np.round(m3, 2))
         # print("-----------")
 
-    np.savez(path + 'data02.npz', images=np.array(image_record), poses=np.array(pose_record), focal=focal)
+    np.savez(path + 'data01.npz', images=np.array(image_record), poses=np.array(pose_record), focal=focal)
 
     # keep running
     for _ in range(1000000):
@@ -147,19 +147,19 @@ def plot_new_cam(ax, orig_cam):
 
 if __name__ == "__main__":
     """data collection"""
-    # RENDER = True
-    # MOV_CAM = False
-    # p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
-    #
-    # MyEnv = FBVSM_Env(
-    #     show_moving_cam=MOV_CAM,
-    #     width=100,
-    #     height=100,
-    #     render_flag=RENDER,
-    #     num_motor=2
-    # )
-    #
-    # prepare_data(my_env=MyEnv, path="data/npz_data/")
+    RENDER = True
+    MOV_CAM = False
+    p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
+
+    MyEnv = FBVSM_Env(
+        show_moving_cam=MOV_CAM,
+        width=200,
+        height=200,
+        render_flag=RENDER,
+        num_motor=2
+    )
+
+    prepare_data(my_env=MyEnv, path="data/arm_data/")
 
     # """visual test"""
-    matrix_visual()
+    # matrix_visual()
