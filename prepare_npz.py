@@ -36,23 +36,36 @@ def c2w_matrix(theta, phi, radius):
     c2w = np.dot(transition_matrix("rot_y", theta / 180. * np.pi), c2w)
     return c2w
 
+def w2c_matrix(theta, phi, radius):
+    w2c = transition_matrix("tran_z", radius)
+    w2c = np.dot(transition_matrix("rot_y", -theta / 180. * np.pi), w2c)
+    w2c = np.dot(transition_matrix("rot_x", -phi / 180. * np.pi), w2c)
+    return w2c
+
 def prepare_data(my_env, path):
+    # focal, 100 * 100 pixels
+    camera_angle_x = 42. * np.pi / 180.
+    focal = .5 * 100 / np.tan(.5 * camera_angle_x)
+
     my_env.reset()
     # theta = np.linspace(0.0, 4.0, 11) # 0 ~ 360
     # phi = np.linspace(0.0, -1.0, 11) # 0 ~ -90
-    num_data = 10
+    num_data = 110
+
+    image_record = []
+    pose_record = []
 
     for i in range(num_data):
         theta = np.random.rand() * 4.
         phi = -np.random.rand()
         obs, _, _, _ = my_env.step(a=np.array([theta, phi]))
         angles = obs[0] * 90.
-        pose_matrix = pose_spherical(angles[0], angles[1], 4.)
-        test_matrix = c2w_matrix(angles[0], angles[1], 4.)
+        # pose_matrix = pose_spherical(angles[0], angles[1], 4.)
+        w2c_m = w2c_matrix(angles[0], angles[1], 4.)
+        image_record.append(obs[1] / 255.)
+        pose_record.append(w2c_m)
 
-        print(angles)
-        print(pose_matrix)
-        print(test_matrix)
+    np.savez(path + 'data01.npz', images=np.array(image_record), poses=np.array(pose_record), focal=focal)
 
     # keep running
     for _ in range(1000000):
