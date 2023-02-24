@@ -45,7 +45,8 @@ def sample_stratified(
         far: float,
         n_samples: int,
         perturb: Optional[bool] = True,
-        inverse_depth: bool = False
+        inverse_depth: bool = False,
+        angle: float = 1.,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     r"""
   Sample along ray from regularly-spaced bins.
@@ -72,6 +73,10 @@ def sample_stratified(
     # Apply scale from `rays_d` and offset from `rays_o` to samples
     # pts: (width, height, n_samples, 3)
     pts = rays_o[..., None, :] + rays_d[..., None, :] * z_vals[..., :, None]
+
+    add_angle = torch.ones(pts.shape[0], pts.shape[1], 1) * angle
+    pts = torch.cat((pts, add_angle), 2)
+    # print(pts.shape)
     return pts, z_vals
 
 
@@ -259,7 +264,8 @@ def sample_hierarchical(
         z_vals: torch.Tensor,
         weights: torch.Tensor,
         n_samples: int,
-        perturb: bool = False
+        perturb: bool = False,
+        angle: float = 1.
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     r"""
   Apply hierarchical sampling to the rays.
@@ -275,6 +281,9 @@ def sample_hierarchical(
     z_vals_combined, _ = torch.sort(torch.cat([z_vals, new_z_samples], dim=-1), dim=-1)
     pts = rays_o[..., None, :] + rays_d[..., None, :] * z_vals_combined[..., :,
                                                         None]  # [N_rays, N_samples + n_samples, 3]
+    add_angle = torch.ones(pts.shape[0], pts.shape[1], 1) * angle
+    pts = torch.cat((pts, add_angle), 2)
+    # print(pts.shape)
     return pts, z_vals_combined, new_z_samples
 
 
@@ -301,7 +310,7 @@ def prepare_chunks(
     r"""
   Encode and chunkify points to prepare for NeRF model.
   """
-    points = points.reshape((-1, 3))
+    points = points.reshape((-1, points.shape[-1]))
     points = encoding_function(points)
     points = get_chunks(points, chunksize=chunksize)
     return points
@@ -336,11 +345,13 @@ def nerf_forward(
         kwargs_sample_hierarchical: dict = None,
         fine_model=None,
         viewdirs_encoding_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
-        chunksize: int = 2 ** 15
+        chunksize: int = 2 ** 15,
+        arm_angle: float = 1.,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict]:
     r"""
     Compute forward pass through model(s).
     """
+    print("angle: ", arm_angle)
 
     # Set no kwargs if none are given.
     if kwargs_sample_stratified is None:
@@ -350,9 +361,10 @@ def nerf_forward(
 
     # Sample query points along each ray.
     query_points, z_vals = sample_stratified(
-        rays_o, rays_d, near, far, **kwargs_sample_stratified)
+        rays_o, rays_d, near, far, **kwargs_sample_stratified, angle=arm_angle)
 
     # Prepare batches.
+    # print(query_points.shape)
     batches = prepare_chunks(query_points, encoding_fn, chunksize=chunksize)
     if viewdirs_encoding_fn is not None:
         batches_viewdirs = prepare_viewdirs_chunks(query_points, rays_d,
@@ -385,7 +397,7 @@ def nerf_forward(
         # Apply hierarchical sampling for fine query points.
         query_points, z_vals_combined, z_hierarch = sample_hierarchical(
             rays_o, rays_d, z_vals, weights, n_samples_hierarchical,
-            **kwargs_sample_hierarchical)
+            **kwargs_sample_hierarchical, angle=arm_angle)
 
         # Prepare inputs as before.
         batches = prepare_chunks(query_points, encoding_fn, chunksize=chunksize)

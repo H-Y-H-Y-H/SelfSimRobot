@@ -8,33 +8,40 @@ print(device)
 """
 prepare data and parameters
 """
-data = np.load('NeRF_pytorch/tiny_nerf_data.npz')
+# data = np.load('NeRF_pytorch/tiny_nerf_data.npz')
+data = np.load('data/arm_data/4dof_data01.npz')
 images = data['images']
 poses = data['poses']
 focal = data['focal']
+"""one more dof"""
+angles = data['angles']
 
 near, far = 2., 6.
 
 n_training = 10
 testimg_idx = 101
-testimg, testpose = images[testimg_idx], poses[testimg_idx]
+testimg, testpose, testangle = images[testimg_idx], poses[testimg_idx], angles[testimg_idx]
 
 # Gather as torch tensors
-images = torch.from_numpy(data['images'][:n_training]).to(device)
-poses = torch.from_numpy(data['poses']).to(device)
-focal = torch.from_numpy(data['focal']).to(device)
-testimg = torch.from_numpy(data['images'][testimg_idx]).to(device)
-testpose = torch.from_numpy(data['poses'][testimg_idx]).to(device)
+images = torch.from_numpy(data['images'].astype('float32')[:n_training]).to(device)
+poses = torch.from_numpy(data['poses'].astype('float32')).to(device)
+focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
+"""one more dof"""
+angles = torch.from_numpy(data['angles'].astype('float32')).to(device)
+
+testimg = torch.from_numpy(data['images'].astype('float32')[testimg_idx]).to(device)
+testpose = torch.from_numpy(data['poses'].astype('float32')[testimg_idx]).to(device)
+testangle = torch.tensor(data['angles'][testimg_idx].astype('float32')).to(device)
 
 # Grab rays from sample image
 
 height, width = images.shape[1:3]
 
 # Encoders
-d_input = 3  # Number of input dimensions
+d_input = 4  # Number of input dimensions
 n_freqs = 10  # Number of encoding functions for samples
 log_space = True  # If set, frequencies scale in log space
-use_viewdirs = True  # If set, use view direction as input
+use_viewdirs = False  # If set, use view direction as input  # check here
 n_freqs_views = 4  # Number of encoding functions for views
 
 # Stratified sampling
@@ -213,6 +220,9 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             # Randomly pick an image as the target.
             target_img_idx = np.random.randint(images.shape[0])
             target_img = images[target_img_idx].to(device)
+            """one more dof"""
+            angle = angles[target_img_idx].to(device)
+            """one more dof"""
             if center_crop and i < center_crop_iters:
                 target_img = crop_center(target_img)
             height, width = target_img.shape[:2]
@@ -241,7 +251,8 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                                kwargs_sample_hierarchical=kwargs_sample_hierarchical,
                                fine_model=fine_model,
                                viewdirs_encoding_fn=encode_viewdirs,
-                               chunksize=chunksize)
+                               chunksize=chunksize,
+                               arm_angle=angle)
 
         # Check for any numerical issues.
         for k, v in outputs.items():
@@ -275,7 +286,8 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                                    kwargs_sample_hierarchical=kwargs_sample_hierarchical,
                                    fine_model=fine_model,
                                    viewdirs_encoding_fn=encode_viewdirs,
-                                   chunksize=chunksize)
+                                   chunksize=chunksize,
+                                   arm_angle=testangle)
 
             rgb_predicted = outputs['rgb_map']
             loss = torch.nn.functional.mse_loss(rgb_predicted, testimg.reshape(-1, 3))

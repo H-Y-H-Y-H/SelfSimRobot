@@ -69,7 +69,7 @@ def prepare_data(my_env, path):
         angles = obs[0] * 90.
         # pose_matrix = pose_spherical(angles[0], angles[1], 4.)
         w2c_m = w2c_matrix(angles[0], angles[1], 4.)
-        image_record.append(obs[1] / 255.)
+        image_record.append(1. - obs[1] / 255.)
         pose_record.append(w2c_m)
 
         # test matrix
@@ -85,6 +85,44 @@ def prepare_data(my_env, path):
         # print("-----------")
 
     np.savez(path + 'data01.npz', images=np.array(image_record), poses=np.array(pose_record), focal=focal)
+
+    # keep running
+    for _ in range(1000000):
+        p.stepSimulation()
+        time.sleep(1 / 240)
+    pass
+
+
+def prepare_data_4dof(full_env, path):
+    camera_angle_x = 42. * np.pi / 180.
+    focal = .5 * 100 / np.tan(.5 * camera_angle_x)
+    full_env.reset()
+
+    num_data = 210
+
+    image_record = []
+    pose_record = []
+    angle_record = []
+
+    for i in range(num_data):
+        # theta = np.random.rand() * 4.
+        # phi = -np.random.rand()
+        theta = np.random.rand() * 2. - 1.
+        phi = np.random.rand() * 2. - 1.
+        angle = np.random.rand() * 2. - 1.
+        obs, _, _, _ = full_env.step(a=np.array([theta, phi, angle]))
+        angles = obs[0] * 90.
+        # pose_matrix = pose_spherical(angles[0], angles[1], 4.)
+        w2c_m = w2c_matrix(angles[0], angles[1], 4.)
+        image_record.append(1. - obs[1] / 255.)
+        pose_record.append(w2c_m)
+        angle_record.append(angle)
+
+    np.savez(path + '4dof_data01.npz',
+             images=np.array(image_record),
+             poses=np.array(pose_record),
+             angles=np.array(angle_record),
+             focal=focal)
 
     # keep running
     for _ in range(1000000):
@@ -153,13 +191,13 @@ if __name__ == "__main__":
 
     MyEnv = FBVSM_Env(
         show_moving_cam=MOV_CAM,
-        width=200,
-        height=200,
+        width=100,
+        height=100,
         render_flag=RENDER,
-        num_motor=2
+        num_motor=3
     )
 
-    prepare_data(my_env=MyEnv, path="data/arm_data/")
+    prepare_data_4dof(full_env=MyEnv, path="data/arm_data/")
 
     # """visual test"""
     # matrix_visual()
