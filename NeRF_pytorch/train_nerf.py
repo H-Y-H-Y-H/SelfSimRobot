@@ -2,7 +2,7 @@
 from Nerf_model import NeRF
 from Prepare_func import *
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(device)
 
 """
@@ -18,8 +18,8 @@ angles = data['angles']
 
 near, far = 2., 6.
 
-n_training = 10
-testimg_idx = 101
+n_training = 200
+testimg_idx = 201
 testimg, testpose, testangle = images[testimg_idx], poses[testimg_idx], angles[testimg_idx]
 
 # Gather as torch tensors
@@ -319,7 +319,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
             # save test image
             np_image = rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy()
-            matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png' % i, np_image)
+            matplotlib.image.imsave(LOG_PATH + 'image/' + '0.png', np_image)
 
 
         # Check PSNR for issues and stop if any are found.

@@ -7,7 +7,7 @@ import matplotlib.image
 import os
 from tqdm import trange
 from typing import Optional, Tuple, List, Union, Callable
-
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def get_rays(
         height: int,
@@ -74,7 +74,7 @@ def sample_stratified(
     # pts: (width, height, n_samples, 3)
     pts = rays_o[..., None, :] + rays_d[..., None, :] * z_vals[..., :, None]
 
-    add_angle = torch.ones(pts.shape[0], pts.shape[1], 1) * angle
+    add_angle = torch.ones(pts.shape[0], pts.shape[1], 1).to(device) * angle
     pts = torch.cat((pts, add_angle), 2)
     # print(pts.shape)
     return pts, z_vals
@@ -281,7 +281,7 @@ def sample_hierarchical(
     z_vals_combined, _ = torch.sort(torch.cat([z_vals, new_z_samples], dim=-1), dim=-1)
     pts = rays_o[..., None, :] + rays_d[..., None, :] * z_vals_combined[..., :,
                                                         None]  # [N_rays, N_samples + n_samples, 3]
-    add_angle = torch.ones(pts.shape[0], pts.shape[1], 1) * angle
+    add_angle = torch.ones(pts.shape[0], pts.shape[1], 1).to(device) * angle
     pts = torch.cat((pts, add_angle), 2)
     # print(pts.shape)
     return pts, z_vals_combined, new_z_samples
@@ -351,7 +351,7 @@ def nerf_forward(
     r"""
     Compute forward pass through model(s).
     """
-    print("angle: ", arm_angle)
+    # print("angle: ", arm_angle)
 
     # Set no kwargs if none are given.
     if kwargs_sample_stratified is None:
