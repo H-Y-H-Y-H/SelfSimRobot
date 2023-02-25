@@ -7,7 +7,9 @@ import matplotlib.image
 import os
 from tqdm import trange
 from typing import Optional, Tuple, List, Union, Callable
+
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
 
 def get_rays(
         height: int,
@@ -431,3 +433,38 @@ def nerf_forward(
     outputs['acc_map'] = acc_map
     outputs['weights'] = weights
     return outputs
+
+
+"""make pose"""
+
+
+def w2c_matrix(theta, phi, radius):
+    w2c = transition_matrix("tran_z", radius)
+    w2c = np.dot(transition_matrix("rot_y", -theta / 180. * np.pi), w2c)
+    w2c = np.dot(transition_matrix("rot_x", -phi / 180. * np.pi), w2c)
+    return w2c
+
+def transition_matrix(label, value):
+    if label == "rot_x":
+        return np.array([
+            [1, 0, 0, 0],
+            [0, np.cos(value), -np.sin(value), 0],
+            [0, np.sin(value), np.cos(value), 0],
+            [0, 0, 0, 1]])
+
+    if label == "rot_y":
+        return np.array([
+            [np.cos(value), 0, -np.sin(value), 0],
+            [0, 1, 0, 0],
+            [np.sin(value), 0, np.cos(value), 0],
+            [0, 0, 0, 1]])
+
+    if label == "tran_z":
+        return np.array([
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, value],
+            [0, 0, 0, 1]])
+
+    else:
+        return "wrong label"

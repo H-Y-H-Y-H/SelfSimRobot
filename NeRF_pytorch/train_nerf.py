@@ -321,7 +321,6 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             np_image = rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy()
             matplotlib.image.imsave(LOG_PATH + 'image/' + '0.png', np_image)
 
-
         # Check PSNR for issues and stop if any are found.
         if i == warmup_iters - 1:
             if val_psnr < warmup_min_fitness:
