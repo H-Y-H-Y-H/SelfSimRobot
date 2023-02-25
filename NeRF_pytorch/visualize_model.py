@@ -70,5 +70,9 @@ def make_video():
     out.release()
 
 
+def dense_visual_3d():
+    pass
+
+
 if __name__ == "__main__":
     make_video()
