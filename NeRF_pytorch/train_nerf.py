@@ -8,37 +8,43 @@ print(device)
 """
 prepare data and parameters
 """
-# data = np.load('NeRF_pytorch/tiny_nerf_data.npz')
-data = np.load('data/arm_data/4dof_data01.npz')
-images = data['images']
-poses = data['poses']
-focal = data['focal']
-"""one more dof"""
-angles = data['angles']
+data = np.load('NeRF_pytorch/tiny_nerf_data.npz')
+# data = np.load('data/arm_data/4dof_data01.npz')
+# images = data['images']
+# poses = data['poses']
+# focal = data['focal']
+# """one more dof"""
+# angles = data['angles']
 
 near, far = 2., 6.
 
-n_training = 200
-testimg_idx = 201
-testimg, testpose, testangle = images[testimg_idx], poses[testimg_idx], angles[testimg_idx]
+n_training = 100
+testimg_idx = 101
+# testimg, testpose, testangle = images[testimg_idx], poses[testimg_idx], angles[testimg_idx]
 
 # Gather as torch tensors
 images = torch.from_numpy(data['images'].astype('float32')[:n_training]).to(device)
 poses = torch.from_numpy(data['poses'].astype('float32')).to(device)
 focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
-"""one more dof"""
-angles = torch.from_numpy(data['angles'].astype('float32')).to(device)
 
 testimg = torch.from_numpy(data['images'].astype('float32')[testimg_idx]).to(device)
 testpose = torch.from_numpy(data['poses'].astype('float32')[testimg_idx]).to(device)
-testangle = torch.tensor(data['angles'][testimg_idx].astype('float32')).to(device)
 
 # Grab rays from sample image
 
 height, width = images.shape[1:3]
 
 # Encoders
-d_input = 4  # Number of input dimensions
+"""arm dof=2, input=3;  arm dof=3, input=4"""
+d_input = 3  # Number of input dimensions
+if d_input == 4:
+    angles = torch.from_numpy(data['angles'].astype('float32')).to(device)
+    testangle = torch.tensor(data['angles'][testimg_idx].astype('float32')).to(device)
+
+else:
+    angles = torch.tensor([])
+    testangle = torch.tensor([])
+
 n_freqs = 10  # Number of encoding functions for samples
 log_space = True  # If set, frequencies scale in log space
 use_viewdirs = False  # If set, use view direction as input  # check here
@@ -213,6 +219,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
     train_psnrs = []
     val_psnrs = []
     iternums = []
+    best_psnr = 0.
     for i in trange(n_iters):
         model.train()
 
@@ -221,8 +228,11 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             target_img_idx = np.random.randint(images.shape[0])
             target_img = images[target_img_idx].to(device)
             """one more dof"""
-            angle = angles[target_img_idx].to(device)
-            """one more dof"""
+            if d_input == 4:
+                angle = angles[target_img_idx].to(device)
+            else:
+                angle = 1.
+
             if center_crop and i < center_crop_iters:
                 target_img = crop_center(target_img)
             height, width = target_img.shape[:2]
@@ -252,7 +262,8 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                                fine_model=fine_model,
                                viewdirs_encoding_fn=encode_viewdirs,
                                chunksize=chunksize,
-                               arm_angle=angle)
+                               arm_angle=angle,
+                               if_3dof=(d_input == 4))
 
         # Check for any numerical issues.
         for k, v in outputs.items():
@@ -287,7 +298,8 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                                    fine_model=fine_model,
                                    viewdirs_encoding_fn=encode_viewdirs,
                                    chunksize=chunksize,
-                                   arm_angle=testangle)
+                                   arm_angle=testangle,
+                                   if_3dof=(d_input == 4))
 
             rgb_predicted = outputs['rgb_map']
             loss = torch.nn.functional.mse_loss(rgb_predicted, testimg.reshape(-1, 3))
@@ -296,30 +308,18 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
             val_psnrs.append(val_psnr.item())
             iternums.append(i)
-
-            # Plot example outputs
-            # fig, ax = plt.subplots(1, 4, figsize=(24, 4), gridspec_kw={'width_ratios': [1, 1, 1, 3]})
-            # ax[0].imshow(rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy())
-            # ax[0].set_title(f'Iteration: {i}')
-            # ax[1].imshow(testimg.detach().cpu().numpy())
-            # ax[1].set_title(f'Target')
-            # ax[2].plot(range(0, i + 1), train_psnrs, 'r')
-            # ax[2].plot(iternums, val_psnrs, 'b')
-            # ax[2].set_title('PSNR (train=red, val=blue')
-            # z_vals_strat = outputs['z_vals_stratified'].view((-1, n_samples))
-            # z_sample_strat = z_vals_strat[z_vals_strat.shape[0] // 2].detach().cpu().numpy()
-            # if 'z_vals_hierarchical' in outputs:
-            #     z_vals_hierarch = outputs['z_vals_hierarchical'].view((-1, n_samples_hierarchical))
-            #     z_sample_hierarch = z_vals_hierarch[z_vals_hierarch.shape[0] // 2].detach().cpu().numpy()
-            # else:
-            #     z_sample_hierarch = None
-            # _ = plot_samples(z_sample_strat, z_sample_hierarch, ax=ax[3])
-            # ax[3].margins(0)
-            # plt.show()
-
             # save test image
             np_image = rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy()
-            matplotlib.image.imsave(LOG_PATH + 'image/' + '0.png', np_image)
+            matplotlib.image.imsave(LOG_PATH + 'image/' + 'last.png', np_image)
+            record_file_train.write(str(psnr.detach().numpy())+"\n")
+            record_file_val.write(str(val_psnr.detach().numpy())+"\n")
+
+            if val_psnr > best_psnr:
+                """record the best image and model"""
+                best_psnr = val_psnr
+                matplotlib.image.imsave(LOG_PATH + 'image/' + 'best.png', np_image)
+                torch.save(model.state_dict(), LOG_PATH + 'best_model/nerf.pt')
+                torch.save(fine_model.state_dict(), LOG_PATH + 'best_model/nerf-fine.pt')
 
         # Check PSNR for issues and stop if any are found.
         if i == warmup_iters - 1:
@@ -336,13 +336,17 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
 if __name__ == "__main__":
     # Run training session(s)
-    LOG_PATH = "train_log/log01/"
+    LOG_PATH = "train_log/log02/"
     try:
         os.mkdir(LOG_PATH)
         os.mkdir(LOG_PATH + "image/")
+        os.mkdir(LOG_PATH + "best_model/")
         print("done mkdir")
     except OSError:
         pass
+
+    record_file_train = open(LOG_PATH + "log_loss_train.txt", "w")
+    record_file_val = open(LOG_PATH + "log_loss_val.txt", "w")
 
     for _ in range(n_restarts):
         model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper = init_models()
@@ -353,6 +357,8 @@ if __name__ == "__main__":
 
     print('')
     print(f'Done!')
+    record_file_train.close()
+    record_file_val.close()
 
-    torch.save(model.state_dict(), LOG_PATH + 'nerf.pt')
-    torch.save(fine_model.state_dict(), LOG_PATH + 'nerf-fine.pt')
+    # torch.save(model.state_dict(), LOG_PATH + 'nerf.pt')
+    # torch.save(fine_model.state_dict(), LOG_PATH + 'nerf-fine.pt')
