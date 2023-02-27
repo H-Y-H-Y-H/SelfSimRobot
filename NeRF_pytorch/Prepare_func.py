@@ -354,7 +354,8 @@ def nerf_forward(
         viewdirs_encoding_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
         chunksize: int = 2 ** 15,
         arm_angle: float = 1.,
-        if_3dof: bool = False
+        if_3dof: bool = False,
+        only_raw: bool = False
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict]:
     r"""
     Compute forward pass through model(s).
@@ -372,7 +373,8 @@ def nerf_forward(
         rays_o, rays_d, near, far, **kwargs_sample_stratified, angle=arm_angle, more_dof=if_3dof)
 
     # Prepare batches.
-    # print(query_points.shape)
+    # print(torch.max(query_points[:, :, 0]), torch.max(query_points[:, :, 1]), torch.max(query_points[:, :, 2]))
+    # print(torch.min(query_points[:, :, 0]), torch.min(query_points[:, :, 1]), torch.min(query_points[:, :, 2]))
     batches = prepare_chunks(query_points, encoding_fn, chunksize=chunksize)
     if viewdirs_encoding_fn is not None:
         batches_viewdirs = prepare_viewdirs_chunks(query_points, rays_d,
@@ -422,6 +424,10 @@ def nerf_forward(
         for batch, batch_viewdirs in zip(batches, batches_viewdirs):
             predictions.append(fine_model(batch, viewdirs=batch_viewdirs))
         raw = torch.cat(predictions, dim=0)
+
+        if only_raw:
+            return raw
+
         raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 
         # Perform differentiable volume rendering to re-synthesize the RGB image.

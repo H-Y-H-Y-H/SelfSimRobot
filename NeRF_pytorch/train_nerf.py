@@ -8,8 +8,8 @@ print(device)
 """
 prepare data and parameters
 """
-data = np.load('NeRF_pytorch/tiny_nerf_data.npz')
-# data = np.load('data/arm_data/4dof_data01.npz')
+# data = np.load('NeRF_pytorch/tiny_nerf_data.npz')
+data = np.load('data/arm_data/4dof_data01.npz')
 # images = data['images']
 # poses = data['poses']
 # focal = data['focal']
@@ -336,7 +336,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
 if __name__ == "__main__":
     # Run training session(s)
-    LOG_PATH = "train_log/log02/"
+    LOG_PATH = "train_log/log_debug/"
     try:
         os.mkdir(LOG_PATH)
         os.mkdir(LOG_PATH + "image/")
