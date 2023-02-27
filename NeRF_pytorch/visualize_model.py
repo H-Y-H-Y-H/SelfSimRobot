@@ -3,6 +3,7 @@ import torch
 from train_nerf import nerf_forward, get_rays, init_models, prepare_chunks
 from Prepare_func import w2c_matrix
 import numpy as np
+from torch import nn
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -20,7 +21,7 @@ chunksize = 2 ** 14
 model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper = init_models()
 # model.load_state_dict(torch.load("train_log/log01/nerf.pt", map_location=torch.device('cpu')))
 fine_model.load_state_dict(
-    torch.load("train_log/log02_100_2dof/best_model/nerf-fine.pt", map_location=torch.device('cpu')))
+    torch.load("../train_log/log02_100_2dof/best_model/nerf-fine.pt", map_location=torch.device('cpu')))
 fine_model.eval()
 
 
@@ -71,31 +72,56 @@ def make_video():
     out.release()
 
 
-def dense_visual_3d(count_num=100, draw=True, theta=0, phi=0):
-    pose_transfer = w2c_matrix(theta, phi, 4.)
-    count = 0
+def dense_visual_3d(count_num=100, draw=True, theta=30, phi=30):
+    # pose_transfer = w2c_matrix(theta, phi, 4.)
+    count,count_empty = 0,0
+
     points_record = []
+    points_empty = []
+    np.random.seed(10)
     while True:
-        p = torch.rand(1, 3) * 6. - 3.
-        p = encode(p)
-        out = fine_model(p)
-        if out[0, -1] > 0.:
+        p = np.random.rand(1, 3) * 6. - 3.
+        point = encode(torch.from_numpy(p.astype(np.float32)))
+        out = fine_model(point)
+        dense = 1.0 - torch.exp(-nn.functional.relu(out[..., 3]))
+        dense = dense.detach().numpy()
+
+        if out[0][-1] > 0.:
             count += 1
-            points_record.append(out.detach().numpy()[0][:3])
+            # points_record.append(out.detach().numpy()[0][:3])
+            dense = dense.reshape(1, 1)
+            p_dense = np.concatenate((p, dense), 1)
+            points_record.append(p_dense)
+        else:
+            count_empty+=1
+            if count_empty < 1000:
+                points_empty.append(p)
 
         if count == count_num:
             break
     points_record = np.array(points_record)
+    points_empty = np.array(points_empty)
     print(points_record.shape)
-    p_tran = np.concatenate((points_record, np.ones((count_num, 1))), 1)
-    p_tran = np.dot(np.linalg.inv(pose_transfer), p_tran.T).T[:, :3]
-    print(p_tran.shape)
+    # p_tran = np.concatenate((points_record, np.ones((count_num, 1))), 1)
+    # p_tran = np.dot(np.linalg.inv(pose_transfer), p_tran.T).T[:, :3]
+    # print(p_tran.shape)
     if draw:
         ax = plt.figure().add_subplot(projection='3d')
-        ax.scatter(p_tran[:, 0], p_tran[:, 1], p_tran[:, 2])
-        ax.set_xlim(-6, 6)
-        ax.set_ylim(-6, 6)
-        ax.set_zlim(-6, 6)
+        ax.scatter(
+            points_record[:, :, 0],
+            points_record[:, :, 1],
+            points_record[:, :, 2],
+            alpha=points_record[:, :, 3]
+        )
+        ax.scatter(
+            points_empty[:,:, 0],
+            points_empty[:,:, 1],
+            points_empty[:,:, 2],
+            alpha=0.1
+        )
+        ax.set_xlim(-3, 3)
+        ax.set_ylim(-3, 3)
+        ax.set_zlim(-3, 3)
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
@@ -120,12 +146,14 @@ def dense_visual_box(theta, phi, more_dof=False):
                                chunksize=chunksize,
                                if_3dof=more_dof,
                                only_raw=True)
+
     ax = plt.figure().add_subplot(projection='3d')
+    ax.view_init(elev=90, azim=-90)
     for p in raw_outputs:
         # print(p[-1])
         p = p.detach().numpy()
         if p[-1] > 0.:
-            ax.scatter(p[0], p[1], p[2])
+            ax.scatter(p[0], p[2], p[1])
 
     plt.show()
 
@@ -134,5 +162,5 @@ def dense_visual_box(theta, phi, more_dof=False):
 
 if __name__ == "__main__":
     # make_video()
-    # dense_visual_3d(draw=True)
-    dense_visual_box(theta=0., phi=0.)
+    dense_visual_3d(draw=True)
+    # dense_visual_box(theta=0., phi=0.)

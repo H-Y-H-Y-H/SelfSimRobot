@@ -9,7 +9,7 @@ print(device)
 prepare data and parameters
 """
 # data = np.load('NeRF_pytorch/tiny_nerf_data.npz')
-data = np.load('data/arm_data/4dof_data01.npz')
+data = np.load('../data/arm_data/4dof_data01.npz')
 # images = data['images']
 # poses = data['poses']
 # focal = data['focal']
