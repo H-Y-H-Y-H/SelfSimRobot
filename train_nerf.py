@@ -1,5 +1,5 @@
 #  from notebook: https://towardsdatascience.com/its-nerf-from-nothing-build-a-vanilla-nerf-with-pytorch-7846e4c45666
-from Nerf_model import NeRF
+from original_NeRF.Nerf_model import NeRF
 from Prepare_func import *
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -8,19 +8,14 @@ print(device)
 """
 prepare data and parameters
 """
-# data = np.load('NeRF_pytorch/tiny_nerf_data.npz')
-data = np.load('../data/arm_data/4dof_data01.npz')
-# images = data['images']
-# poses = data['poses']
-# focal = data['focal']
-# """one more dof"""
-# angles = data['angles']
 
 near, far = 2., 6.
-
 n_training = 100
 testimg_idx = 101
-# testimg, testpose, testangle = images[testimg_idx], poses[testimg_idx], angles[testimg_idx]
+DOF = 2  # the number of motors
+num_data = 110
+data = np.load('data/arm_data/dof%d_data%d.npz'%(DOF, num_data))
+# data = np.load('NeRF_pytorch/tiny_nerf_data.npz') #NeRF original Demo
 
 # Gather as torch tensors
 images = torch.from_numpy(data['images'].astype('float32')[:n_training]).to(device)
@@ -31,8 +26,8 @@ testimg = torch.from_numpy(data['images'].astype('float32')[testimg_idx]).to(dev
 testpose = torch.from_numpy(data['poses'].astype('float32')[testimg_idx]).to(device)
 
 # Grab rays from sample image
-
 height, width = images.shape[1:3]
+print('IMG (height, width)',(height, width))
 
 # Encoders
 """arm dof=2, input=3;  arm dof=3, input=4"""
@@ -40,7 +35,6 @@ d_input = 3  # Number of input dimensions
 if d_input == 4:
     angles = torch.from_numpy(data['angles'].astype('float32')).to(device)
     testangle = torch.tensor(data['angles'][testimg_idx].astype('float32')).to(device)
-
 else:
     angles = torch.tensor([])
     testangle = torch.tensor([])
@@ -207,8 +201,10 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
     # Shuffle rays across all images.
     if not one_image_per_step:
         height, width = images.shape[1:3]
-        all_rays = torch.stack([torch.stack(get_rays(height, width, focal, p), 0)
-                                for p in poses[:n_training]], 0)
+
+        # get_rays -> (rays_o, rays_d): ray origins and ray directions.
+
+        all_rays = torch.stack([torch.stack(get_rays(height, width, focal, p), 0) for p in poses[:n_training]], 0)
         rays_rgb = torch.cat([all_rays, images[:, None]], 1)
         rays_rgb = torch.permute(rays_rgb, [0, 2, 3, 1, 4])
         rays_rgb = rays_rgb.reshape([-1, 3, 3])
@@ -221,6 +217,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
     iternums = []
     best_psnr = 0.
     for i in trange(n_iters):
+        patience = 0
         model.train()
 
         if one_image_per_step:
@@ -310,9 +307,11 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             iternums.append(i)
             # save test image
             np_image = rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy()
-            matplotlib.image.imsave(LOG_PATH + 'image/' + 'last.png', np_image)
-            record_file_train.write(str(psnr.detach().numpy())+"\n")
-            record_file_val.write(str(val_psnr.detach().numpy())+"\n")
+            matplotlib.image.imsave(LOG_PATH + 'image/' + 'latest.png', np_image)
+            matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png'%i, np_image)
+
+            record_file_train.write(str(psnr.cpu().detach().numpy()) + "\n")
+            record_file_val.write(str(val_psnr.cpu().detach().numpy()) + "\n")
 
             if val_psnr > best_psnr:
                 """record the best image and model"""
@@ -320,6 +319,12 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                 matplotlib.image.imsave(LOG_PATH + 'image/' + 'best.png', np_image)
                 torch.save(model.state_dict(), LOG_PATH + 'best_model/nerf.pt')
                 torch.save(fine_model.state_dict(), LOG_PATH + 'best_model/nerf-fine.pt')
+
+                patience = 0
+
+            else:
+                patience +=1
+
 
         # Check PSNR for issues and stop if any are found.
         if i == warmup_iters - 1:
@@ -331,22 +336,22 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                 print(f'Train PSNR flatlined at {psnr} for {warmup_stopper.patience} iters. Stopping...')
                 return False, train_psnrs, val_psnrs
 
+        if patience > Patience_threshold:
+            break
+
     return True, train_psnrs, val_psnrs
 
 
 if __name__ == "__main__":
     # Run training session(s)
     LOG_PATH = "train_log/log_debug/"
-    try:
-        os.mkdir(LOG_PATH)
-        os.mkdir(LOG_PATH + "image/")
-        os.mkdir(LOG_PATH + "best_model/")
-        print("done mkdir")
-    except OSError:
-        pass
+
+    os.makedirs(LOG_PATH + "image/", exist_ok=True)
+    os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
 
     record_file_train = open(LOG_PATH + "log_loss_train.txt", "w")
     record_file_val = open(LOG_PATH + "log_loss_val.txt", "w")
+    Patience_threshold = 100
 
     for _ in range(n_restarts):
         model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper = init_models()

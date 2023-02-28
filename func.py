@@ -100,7 +100,7 @@ def transfer_box(vbox, norm_angles, c_h=1.106, forward_flag=False):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    from rays_check import my_rays
+    # from rays_check import my_rays
 
     _, _, _, ff, my_box = rays_np(H=6, W=6, D=6)
 
