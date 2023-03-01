@@ -1,13 +1,9 @@
 import os
-
 import pybullet as p
 import time
 import pybullet_data as pd
 import gym
-import random
-import numpy as np
 from func import *
-from PIL import Image
 import cv2
 
 
@@ -90,8 +86,8 @@ class FBVSM_Env(gym.Env):
 
     def act(self, action_norm):
 
-        action_degree = action_norm * self.action_space + self.action_shift
-        action = (action_degree / 180) * np.pi
+        action_norm[:2] = action_norm[:2] * self.action_space + self.action_shift
+        action = (action_norm / 180) * np.pi
 
         if not self.show_moving_cam:
             for moving_times in range(100):
@@ -109,7 +105,7 @@ class FBVSM_Env(gym.Env):
                     p.stepSimulation()
 
                 # compute dist between target and current:
-                joint_error = np.mean((joint_pos - action) ** 2)
+                joint_error = np.mean((joint_pos - action[:len(joint_pos)]) ** 2)
 
                 if joint_error < 0.0001:
                     break
@@ -354,7 +350,7 @@ if __name__ == '__main__':
     obs = env.reset()
     c_angle = obs[0]
 
-    mode = 'auto'  # manual or automatic
+    mode = 'm'  # manual or automatic
 
     if mode == 'm':
         m0 = p.addUserDebugParameter("motor0: Yaw", -1, 1, 0)

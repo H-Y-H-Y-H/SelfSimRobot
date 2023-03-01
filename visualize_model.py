@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import torch
 from train_nerf import nerf_forward, get_rays, init_models, prepare_chunks
-from Prepare_func import w2c_matrix, c2w_matrix
+from func import w2c_matrix, c2w_matrix
 import numpy as np
 from torch import nn
 

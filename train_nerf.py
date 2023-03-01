@@ -1,6 +1,6 @@
 #  from notebook: https://towardsdatascience.com/its-nerf-from-nothing-build-a-vanilla-nerf-with-pytorch-7846e4c45666
-from original_NeRF.Nerf_model import NeRF
-from Prepare_func import *
+from model import FBV_SM, PositionalEncoder
+from func import *
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(device)
@@ -14,8 +14,8 @@ n_training = 100
 testimg_idx = 101
 DOF = 2  # the number of motors
 num_data = 110
-data = np.load('data/arm_data/dof%d_data%d.npz'%(DOF, num_data))
-# data = np.load('NeRF_pytorch/tiny_nerf_data.npz') #NeRF original Demo
+data = np.load('data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
+# data = np.load('NeRF_pytorch/tiny_nerf_data.npz') #FBV_SM original Demo
 
 # Gather as torch tensors
 images = torch.from_numpy(data['images'].astype('float32')[:n_training]).to(device)
@@ -27,7 +27,7 @@ testpose = torch.from_numpy(data['poses'].astype('float32')[testimg_idx]).to(dev
 
 # Grab rays from sample image
 height, width = images.shape[1:3]
-print('IMG (height, width)',(height, width))
+print('IMG (height, width)', (height, width))
 
 # Encoders
 """arm dof=2, input=3;  arm dof=3, input=4"""
@@ -173,12 +173,12 @@ def init_models():
         d_viewdirs = None
 
     # Models
-    model = NeRF(encoder.d_output, n_layers=n_layers, d_filter=d_filter, skip=skip,
+    model = FBV_SM(encoder.d_output, n_layers=n_layers, d_filter=d_filter, skip=skip,
                  d_viewdirs=d_viewdirs)
     model.to(device)
     model_params = list(model.parameters())
     if use_fine_model:
-        fine_model = NeRF(encoder.d_output, n_layers=n_layers, d_filter=d_filter, skip=skip,
+        fine_model = FBV_SM(encoder.d_output, n_layers=n_layers, d_filter=d_filter, skip=skip,
                           d_viewdirs=d_viewdirs)
         fine_model.to(device)
         model_params = model_params + list(fine_model.parameters())
@@ -308,7 +308,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             # save test image
             np_image = rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy()
             matplotlib.image.imsave(LOG_PATH + 'image/' + 'latest.png', np_image)
-            matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png'%i, np_image)
+            matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png' % i, np_image)
 
             record_file_train.write(str(psnr.cpu().detach().numpy()) + "\n")
             record_file_val.write(str(val_psnr.cpu().detach().numpy()) + "\n")
@@ -323,8 +323,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                 patience = 0
 
             else:
-                patience +=1
-
+                patience += 1
 
         # Check PSNR for issues and stop if any are found.
         if i == warmup_iters - 1:
