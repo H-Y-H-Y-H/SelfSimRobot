@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import torch
 from train_nerf import nerf_forward, get_rays, init_models, prepare_chunks
-from Prepare_func import w2c_matrix
+from Prepare_func import w2c_matrix, c2w_matrix
 import numpy as np
 from torch import nn
 
@@ -72,15 +72,16 @@ def make_video():
     out.release()
 
 
-def dense_visual_3d(count_num=100, draw=True, theta=30, phi=30):
-    # pose_transfer = w2c_matrix(theta, phi, 4.)
-    count,count_empty = 0,0
+def dense_visual_3d(count_num=100, draw=True, theta=30, phi=30, idx=1):
+    pose_transfer = c2w_matrix(theta, phi, 0.)
+    count, count_empty = 0, 0
 
     points_record = []
+    dense_record = []
     points_empty = []
-    np.random.seed(10)
+    # np.random.seed(10)
     while True:
-        p = np.random.rand(1, 3) * 6. - 3.
+        p = np.random.rand(1, 3) * 4. - 2.
         point = encode(torch.from_numpy(p.astype(np.float32)))
         out = fine_model(point)
         dense = 1.0 - torch.exp(-nn.functional.relu(out[..., 3]))
@@ -89,11 +90,14 @@ def dense_visual_3d(count_num=100, draw=True, theta=30, phi=30):
         if out[0][-1] > 0.:
             count += 1
             # points_record.append(out.detach().numpy()[0][:3])
-            dense = dense.reshape(1, 1)
-            p_dense = np.concatenate((p, dense), 1)
-            points_record.append(p_dense)
+            # dense = dense.reshape(1, 1)
+            # p_dense = np.concatenate((p, dense), 1)
+            # points_record.append(p_dense)
+            points_record.append(p)
+            dense_record.append(dense)
+
         else:
-            count_empty+=1
+            count_empty += 1
             if count_empty < 1000:
                 points_empty.append(p)
 
@@ -102,30 +106,64 @@ def dense_visual_3d(count_num=100, draw=True, theta=30, phi=30):
     points_record = np.array(points_record)
     points_empty = np.array(points_empty)
     print(points_record.shape)
-    # p_tran = np.concatenate((points_record, np.ones((count_num, 1))), 1)
-    # p_tran = np.dot(np.linalg.inv(pose_transfer), p_tran.T).T[:, :3]
+    pr_tran = np.concatenate((points_record.reshape(-1, 3), np.ones((count_num, 1))), 1)
+    pr_tran = np.dot(pose_transfer, pr_tran.T).T[:, :3]
     # print(p_tran.shape)
     if draw:
         ax = plt.figure().add_subplot(projection='3d')
         ax.scatter(
-            points_record[:, :, 0],
-            points_record[:, :, 1],
-            points_record[:, :, 2],
-            alpha=points_record[:, :, 3]
+            pr_tran[:, 0],
+            pr_tran[:, 2],
+            pr_tran[:, 1],
+            # alpha=points_record[:, :, 3]
+            alpha=dense_record,
+            # s=0.1
         )
         ax.scatter(
-            points_empty[:,:, 0],
-            points_empty[:,:, 1],
-            points_empty[:,:, 2],
-            alpha=0.1
+            points_empty[:, :, 0],
+            points_empty[:, :, 2],
+            points_empty[:, :, 1],
+            alpha=0.1,
+            # s=0.1,
         )
-        ax.set_xlim(-3, 3)
-        ax.set_ylim(-3, 3)
-        ax.set_zlim(-3, 3)
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('Z')
-        plt.show()
+        ax.set_xlim(-2, 2)
+        ax.set_ylim(-2, 2)
+        ax.set_zlim(-2, 2)
+        # ax.set_xlabel('X')
+        # ax.set_ylabel('Y')
+        # ax.set_zlabel('Z')
+        # plt.show()
+        plt.savefig('img5/%04d.png' % i)
+
+    return points_record, points_empty
+
+
+def pose_transfer_visualize(points_record, points_empty, theta=30, phi=30):
+    pose_transfer = w2c_matrix(theta, phi, 4.)[:3, :3]
+    pr_new = np.dot(points_record, pose_transfer)
+    pe_new = np.dot(points_empty, pose_transfer)
+    ax = plt.figure().add_subplot(projection='3d')
+    ax.scatter(
+        pr_new[:, :, 0],
+        pr_new[:, :, 2],
+        pr_new[:, :, 1],
+        # alpha=points_record[:, :, 3]
+        alpha=1.
+    )
+    ax.scatter(
+        pe_new[:, :, 0],
+        pe_new[:, :, 2],
+        pe_new[:, :, 1],
+        alpha=0.1
+    )
+    ax.set_xlim(-3, 3)
+    ax.set_ylim(-3, 3)
+    ax.set_zlim(-3, 3)
+    # ax.set_xlabel('X')
+    # ax.set_ylabel('Y')
+    # ax.set_zlabel('Z')
+    plt.show()
+    plt.savefig('foo.png')
 
 
 def dense_visual_box(theta, phi, more_dof=False):
@@ -162,5 +200,12 @@ def dense_visual_box(theta, phi, more_dof=False):
 
 if __name__ == "__main__":
     # make_video()
-    dense_visual_3d(draw=True)
+    loop = np.linspace(-180., 180., 120, endpoint=False)
+    for i in range(120):
+        theta = loop[i % 120]
+        # phi = (np.sin((i / 120) * 2 * np.pi) * 0.6 - 1.) * 90.
+        # phi = -90
+        phi = (np.sin((i / 60) * 2 * np.pi) - 1.5) * 30.
+        p_dense, p_empty = dense_visual_3d(draw=True, theta=theta, phi=phi, idx=i)
+    # pose_transfer_visualize(points_record=p_dense, points_empty=p_empty, theta=30, phi=30)
     # dense_visual_box(theta=0., phi=0.)

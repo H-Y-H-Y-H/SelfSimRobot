@@ -18,8 +18,7 @@ def get_rays(
         c2w: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     r"""
-  Find origin and direction of rays through every pixel and camera orig
-  in.
+  Find origin and direction of rays through every pixel and camera origin.
   """
 
     # Apply pinhole camera model to gather directions at each pixel
@@ -28,9 +27,10 @@ def get_rays(
         torch.arange(height, dtype=torch.float32).to(c2w),
         indexing='ij')
     i, j = i.transpose(-1, -2), j.transpose(-1, -2)
-
-    # directions: from camera to each image pixel
-    directions = torch.stack([(i - width * .5) / focal_length, -(j - height * .5) / focal_length, -torch.ones_like(i)], dim=-1)
+    directions = torch.stack([(i - width * .5) / focal_length,
+                              -(j - height * .5) / focal_length,
+                              -torch.ones_like(i)
+                              ], dim=-1)
 
     # Apply camera pose to directions
     rays_d = torch.sum(directions[..., None, :] * c2w[:3, :3], dim=-1)
@@ -455,6 +455,12 @@ def w2c_matrix(theta, phi, radius):
     w2c = np.dot(transition_matrix("rot_y", -theta / 180. * np.pi), w2c)
     w2c = np.dot(transition_matrix("rot_x", -phi / 180. * np.pi), w2c)
     return w2c
+
+def c2w_matrix(theta, phi, radius):
+    c2w = transition_matrix("tran_z", radius)
+    c2w = np.dot(transition_matrix("rot_x", phi / 180. * np.pi), c2w)
+    c2w = np.dot(transition_matrix("rot_y", theta / 180. * np.pi), c2w)
+    return c2w
 
 
 def transition_matrix(label, value):
