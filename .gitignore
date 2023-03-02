@@ -1,4 +1,6 @@
 \data
-\train_log
 /data/fixed_camera/
 /data/moving_camera/
+/__pycache__
+/train_log/log01/
+/train_log/log_debug/image/
