@@ -64,12 +64,12 @@ class FBVSM_Env(gym.Env):
         img = green_black(img)
         cv2.imshow('Windows', img)
 
-        if self.show_moving_cam:
-            os.makedirs('data/moving_camera/',exist_ok=True)
-            cv2.imwrite('data/moving_camera/img%d.png' % self.step_id, img)
-        else:
-            os.makedirs('data/fixed_camera/',exist_ok=True)
-            cv2.imwrite('data/fixed_camera/img%d.png' % self.step_id, img)
+        # if self.show_moving_cam:
+        #     os.makedirs('data/moving_camera/',exist_ok=True)
+        #     cv2.imwrite('data/moving_camera/img%d.png' % self.step_id, img)
+        # else:
+        #     os.makedirs('data/fixed_camera/',exist_ok=True)
+        #     cv2.imwrite('data/fixed_camera/img%d.png' % self.step_id, img)
 
         self.step_id += 1
         cv2.waitKey(1)
@@ -361,6 +361,7 @@ if __name__ == '__main__':
             c_angle[0] = p.readUserDebugParameter(m0)
             c_angle[1] = p.readUserDebugParameter(m1)
             obs, _, _, _ = env.step(c_angle)
+            print(obs[0])
 
     else:
         # control the robot to  target angles and observe current angles

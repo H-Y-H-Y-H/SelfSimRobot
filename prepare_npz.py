@@ -62,29 +62,20 @@ def prepare_data(my_env, path, num_data):
         w2c_m = w2c_matrix(angles[0], angles[1], HYPER_radius_scaler)
         image_record.append(1. - obs[1] / 255.)
         pose_record.append(w2c_m)
-        angle_record.append(angle)
+        angle_record.append([theta, phi, angle])
 
-    if DOF == 2:
-        np.savez(path + 'dof%d_data%d.npz' % (DOF, num_data),
-                 images=np.array(image_record),
-                 poses=np.array(pose_record),
-                 focal=focal)
-
-    elif DOF ==3:
         np.savez(path + 'dof%d_data%d.npz' % (DOF, num_data),
                  images=np.array(image_record),
                  poses=np.array(pose_record),
                  angles=np.array(angle_record),
                  focal=focal)
-    else:
-        print("DOF error!")
-        quit()
 
     # keep running
-    for _ in range(1000000):
-        p.stepSimulation()
-        time.sleep(1 / 240)
-    pass
+    if RENDER:
+        for _ in range(1000000):
+            p.stepSimulation()
+            time.sleep(1 / 240)
+        pass
 
 
 def matrix_visual():
@@ -141,7 +132,7 @@ def plot_new_cam(ax, orig_cam):
 
 if __name__ == "__main__":
     """data collection"""
-    RENDER = True
+    RENDER = False
     MOV_CAM = False
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 4  # TBD: test 0.8 or rescaler during visualization
@@ -167,7 +158,7 @@ if __name__ == "__main__":
     # Data_collection
     log_pth = "data/arm_data/"
     os.makedirs(log_pth, exist_ok=True)
-    prepare_data(my_env=MyEnv, path=log_pth, num_data=110)
+    prepare_data(my_env=MyEnv, path=log_pth, num_data=1100)
 
     """visual test"""
     # matrix_visual()

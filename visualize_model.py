@@ -98,7 +98,7 @@ def dense_visual_3d(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
         binary_idx = binary_idx.cpu().detach().numpy()
 
         if torch.sum(binary_out) > 0:
-            dense_record= np.append(dense_record, dense[binary_idx])
+            dense_record = np.append(dense_record, dense[binary_idx])
             points_record = np.append(points_record, p[binary_idx].reshape(-1,3))
 
         points_empty = np.append(points_empty, p[torch.nonzero(torch.logical_not(binary_out)).cpu().detach().numpy()].reshape(-1,3))

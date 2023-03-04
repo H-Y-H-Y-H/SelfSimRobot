@@ -1,6 +1,6 @@
 #  from notebook: https://towardsdatascience.com/its-nerf-from-nothing-build-a-vanilla-nerf-with-pytorch-7846e4c45666
-from model import FBV_SM, PositionalEncoder
-from func import *
+from model import FBV_SM, PositionalEncoder,PositionalEncoder_cml
+from func_cml import *
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(device)
@@ -13,7 +13,7 @@ near, far = 2., 6.
 n_training = 100
 testimg_idx = 101
 DOF = 2  # the number of motors
-num_data = 110
+num_data = 1100
 data = np.load('data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
 # data = np.load('NeRF_pytorch/tiny_nerf_data.npz') #FBV_SM original Demo
 
@@ -31,13 +31,11 @@ print('IMG (height, width)', (height, width))
 
 # Encoders
 """arm dof=2, input=3;  arm dof=3, input=4"""
-d_input = 3  # Number of input dimensions
-if d_input == 4:
-    angles = torch.from_numpy(data['angles'].astype('float32')).to(device)
-    testangle = torch.tensor(data['angles'][testimg_idx].astype('float32')).to(device)
-else:
-    angles = torch.tensor([])
-    testangle = torch.tensor([])
+d_input = 19  # Number of input dimensions
+
+angles = torch.from_numpy(data['angles'].astype('float32')).to(device)
+testangle = torch.tensor(data['angles'][testimg_idx].astype('float32')).to(device)
+
 
 n_freqs = 10  # Number of encoding functions for samples
 log_space = True  # If set, frequencies scale in log space
@@ -159,12 +157,12 @@ def init_models():
   Initialize models, encoders, and optimizer for NeRF training.
   """
     # Encoders
-    encoder = PositionalEncoder(d_input, n_freqs, log_space=log_space)
+    encoder = PositionalEncoder_cml(d_input, n_freqs, log_space=log_space)
     encode = lambda x: encoder(x)
 
     # View direction encoders
     if use_viewdirs:
-        encoder_viewdirs = PositionalEncoder(d_input, n_freqs_views,
+        encoder_viewdirs = PositionalEncoder_cml(d_input, n_freqs_views,
                                              log_space=log_space)
         encode_viewdirs = lambda x: encoder_viewdirs(x)
         d_viewdirs = encoder_viewdirs.d_output
@@ -195,22 +193,6 @@ def init_models():
 
 
 def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper):
-    r"""
-    Launch training session for NeRF.
-    """
-    # Shuffle rays across all images.
-    if not one_image_per_step:
-        height, width = images.shape[1:3]
-
-        # get_rays -> (rays_o, rays_d): ray origins and ray directions.
-
-        all_rays = torch.stack([torch.stack(get_rays(height, width, focal, p), 0) for p in poses[:n_training]], 0)
-        rays_rgb = torch.cat([all_rays, images[:, None]], 1)
-        rays_rgb = torch.permute(rays_rgb, [0, 2, 3, 1, 4])
-        rays_rgb = rays_rgb.reshape([-1, 3, 3])
-        rays_rgb = rays_rgb.type(torch.float32)
-        rays_rgb = rays_rgb[torch.randperm(rays_rgb.shape[0])]
-        i_batch = 0
 
     train_psnrs = []
     val_psnrs = []
@@ -220,38 +202,30 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
         patience = 0
         model.train()
 
-        if one_image_per_step:
-            # Randomly pick an image as the target.
-            target_img_idx = np.random.randint(images.shape[0])
-            target_img = images[target_img_idx].to(device)
-            """one more dof"""
-            if d_input == 4:
-                angle = angles[target_img_idx].to(device)
-            else:
-                angle = 1.
-
-            if center_crop and i < center_crop_iters:
-                target_img = crop_center(target_img)
-            height, width = target_img.shape[:2]
-            target_pose = poses[target_img_idx].to(device)
-            rays_o, rays_d = get_rays(height, width, focal, target_pose)
-            rays_o = rays_o.reshape([-1, 3])
-            rays_d = rays_d.reshape([-1, 3])
+        # Randomly pick an image as the target.
+        target_img_idx = np.random.randint(images.shape[0])
+        target_img = images[target_img_idx].to(device)
+        """one more dof"""
+        if d_input == 4:
+            angle = angles[target_img_idx].to(device)
         else:
-            # Random over all images.
-            batch = rays_rgb[i_batch:i_batch + batch_size]
-            batch = torch.transpose(batch, 0, 1)
-            rays_o, rays_d, target_img = batch
-            height, width = target_img.shape[:2]
-            i_batch += batch_size
-            # Shuffle after one epoch
-            if i_batch >= rays_rgb.shape[0]:
-                rays_rgb = rays_rgb[torch.randperm(rays_rgb.shape[0])]
-                i_batch = 0
+            angle = 1.
+
+        if center_crop and i < center_crop_iters:
+            target_img = crop_center(target_img)
+        height, width = target_img.shape[:2]
+        target_pose = poses[target_img_idx].to(device)
+        fixed_pose = w2c_matrix(0, 0, radius=4)
+        fixed_pose = torch.from_numpy(fixed_pose.astype('float32')).to(device)
+
+        rays_o, rays_d = get_rays(height, width, focal, fixed_pose)
+        rays_o = rays_o.reshape([-1, 3])
+        rays_d = rays_d.reshape([-1, 3])
+
         target_img = target_img.reshape([-1, 3])
 
         # Run one iteration of TinyNeRF and get the rendered RGB image.
-        outputs = nerf_forward(rays_o, rays_d,
+        outputs = nerf_cml_forward(target_pose, rays_o, rays_d,
                                near, far, encode, model,
                                kwargs_sample_stratified=kwargs_sample_stratified,
                                n_samples_hierarchical=n_samples_hierarchical,
@@ -287,8 +261,8 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             rays_o, rays_d = get_rays(height, width, focal, testpose)
             rays_o = rays_o.reshape([-1, 3])
             rays_d = rays_d.reshape([-1, 3])
-            outputs = nerf_forward(rays_o, rays_d,
-                                   near, far, encode, model,
+            outputs = nerf_cml_forward(target_pose, rays_o, rays_d,
+                                       near, far, encode, model,
                                    kwargs_sample_stratified=kwargs_sample_stratified,
                                    n_samples_hierarchical=n_samples_hierarchical,
                                    kwargs_sample_hierarchical=kwargs_sample_hierarchical,
@@ -343,7 +317,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
 if __name__ == "__main__":
     # Run training session(s)
-    LOG_PATH = "train_log/log_debug1/"
+    LOG_PATH = "train_log/log_cml1/"
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
