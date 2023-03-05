@@ -54,15 +54,13 @@ def prepare_data(my_env, path, num_data):
     image_record, pose_record, angle_record = [], [], []
 
     for i in range(num_data):
-        theta = np.random.uniform(-1, 1)
-        phi = np.random.uniform(-1, 1)
-        angle = np.random.uniform(-1, 1)
-        obs, _, _, _ = my_env.step(a=np.array([theta, phi, angle]))
+        angle_list = np.random.rand(DOF)*2 -1
+        obs, _, _, _ = my_env.step(angle_list)
         angles = obs[0] * 90.  # obs[0] -> angles of motors, size = motor num
         w2c_m = w2c_matrix(angles[0], angles[1], HYPER_radius_scaler)
         image_record.append(1. - obs[1] / 255.)
         pose_record.append(w2c_m)
-        angle_record.append([theta, phi, angle])
+        angle_record.append(angles)
 
         np.savez(path + 'dof%d_data%d.npz' % (DOF, num_data),
                  images=np.array(image_record),
@@ -115,13 +113,6 @@ def matrix_visual():
 
 
 def plot_new_cam(ax, orig_cam):
-    # for i in range(100):
-    #     theta = np.random.rand() * 4.
-    #     phi = -np.random.rand()
-    #     c2w = c2w_matrix(theta=theta * 90., phi=phi * 90., radius=10.)
-    #     new_cam = np.dot(c2w, orig_cam)
-    #     ax.plot(new_cam[0], new_cam[1], new_cam[2], c="g")
-
     for i in range(100):
         theta = np.random.rand() * 2. - 1.
         phi = np.random.rand() * 2. - 1.
@@ -135,7 +126,7 @@ if __name__ == "__main__":
     RENDER = False
     MOV_CAM = False
     WIDTH, HEIGHT = 100, 100
-    HYPER_radius_scaler = 4  # TBD: test 0.8 or rescaler during visualization
+    HYPER_radius_scaler = 4  # distance between the camera and the robot arm
     DOF = 2  # the number of motors
     # Camera config: focal
     Camera_FOV = 42.
@@ -158,7 +149,7 @@ if __name__ == "__main__":
     # Data_collection
     log_pth = "data/arm_data/"
     os.makedirs(log_pth, exist_ok=True)
-    prepare_data(my_env=MyEnv, path=log_pth, num_data=1100)
+    prepare_data(my_env=MyEnv, path=log_pth, num_data=125)
 
     """visual test"""
     # matrix_visual()

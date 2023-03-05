@@ -21,7 +21,7 @@ class FBVSM_Env(gym.Env):
         self.num_motor = num_motor
         #  camera z offset
         self.z_offset = 1.106
-        self.action_shift = np.asarray([90, 90, 0])[:num_motor]
+        self.action_shift = np.asarray([90, 90, 0, 0])[:num_motor]
         self.render_flag = render_flag
         self.camera_pos = [0.8, 0, self.z_offset]
         self.camera_line = None
@@ -63,14 +63,6 @@ class FBVSM_Env(gym.Env):
         img = img[2][:, :, :3]
         img = green_black(img)
         cv2.imshow('Windows', img)
-
-        # if self.show_moving_cam:
-        #     os.makedirs('data/moving_camera/',exist_ok=True)
-        #     cv2.imwrite('data/moving_camera/img%d.png' % self.step_id, img)
-        # else:
-        #     os.makedirs('data/fixed_camera/',exist_ok=True)
-        #     cv2.imwrite('data/fixed_camera/img%d.png' % self.step_id, img)
-
         self.step_id += 1
         cv2.waitKey(1)
 
@@ -81,23 +73,24 @@ class FBVSM_Env(gym.Env):
 
         joint_list = ((np.array(joint_list) / np.pi * 180) - self.action_shift) / self.action_space
 
+
         obs_data = [np.array(joint_list), img]
         return obs_data
 
     def act(self, action_norm):
 
-        action_norm[:2] = action_norm[:2] * self.action_space + self.action_shift
+        action_norm = action_norm * self.action_space + self.action_shift
         action = (action_norm / 180) * np.pi
 
         if not self.show_moving_cam:
             for moving_times in range(100):
                 joint_pos = []
-                for i in range(self.num_motor):
-                    p.setJointMotorControl2(self.robot_id, i, controlMode=p.POSITION_CONTROL, targetPosition=action[i],
+                for i_m in range(self.num_motor):
+                    p.setJointMotorControl2(self.robot_id, i_m, controlMode=p.POSITION_CONTROL, targetPosition=action[i_m],
                                             force=self.force,
                                             maxVelocity=self.maxVelocity)
 
-                    joint_state = p.getJointState(self.robot_id, i)[0]
+                    joint_state = p.getJointState(self.robot_id, i_m)[0]
                     joint_pos.append(joint_state)
                 joint_pos = np.asarray(joint_pos)
 
@@ -239,27 +232,11 @@ class FBVSM_Env(gym.Env):
         # visualize sphere
         self.colSphereId_1 = p.createCollisionShape(p.GEOM_SPHERE, radius=0.01)
 
-        cube_size = 0.3
-
-        # self.circle = []
-        # for i in range(8):
-        #     self.pos_sphere[i][2] += self.z_offset
-        #     self.circle.append(p.createMultiBody(0, self.colSphereId_1, -1, self.pos_sphere[i], [0, 0, 0, 1]))
-
         pos_sphere_ = np.copy(self.pos_sphere)
         pos_sphere_[:, 2] += self.z_offset
         self.cube_line = []
         self.cube_line_copy = []
-        # for i in range(12):
-        #     if i in [0, 1, 2, 4, 5, 6]:
-        #         self.cube_line.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i + 1], [0, 0, 1]))
-        #         self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i + 1], [0, 0, 1]))
-        #     elif i in [3, 7]:
-        #         self.cube_line.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i - 3], [0, 0, 1]))
-        #         self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i - 3], [0, 0, 1]))
-        #     else:
-        #         self.cube_line.append(p.addUserDebugLine(pos_sphere_[i - 8], pos_sphere_[i - 4], [0, 0, 1]))
-        #         self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i - 8], pos_sphere_[i - 4], [0, 0, 1]))
+
 
         return self.get_obs()
 

@@ -2,8 +2,8 @@ import os
 
 import matplotlib.pyplot as plt
 import torch
-from train_nerf import nerf_forward, get_rays, init_models, prepare_chunks
-from func import w2c_matrix, c2w_matrix
+from train_fbvsm import nerf_forward, get_rays, init_models, prepare_chunks
+from fbvsm_func import w2c_matrix, c2w_matrix
 import numpy as np
 from torch import nn
 
@@ -15,9 +15,11 @@ def pos2img(new_pose, ArmAngle, more_dof=False):
     height, width, focal = 100, 100, 130.25446
     near, far = 2., 6.
     rays_o, rays_d = get_rays(height, width, focal, new_pose)
+    pose_input = new_pose.flatten()
+
     rays_o = rays_o.reshape([-1, 3])
     rays_d = rays_d.reshape([-1, 3])
-    outputs = nerf_forward(rays_o, rays_d,
+    outputs = nerf_forward(pose_input, rays_o, rays_d,
                            near, far, encode, model,
                            kwargs_sample_stratified=kwargs_sample_stratified,
                            n_samples_hierarchical=n_samples_hierarchical,
@@ -66,10 +68,18 @@ def dense_visual_3d(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
     points_record = np.asarray([])
     dense_record = np.asarray([])
     points_empty = np.asarray([])
+
+    pose_transfer_ = c2w_matrix(theta, phi, 4.)
+    pose_input = pose_transfer_.flatten()
     for j in range(10):
         p = np.random.rand(batch_size, 3) * 4. - 2.
         point = encode(torch.from_numpy(p.astype(np.float32))).to(device)
-        out = fine_model(point)
+
+        target_pose_repeat = np.repeat([pose_input],batch_size,0)
+        target_pose_repeat = torch.from_numpy(target_pose_repeat.astype(np.float32)).to(device)
+        model_input = torch.hstack((target_pose_repeat,point))
+
+        out = fine_model(model_input)
         sign = torch.sign(out[:, 3])
         binary_out = torch.relu(sign)
         dense = 1.0 - torch.exp(-nn.functional.relu(out[:, 3]))
@@ -153,9 +163,11 @@ def dense_visual_box(theta, phi, more_dof=False):
     height, width, focal = 100, 100, 130.25446
     near, far = 2., 6.
     rays_o, rays_d = get_rays(height, width, focal, my_pose)
+    pose_input = my_pose.flatten()
+
     rays_o = rays_o.reshape([-1, 3])
     rays_d = rays_d.reshape([-1, 3])
-    raw_outputs = nerf_forward(rays_o, rays_d,
+    raw_outputs = nerf_forward(pose_input, rays_o, rays_d,
                                near, far, encode, model,
                                kwargs_sample_stratified=kwargs_sample_stratified,
                                n_samples_hierarchical=n_samples_hierarchical,
@@ -180,9 +192,7 @@ def dense_visual_box(theta, phi, more_dof=False):
 
 
 if __name__ == "__main__":
-
-    test_model_pth = 'train_log/log_1000data/'
-
+    test_model_pth = 'train_log/log_100data/'
     # make_video()
     n_samples_hierarchical = 64
     kwargs_sample_stratified = {
@@ -196,16 +206,21 @@ if __name__ == "__main__":
     chunksize = 2 ** 14
 
     model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper = init_models()
+    # model.load_state_dict(torch.load("train_log/log01/nerf.pt", map_location=torch.device(device)))
+    # fine_model.load_state_dict(
+    #     torch.load("../train_log/log02_100_2dof/best_model/nerf-fine.pt", map_location=torch.device(device)))
     fine_model.load_state_dict(
         torch.load(test_model_pth+"best_model/nerf-fine.pt", map_location=torch.device(device)))
+    # fine_model.to(device)
     fine_model.eval()
+
 
     loop = np.linspace(-180., 180., 120, endpoint=False)
     for i in range(1):
         theta = loop[i % 120]
+        # phi = (np.sin((i / 120) * 2 * np.pi) * 0.6 - 1.) * 90.
+        # phi = -90
         phi = (np.sin((i / 60) * 2 * np.pi) - 1.5) * 30.
-        p_dense, p_empty = dense_visual_3d(log_pth=test_model_pth, draw=True, theta=theta, phi=phi, idx=i)
-
+        p_dense, p_empty = dense_visual_3d(log_pth = test_model_pth, draw=True, theta=theta, phi=phi, idx=i)
     # pose_transfer_visualize(points_record=p_dense, points_empty=p_empty, theta=30, phi=30)
     # dense_visual_box(theta=0., phi=0.)
-

@@ -1,13 +1,14 @@
 import numpy as np
-import torch
-from torch import nn
 from torchvision.utils import save_image
 import matplotlib.pyplot as plt
 import matplotlib.image
 import os
 from tqdm import trange
+import torch
+from torch import nn
 from typing import Optional, Tuple, List, Union, Callable
 
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 # import torch
 
@@ -105,12 +106,6 @@ def transfer_box(vbox, norm_angles, c_h=1.106, forward_flag=False):
     new_view_box = flatten_new_view_box.reshape(vb_shape[0], vb_shape[1], vb_shape[2], 3)
     return new_view_box, flatten_new_view_box
 
-import numpy as np
-import torch
-from torch import nn
-from typing import Optional, Tuple, List, Union, Callable
-
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 def get_rays(
@@ -399,8 +394,8 @@ def prepare_viewdirs_chunks(
     return viewdirs
 
 
-def nerf_cml_forward(
-        target_pose: torch.Tensor,
+def nerf_forward(
+        pose_input: torch.Tensor,
         rays_o: torch.Tensor,
         rays_d: torch.Tensor,
         near: float,
@@ -430,7 +425,6 @@ def nerf_cml_forward(
     # Sample query points along each ray.
     query_points, z_vals = sample_stratified(
         rays_o, rays_d, near, far, **kwargs_sample_stratified, angle=arm_angle, more_dof=if_3dof)
-    target_pose = torch.flatten(target_pose)
 
     # Prepare batches.
     batches = prepare_chunks(query_points, encoding_fn, chunksize=chunksize)
@@ -445,10 +439,9 @@ def nerf_cml_forward(
     # Split the encoded points into "chunks", run the model on all chunks, and
     # concatenate the results (to avoid out-of-memory issues).
     predictions = []
-
     for batch, batch_viewdirs in zip(batches, batches_viewdirs):
-        target_pose_repeat = target_pose.repeat((batch.shape[0], 1))
-        batch = torch.hstack((target_pose_repeat, batch))
+        pose_input_repeat = pose_input.repeat((batch.shape[0], 1))
+        batch = torch.hstack((pose_input_repeat, batch))
         predictions.append(coarse_model(batch, viewdirs=batch_viewdirs))
     raw = torch.cat(predictions, dim=0)
     raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
@@ -483,8 +476,8 @@ def nerf_cml_forward(
         fine_model = fine_model if fine_model is not None else coarse_model
         predictions = []
         for batch, batch_viewdirs in zip(batches, batches_viewdirs):
-            target_pose_repeat = target_pose.repeat((batch.shape[0], 1))
-            batch = torch.hstack((target_pose_repeat, batch))
+            pose_input_repeat = pose_input.repeat((batch.shape[0], 1))
+            batch = torch.hstack((pose_input_repeat, batch))
             predictions.append(fine_model(batch, viewdirs=batch_viewdirs))
         raw = torch.cat(predictions, dim=0)
 
@@ -552,16 +545,15 @@ def transition_matrix(label, value):
 
 def plot_3d_visual(x,y,z,if_transform=True):
     if if_transform:
-        x = x.detach().cpu().numpy().flatten()
-        y = y.detach().cpu().numpy().flatten()
-        z = z.detach().cpu().numpy().flatten()
+        x = x.detach().cpu().numpy()
+        y = y.detach().cpu().numpy()
+        z = z.detach().cpu().numpy()
 
     ax = plt.axes(projection='3d')
     ax.scatter3D(x,
         y,
         z,s=1
     )
-    plt.show()
     # ax.scatter3D(0,0,0)
 
 
