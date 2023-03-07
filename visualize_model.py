@@ -69,8 +69,8 @@ def dense_visual_3d(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
         p = np.random.rand(batch_size, 3) * 4. - 2.
         point = encode(torch.from_numpy(p.astype(np.float32))).to(device)
         out = fine_model(point)
-        binary_out = torch.relu(out[:, 3])
-        dense = 1.0 - torch.exp(-nn.functional.relu(out[:, 3]))
+        binary_out = torch.relu(out[:, 1])
+        dense = 1.0 - torch.exp(-nn.functional.relu(out[:, 1]))
 
         binary_idx = torch.nonzero(binary_out)
         dense = dense.cpu().detach().numpy()
@@ -253,7 +253,7 @@ def dense_visual_box(theta, phi, more_dof=False):
 
 if __name__ == "__main__":
 
-    test_model_pth = 'train_log/log_125data/best_model/'
+    test_model_pth = 'train_log/log_100data/best_model/'
 
     DOF = 2
     num_data = 100
@@ -287,9 +287,9 @@ if __name__ == "__main__":
     for i in range(1):
         theta = loop[i % 120]
         phi = (np.sin((i / 60) * 2 * np.pi) - 1.5) * 30.
-        theta,phi = 90,0
+        theta, phi = 90, 0
         print(theta,phi)
-        p_dense, p_empty = dense_visual_3d(log_pth=test_model_pth, draw=True, theta=theta, phi=phi, idx=i)
+        p_dense, p_empty = test_model(log_pth=test_model_pth, draw=True, theta=theta, phi=phi, idx=i)
 
     # pose_transfer_visualize(points_record=p_dense, points_empty=p_empty, theta=30, phi=30)
     # dense_visual_box(theta=0., phi=0.)

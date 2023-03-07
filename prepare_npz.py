@@ -128,7 +128,7 @@ if __name__ == "__main__":
     MOV_CAM = False
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 4  # distance between the camera and the robot arm
-    DOF = 2  # the number of motors
+    DOF = 3  # the number of motors
     # Camera config: focal
     Camera_FOV = 42.
     camera_angle_x = Camera_FOV * np.pi / 180.
@@ -140,8 +140,7 @@ if __name__ == "__main__":
         width=WIDTH,
         height=HEIGHT,
         render_flag=RENDER,
-        num_motor=DOF
-    )
+        num_motor=DOF)
 
     np.random.seed(2023)
     torch.manual_seed(2023)
@@ -150,7 +149,7 @@ if __name__ == "__main__":
     # Data_collection
     log_pth = "data/arm_data/"
     os.makedirs(log_pth, exist_ok=True)
-    prepare_data(my_env=MyEnv, path=log_pth, num_data=1000)
+    prepare_data(my_env=MyEnv, path=log_pth, num_data=100)
 
     """visual test"""
     # matrix_visual()

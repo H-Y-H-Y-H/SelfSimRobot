@@ -10,9 +10,6 @@ from typing import Optional, Tuple, List, Union, Callable
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-
-
-
 # import torch
 
 def rot_X(th):
@@ -239,11 +236,11 @@ def raw2outputs(
     # regularize network during training (prevents floater artifacts).
     noise = 0.
     if raw_noise_std > 0.:
-        noise = torch.randn(raw[..., 3].shape) * raw_noise_std
+        noise = torch.randn(raw[..., 1].shape) * raw_noise_std
 
     # Predict density of each sample along each ray. Higher values imply
     # higher likelihood of being absorbed at this point. [n_rays, n_samples]
-    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[:, :, 3] + noise) * dists)
+    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[:, :, 1] + noise) * dists)
     # The larger the dists or the output(density), the closer alpha is to 1.
 
     # Compute weight for RGB of each sample along each ray. [n_rays, n_samples]
@@ -251,13 +248,12 @@ def raw2outputs(
     weights = alpha * cumprod_exclusive(1. - alpha + 1e-10)
 
     # Compute weighted RGB map.
-    rgb = torch.sigmoid(raw[..., :3])  # [n_rays, n_samples, 3]
-    rgb_each_point = weights * torch.sigmoid(raw[..., 3])
+    rgb = torch.sigmoid(raw[..., :2])  # [n_rays, n_samples, 3]
+    rgb_each_point = weights * torch.sigmoid(raw[..., 1])
     # rgb_each_point = torch.sigmoid(torch.relu(weights)) * raw[..., 3]
 
     render_img = torch.sum(rgb_each_point, dim=1)
     rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)  # [n_rays, 3]
-    # density_map = torch.sum(weights[..., None], dim=-2)  # [n_rays, 3]
 
     # Estimated depth map is predicted distance.
     depth_map = torch.sum(weights * z_vals, dim=-1)

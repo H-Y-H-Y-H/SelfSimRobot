@@ -117,7 +117,7 @@ class FBV_SM(nn.Module):
             self.output = nn.Linear(d_filter // 2, 3)
         else:
             # If no viewdirs, use simpler output
-            self.output = nn.Linear(d_filter, 4)
+            self.output = nn.Linear(d_filter, 2)
 
     def forward(
             self,
