@@ -90,14 +90,14 @@ class FBV_SM(nn.Module):
 
     def __init__(
             self,
-            d_input: int,
+            d_input: int = 3,
             n_layers: int = 8,
             d_filter: int = 256,
             skip: Tuple[int] = (4,),
             d_viewdirs: Optional[int] = None
     ):
         super().__init__()
-        self.d_input = d_input+16
+        self.d_input = d_input
         self.skip = skip
         self.act = nn.functional.relu
         self.d_viewdirs = d_viewdirs
@@ -117,7 +117,7 @@ class FBV_SM(nn.Module):
             self.output = nn.Linear(d_filter // 2, 3)
         else:
             # If no viewdirs, use simpler output
-            self.output = nn.Linear(d_filter, 2)
+            self.output = nn.Linear(d_filter, 4)
 
     def forward(
             self,

@@ -8,7 +8,7 @@ import cv2
 
 
 class FBVSM_Env(gym.Env):
-    def __init__(self, show_moving_cam, width=400, height=400, render_flag=False, num_motor=2,max_num_motor = 3):
+    def __init__(self, show_moving_cam, width=400, height=400, render_flag=False, num_motor=2, max_num_motor=3):
 
         self.show_moving_cam = show_moving_cam
         self.camera_pos_inverse = None
@@ -74,12 +74,10 @@ class FBVSM_Env(gym.Env):
 
         joint_list = ((np.array(joint_list) / np.pi * 180) - self.action_shift) / self.action_space
 
-
         obs_data = [np.array(joint_list), img]
         return obs_data
 
     def act(self, action_norm):
-
         action_norm = action_norm * self.action_space + self.action_shift
         action = (action_norm / 180) * np.pi
 
@@ -87,16 +85,17 @@ class FBVSM_Env(gym.Env):
             for moving_times in range(100):
                 joint_pos = []
                 for i_m in range(self.num_motor):
-                    p.setJointMotorControl2(self.robot_id, i_m, controlMode=p.POSITION_CONTROL, targetPosition=action[i_m],
+                    p.setJointMotorControl2(self.robot_id, i_m, controlMode=p.POSITION_CONTROL,
+                                            targetPosition=action[i_m],
                                             force=self.force,
                                             maxVelocity=self.maxVelocity)
                     joint_state = p.getJointState(self.robot_id, i_m)[0]
                     joint_pos.append(joint_state)
 
-                if self.num_motor<self.max_num_motor:
-                    for i_m in range(self.num_motor,self.max_num_motor):
+                if self.num_motor < self.max_num_motor:
+                    for i_m in range(self.num_motor, self.max_num_motor):
                         p.setJointMotorControl2(self.robot_id, i_m, controlMode=p.POSITION_CONTROL, targetPosition=0,
-                                                force=self.force,maxVelocity=self.maxVelocity)
+                                                force=self.force, maxVelocity=self.maxVelocity)
 
                 joint_pos = np.asarray(joint_pos)
 
@@ -115,7 +114,8 @@ class FBVSM_Env(gym.Env):
                 if self.render_flag:
                     time.sleep(1. / 960.)
 
-        full_matrix = np.dot(rot_Z(action_norm[0] * self.action_space / 180 * np.pi), rot_Y(action_norm[1] * self.action_space / 180 * np.pi))
+        full_matrix = np.dot(rot_Z(action_norm[0] * self.action_space / 180 * np.pi),
+                             rot_Y(action_norm[1] * self.action_space / 180 * np.pi))
 
         """ inverse of full matrix as the camera view matrix """
         self.camera_pos_inverse = np.dot(np.linalg.inv(full_matrix), np.asarray([0.8, 0, 0, 1]))[:3]
@@ -130,7 +130,7 @@ class FBVSM_Env(gym.Env):
             [0.8, 0, 0]
         ])
 
-        new_view_square = np.dot(np.linalg.inv(full_matrix),np.hstack((orig_view_square, np.ones((5, 1)))).T)[:3]
+        new_view_square = np.dot(np.linalg.inv(full_matrix), np.hstack((orig_view_square, np.ones((5, 1)))).T)[:3]
 
         new_view_square[2] += self.z_offset
         new_view_square = new_view_square.T
@@ -138,8 +138,7 @@ class FBVSM_Env(gym.Env):
         if self.show_moving_cam:
             ##### Move camera with the robot arm ########
             self.camera_pos = np.dot(np.linalg.inv(full_matrix), np.asarray([0.8, 0, 0, 1]))[:3]
-            camera_up_vector =  np.dot(np.linalg.inv(full_matrix), np.asarray([0, 0, 1, 1]))[:3]
-
+            camera_up_vector = np.dot(np.linalg.inv(full_matrix), np.asarray([0, 0, 1, 1]))[:3]
 
             self.camera_pos[2] += self.z_offset
             self.view_matrix = p.computeViewMatrix(
@@ -243,7 +242,6 @@ class FBVSM_Env(gym.Env):
         self.cube_line = []
         self.cube_line_copy = []
 
-
         return self.get_obs()
 
     def step(self, a):
@@ -290,20 +288,12 @@ def green_black(img):
     return img
 
 
-def data_collection_with_env(data_env: FBVSM_Env):
-    d_obs = data_env.reset()
-
-    # todo: two angles and images collection
-
-
 def generate_action_list():
     # line_array = np.linspace(-1.0, 1.0, num=21)
     # t_angle = np.random.choice(line_array, NUM_MOTOR)
-
     # set target angle:
     t_angle = [1, -1]
     act_list = []
-
     for act_i in range(NUM_MOTOR):
         act_list.append(np.linspace(c_angle[act_i], t_angle[act_i],
                                     round(abs((t_angle[act_i] - c_angle[act_i]) / step_size) + 1)))
@@ -312,7 +302,7 @@ def generate_action_list():
 
 
 if __name__ == '__main__':
-    RENDER = True
+    RENDER = False
     NUM_MOTOR = 2
     step_size = 0.1
 

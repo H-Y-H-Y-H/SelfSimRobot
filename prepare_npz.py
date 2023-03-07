@@ -54,12 +54,12 @@ def prepare_data(my_env, path, num_data):
     image_record, pose_record, angle_record = [], [], []
 
     for i in range(num_data):
-        angle_list = np.random.rand(DOF)*2 -1
+        angle_list = np.random.rand(DOF)*2 - 1
         obs, _, _, _ = my_env.step(angle_list)
         angles = obs[0] * 90.  # obs[0] -> angles of motors, size = motor num
         w2c_m = w2c_matrix(angles[0], angles[1], HYPER_radius_scaler)
         img = 1. - obs[1] / 255.
-        image_record.append(img[...,0])
+        image_record.append(img[..., 0])
         pose_record.append(w2c_m)
         angle_record.append(angles)
 

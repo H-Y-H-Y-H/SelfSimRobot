@@ -1,8 +1,6 @@
 #  from notebook: https://towardsdatascience.com/its-nerf-from-nothing-build-a-vanilla-nerf-with-pytorch-7846e4c45666
 from model import FBV_SM, PositionalEncoder
-from fbvsm_func import *
-import sys
-import os
+from func import *
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(device)
@@ -14,25 +12,26 @@ near, far = 2., 6.
 Flag_save_image_during_training = True
 DOF = 2  # the number of motors
 num_data = 100
-tr = 0.8 # training ratio
+tr = 0.8  # training ratio
 
-data = np.load('../data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
+data = np.load('data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
 valid_amount = int(num_data * (1 - tr))
 valid_img_visual = []
 for vimg in range(valid_amount):
-    valid_img_visual.append(data['images'][int(num_data*tr)+vimg])
+    valid_img_visual.append(data['images'][int(num_data * tr) + vimg])
 testing_img_valid = np.hstack(valid_img_visual)
+valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
 
 # Gather as torch tensors
 focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
 
-training_img =    torch.from_numpy(data['images'][:int(num_data*tr)].astype('float32')).to(device)
-training_poses =  torch.from_numpy(data['poses' ][:int(num_data*tr)].astype('float32')).to(device)
-training_angles = torch.from_numpy(data['angles'][:int(num_data*tr)].astype('float32')).to(device)
+training_img = torch.from_numpy(data['images'][:int(num_data * tr)].astype('float32')).to(device)
+training_poses = torch.from_numpy(data['poses'][:int(num_data * tr)].astype('float32')).to(device)
+training_angles = torch.from_numpy(data['angles'][:int(num_data * tr)].astype('float32')).to(device)
 
-testing_img =    torch.from_numpy(data['images'][int(num_data*tr):].astype('float32')).to(device)
-testing_poses =  torch.from_numpy(data['poses' ][int(num_data*tr):].astype('float32')).to(device)
-testing_angles = torch.from_numpy(data['angles'][int(num_data*tr):].astype('float32')).to(device)
+testing_img = torch.from_numpy(data['images'][int(num_data * tr):].astype('float32')).to(device)
+testing_poses = torch.from_numpy(data['poses'][int(num_data * tr):].astype('float32')).to(device)
+testing_angles = torch.from_numpy(data['angles'][int(num_data * tr):].astype('float32')).to(device)
 
 # Grab rays from sample image
 height, width = training_img.shape[1:3]
@@ -177,12 +176,12 @@ def init_models():
 
     # Models
     model = FBV_SM(encoder.d_output, n_layers=n_layers, d_filter=d_filter, skip=skip,
-                 d_viewdirs=d_viewdirs)
+                   d_viewdirs=d_viewdirs)
     model.to(device)
     model_params = list(model.parameters())
     if use_fine_model:
         fine_model = FBV_SM(encoder.d_output, n_layers=n_layers, d_filter=d_filter, skip=skip,
-                          d_viewdirs=d_viewdirs)
+                            d_viewdirs=d_viewdirs)
         fine_model.to(device)
         model_params = model_params + list(fine_model.parameters())
     else:
@@ -198,6 +197,20 @@ def init_models():
 
 
 def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper):
+    r"""
+    Launch training session for NeRF.
+    """
+    # Shuffle rays across all images.
+    if not one_image_per_step:
+        # get_rays -> (rays_o, rays_d): ray origins and ray directions.
+        height, width = training_img.shape[1:3]
+        all_rays = torch.stack([torch.stack(get_rays(height, width, focal, p), 0) for p in training_poses], 0)
+        rays_rgb = torch.cat([all_rays, training_img[:, None]], 1)
+        rays_rgb = torch.permute(rays_rgb, [0, 2, 3, 1, 4])
+        rays_rgb = rays_rgb.reshape([-1, 3, 3])
+        rays_rgb = rays_rgb.type(torch.float32)
+        rays_rgb = rays_rgb[torch.randperm(rays_rgb.shape[0])]
+        i_batch = 0
 
     train_psnrs = []
     val_psnrs = []
@@ -207,39 +220,43 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
         patience = 0
         model.train()
 
-        # Randomly pick an image as the target.
-        target_img_idx = np.random.randint(training_img.shape[0]-1)
-        target_img = training_img[target_img_idx].to(device)
-        angle = training_angles[target_img_idx].to(device)
+        if one_image_per_step:
+            # Randomly pick an image as the target.
+            target_img_idx = np.random.randint(training_img.shape[0] - 1)
+            target_img = training_img[target_img_idx]
+            angle = training_angles[target_img_idx]
 
-        if center_crop and i < center_crop_iters:
-            target_img = crop_center(target_img)
-        height, width = target_img.shape[:2]
-        target_pose = training_poses[target_img_idx].to(device)
+            if center_crop and i < center_crop_iters:
+                target_img = crop_center(target_img)
+            height, width = target_img.shape[:2]
+            target_pose = training_poses[target_img_idx]
+            rays_o, rays_d = get_rays(height, width, focal, target_pose)
+            rays_o = rays_o.reshape([-1, 3])
+            rays_d = rays_d.reshape([-1, 3])
+        else:
+            # Random over all images.
+            batch = rays_rgb[i_batch:i_batch + batch_size]
+            batch = torch.transpose(batch, 0, 1)
+            rays_o, rays_d, target_img = batch
+            height, width = target_img.shape[:2]
+            i_batch += batch_size
+            # Shuffle after one epoch
+            if i_batch >= rays_rgb.shape[0]:
+                rays_rgb = rays_rgb[torch.randperm(rays_rgb.shape[0])]
+                i_batch = 0
 
-        pose_input = target_pose.flatten()
-
-        # fixed_pose = w2c_matrix(0, 0, radius=4)
-        # fixed_pose = torch.from_numpy(fixed_pose.astype('float32')).to(device)
-        # rays_o, rays_d = get_rays(height, width, focal, fixed_pose)
-
-        rays_o, rays_d = get_rays(height, width, focal, target_pose)
-        rays_o = rays_o.reshape([-1, 3])
-        rays_d = rays_d.reshape([-1, 3])
-
-        target_img = target_img.reshape([-1, 1])
+        # target_img = torch.dstack((target_img,target_img,target_img))
+        target_img = target_img.reshape([-1])
 
         # Run one iteration of TinyNeRF and get the rendered RGB image.
-        outputs = nerf_forward(pose_input, rays_o, rays_d,
+        outputs = nerf_forward(rays_o, rays_d,
                                near, far, encode, model,
                                kwargs_sample_stratified=kwargs_sample_stratified,
                                n_samples_hierarchical=n_samples_hierarchical,
                                kwargs_sample_hierarchical=kwargs_sample_hierarchical,
                                fine_model=fine_model,
                                viewdirs_encoding_fn=encode_viewdirs,
-                               chunksize=chunksize,
-                               arm_angle=angle,
-                               if_3dof=(d_input == 4))
+                               chunksize=chunksize)
 
         # Check for any numerical issues.
         for k, v in outputs.items():
@@ -250,7 +267,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
         # Backprop!
         rgb_predicted = outputs['rgb_map']
-        loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
+        loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)  # target_img[..., 0]: one channel
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -258,33 +275,30 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
         # Compute mean-squared error between predicted and target images.
         psnr = -10. * torch.log10(loss)
         train_psnrs.append(psnr.item())
-
         # Evaluate testimg at given display rate.
-        if i % display_rate == 0:
+        if (i) % display_rate == 0:
             model.eval()
             valid_epoch_loss = []
             valid_psnr = []
             valid_image = []
             height, width = testing_img[0].shape[:2]
             for v_i in range(valid_amount):
-                target_pose = testing_poses[v_i]
-                pose_input = target_pose.flatten()
-                rays_o, rays_d = get_rays(height, width, focal, target_pose)
+                rays_o, rays_d = get_rays(height, width, focal, testing_poses[v_i])
                 rays_o = rays_o.reshape([-1, 3])
                 rays_d = rays_d.reshape([-1, 3])
-                outputs = nerf_forward(pose_input, rays_o, rays_d,
+                outputs = nerf_forward(rays_o, rays_d,
                                        near, far, encode, model,
                                        kwargs_sample_stratified=kwargs_sample_stratified,
                                        n_samples_hierarchical=n_samples_hierarchical,
                                        kwargs_sample_hierarchical=kwargs_sample_hierarchical,
                                        fine_model=fine_model,
                                        viewdirs_encoding_fn=encode_viewdirs,
-                                       chunksize=chunksize,
-                                       arm_angle=testing_angles[v_i],
-                                       if_3dof=(d_input == 4))
+                                       chunksize=chunksize)
 
                 rgb_predicted = outputs['rgb_map']
-                loss = torch.nn.functional.mse_loss(rgb_predicted, testing_img[v_i].reshape(-1, 1))
+                # img_label = torch.dstack((testing_img[v_i],testing_img[v_i],testing_img[v_i]))
+                img_label = testing_img[v_i]
+                loss = torch.nn.functional.mse_loss(rgb_predicted, img_label.reshape(-1))
                 val_psnr = (-10. * torch.log10(loss)).item()
                 valid_epoch_loss.append(loss.item())
                 valid_psnr.append(val_psnr)
@@ -296,12 +310,11 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
             # save test image
             np_image_combine = np.hstack(valid_image)
-            np_image_combine = np.dstack((np_image_combine,np_image_combine,np_image_combine))
+            np_image_combine = np.dstack((np_image_combine, np_image_combine, np_image_combine))
 
             matplotlib.image.imsave(LOG_PATH + 'image/' + 'latest.png', np_image_combine)
             if Flag_save_image_during_training:
                 matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png' % i, np_image_combine)
-
 
             record_file_train.write(str(psnr) + "\n")
             record_file_val.write(str(psnr_v) + "\n")
@@ -315,6 +328,9 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                 patience = 0
             else:
                 patience += 1
+            os.makedirs(LOG_PATH + "epoch_%d_model" % i, exist_ok=True)
+            torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
+            torch.save(fine_model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf-fine.pt' % i)
 
         # Check PSNR for issues and stop if any are found.
         if i == warmup_iters - 1:
@@ -334,7 +350,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
 if __name__ == "__main__":
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata/"%num_data
+    LOG_PATH = "train_log/log_%ddata/" % num_data
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -344,7 +360,7 @@ if __name__ == "__main__":
     Patience_threshold = 100
 
     # Save testing gt image for visualization
-
+    testing_img_valid = np.dstack((testing_img_valid,testing_img_valid,testing_img_valid))
     matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', testing_img_valid)
 
     for _ in range(n_restarts):

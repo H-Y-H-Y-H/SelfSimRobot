@@ -60,7 +60,7 @@ def make_video():
 
 def dense_visual_3d(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
     pose_transfer = c2w_matrix(theta, phi, 0.)
-    batch_size = 1024
+    batch_size = 4096
 
     points_record = np.asarray([])
     dense_record = np.asarray([])
@@ -150,17 +150,14 @@ def test_model(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
     binary_out = torch.relu(rgb_each_point)
 
     nonempty_idx = torch.nonzero(binary_out).cpu().detach().numpy().reshape(-1)
-
-    # query_size = 4000
-
-    # nonempty_idx = nonempty_idx[:query_size]
-    # query_points = np.random.choice(len(all_points), query_size)
+    empty_idx = torch.nonzero(torch.logical_not(binary_out)).cpu().detach().numpy().reshape(-1)
+    select_empty_idx = np.random.choice(empty_idx, size=1000)
 
     query_xyz = all_points[nonempty_idx]
     # query_rgb = rgb_each_point[query_points]
     # query_rgb = np.sum(rgb_each_point[query_points],1)
     # occupied_point_idx = np.nonzero(query_rgb)
-    # query_xyz = query_xyz[occupied_point_idx]
+    empty_xyz = all_points[select_empty_idx]
 
     ax = plt.figure().add_subplot(projection='3d')
 
@@ -176,12 +173,12 @@ def test_model(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
         # alpha=query_rgb
     )
 
-    # ax.scatter(
-    #     points_empty[:, 0],
-    #     points_empty[:, 2],
-    #     points_empty[:, 1],
-    #     alpha=0.01,
-    # )
+    ax.scatter(
+        empty_xyz[:, 0],
+        empty_xyz[:, 2],
+        empty_xyz[:, 1],
+        alpha=0.1,
+    )
     ax.set_xlim(-2, 2)
     ax.set_ylim(-2, 2)
     ax.set_zlim(-2, 2)
@@ -256,7 +253,7 @@ def dense_visual_box(theta, phi, more_dof=False):
 
 if __name__ == "__main__":
 
-    test_model_pth = 'train_log/log_100data/epoch_2000_model/'
+    test_model_pth = 'train_log/log_125data/best_model/'
 
     DOF = 2
     num_data = 100
@@ -290,9 +287,9 @@ if __name__ == "__main__":
     for i in range(1):
         theta = loop[i % 120]
         phi = (np.sin((i / 60) * 2 * np.pi) - 1.5) * 30.
-        theta,phi = 90,-45
+        theta,phi = 90,0
         print(theta,phi)
-        p_dense, p_empty = test_model(log_pth=test_model_pth, draw=True, theta=theta, phi=phi, idx=i)
+        p_dense, p_empty = dense_visual_3d(log_pth=test_model_pth, draw=True, theta=theta, phi=phi, idx=i)
 
     # pose_transfer_visualize(points_record=p_dense, points_empty=p_empty, theta=30, phi=30)
     # dense_visual_box(theta=0., phi=0.)
