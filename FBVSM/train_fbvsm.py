@@ -11,13 +11,13 @@ print(device)
 prepare data and parameters
 """
 near, far = 2., 6.
-
+Flag_save_image_during_training = True
 DOF = 2  # the number of motors
 num_data = 100
 tr = 0.8 # training ratio
 
 data = np.load('../data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
-valid_amount = 2 # or num_data*(1-tr)
+valid_amount = int(num_data * (1 - tr))
 valid_img_visual = []
 for vimg in range(valid_amount):
     valid_img_visual.append(data['images'][int(num_data*tr)+vimg])
@@ -74,7 +74,7 @@ one_image_per_step = True  # One image per gradient step (disables batching)
 chunksize = 2 ** 14  # Modify as needed to fit in GPU memory
 center_crop = True  # Crop the center of image (one_image_per_)
 center_crop_iters = 50  # Stop cropping center after this many epochs
-display_rate = 100  # Display test output every X epochs
+display_rate = 200  # Display test output every X epochs
 
 # Early Stopping
 warmup_iters = 100  # Number of iterations during warmup phase
@@ -208,7 +208,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
         model.train()
 
         # Randomly pick an image as the target.
-        target_img_idx = np.random.randint(training_img.shape[0])
+        target_img_idx = np.random.randint(training_img.shape[0]-1)
         target_img = training_img[target_img_idx].to(device)
         angle = training_angles[target_img_idx].to(device)
 
@@ -227,7 +227,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
         rays_o = rays_o.reshape([-1, 3])
         rays_d = rays_d.reshape([-1, 3])
 
-        target_img = target_img.reshape([-1, 3])
+        target_img = target_img.reshape([-1, 1])
 
         # Run one iteration of TinyNeRF and get the rendered RGB image.
         outputs = nerf_forward(pose_input, rays_o, rays_d,
@@ -284,11 +284,11 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                                        if_3dof=(d_input == 4))
 
                 rgb_predicted = outputs['rgb_map']
-                loss = torch.nn.functional.mse_loss(rgb_predicted, testing_img[v_i].reshape(-1, 3))
+                loss = torch.nn.functional.mse_loss(rgb_predicted, testing_img[v_i].reshape(-1, 1))
                 val_psnr = (-10. * torch.log10(loss)).item()
                 valid_epoch_loss.append(loss.item())
                 valid_psnr.append(val_psnr)
-                np_image = rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy()
+                np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
                 valid_image.append(np_image)
             psnr_v = np.mean(valid_psnr)
             val_psnrs.append(psnr_v)
@@ -296,8 +296,12 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
             # save test image
             np_image_combine = np.hstack(valid_image)
-            # matplotlib.image.imsave(LOG_PATH + 'image/' + 'latest.png', np_image_combine)
-            matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png' % i, np_image_combine)
+            np_image_combine = np.dstack((np_image_combine,np_image_combine,np_image_combine))
+
+            matplotlib.image.imsave(LOG_PATH + 'image/' + 'latest.png', np_image_combine)
+            if Flag_save_image_during_training:
+                matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png' % i, np_image_combine)
+
 
             record_file_train.write(str(psnr) + "\n")
             record_file_val.write(str(psnr_v) + "\n")

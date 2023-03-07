@@ -202,17 +202,16 @@ def cumprod_exclusive(
     # Compute regular cumprod first (this is equivalent to `tf.math.cumprod(..., exclusive=False)`).
     cumprod = torch.cumprod(tensor, -1)
     # "Roll" the elements along dimension 'dim' by 1 element.
+    # The last element in each ray(last column) is moved to the first column.
     cumprod = torch.roll(cumprod, 1, -1)
     # Replace the first element by "1" as this is what tf.cumprod(..., exclusive=True) does.
     cumprod[..., 0] = 1.
 
     return cumprod
 
-
 """
 volume rendering
 """
-
 
 def raw2outputs(
         raw: torch.Tensor,
@@ -220,7 +219,7 @@ def raw2outputs(
         rays_d: torch.Tensor,
         raw_noise_std: float = 0.0,
         white_bkgd: bool = False
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     r"""
     Convert the raw NeRF output into RGB and other maps.
     """
@@ -229,7 +228,8 @@ def raw2outputs(
     # dists: size 2500x63, the dists between two corresponding points.
     # Difference between consecutive elements of `z_vals`. [n_rays, n_samples]
     dists = z_vals[..., 1:] - z_vals[..., :-1]
-    dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1) # add one elements for each ray to compensate the size to 64
+    dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1)
+    # add one elements for each ray to compensate the size to 64
 
     # Multiply each distance by the norm of its corresponding direction ray
     # to convert to real world distance (accounts for non-unit directions).
@@ -243,7 +243,8 @@ def raw2outputs(
 
     # Predict density of each sample along each ray. Higher values imply
     # higher likelihood of being absorbed at this point. [n_rays, n_samples]
-    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 3] + noise) * dists)
+    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[:, :, 3] + noise) * dists)
+    # The larger the dists or the output(density), the closer alpha is to 1.
 
     # Compute weight for RGB of each sample along each ray. [n_rays, n_samples]
     # The higher the alpha, the lower subsequent weights are driven.
@@ -251,14 +252,15 @@ def raw2outputs(
 
     # Compute weighted RGB map.
     rgb = torch.sigmoid(raw[..., :3])  # [n_rays, n_samples, 3]
+    rgb_each_point = raw[..., 3]
     rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)  # [n_rays, 3]
+    # density_map = torch.sum(weights[..., None], dim=-2)  # [n_rays, 3]
 
     # Estimated depth map is predicted distance.
     depth_map = torch.sum(weights * z_vals, dim=-1)
 
     # Disparity map is inverse depth.
-    disp_map = 1. / torch.max(1e-10 * torch.ones_like(depth_map),
-                              depth_map / torch.sum(weights, -1))
+    disp_map = 1. / torch.max(1e-10 * torch.ones_like(depth_map), depth_map / torch.sum(weights, -1))
 
     # Sum of weights along each ray. In [0, 1] up to numerical error.
     acc_map = torch.sum(weights, dim=-1)
@@ -267,7 +269,7 @@ def raw2outputs(
     if white_bkgd:
         rgb_map = rgb_map + (1. - acc_map[..., None])
 
-    return rgb_map, depth_map, acc_map, weights
+    return rgb_map, depth_map, acc_map, weights, rgb_each_point
 
 
 def sample_pdf(
@@ -411,9 +413,8 @@ def nerf_forward(
         viewdirs_encoding_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
         chunksize: int = 2 ** 15,
         arm_angle: float = 1.,
-        if_3dof: bool = False,
-        only_raw: bool = False
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict]:
+        if_3dof: bool = False
+) -> dict:
     r"""
     Compute forward pass through model(s).
     """
@@ -447,7 +448,7 @@ def nerf_forward(
     raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 
     # Perform differentiable volume rendering to re-synthesize the RGB image.
-    rgb_map, depth_map, acc_map, weights = raw2outputs(raw, z_vals, rays_d)
+    rgb_map, depth_map, acc_map, weights, rgb_each_point = raw2outputs(raw, z_vals, rays_d)
     # rgb_map, depth_map, acc_map, weights = render_volume_density(raw, rays_o, z_vals)
     outputs = {
         'z_vals_stratified': z_vals
@@ -479,13 +480,10 @@ def nerf_forward(
             predictions.append(fine_model(batch, viewdirs=batch_viewdirs))
         raw = torch.cat(predictions, dim=0)
 
-        if only_raw:
-            return raw
-
         raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 
         # Perform differentiable volume rendering to re-synthesize the RGB image.
-        rgb_map, depth_map, acc_map, weights = raw2outputs(raw, z_vals_combined, rays_d)
+        rgb_map, depth_map, acc_map, weights, rgb_each_point = raw2outputs(raw, z_vals_combined, rays_d)
 
         # Store outputs.
         outputs['z_vals_hierarchical'] = z_hierarch
@@ -498,6 +496,8 @@ def nerf_forward(
     outputs['depth_map'] = depth_map
     outputs['acc_map'] = acc_map
     outputs['weights'] = weights
+    outputs['query_points']=query_points
+    outputs['rgb_each_point'] = rgb_each_point
     return outputs
 
 

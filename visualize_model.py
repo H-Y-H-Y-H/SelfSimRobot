@@ -60,7 +60,6 @@ def make_video():
 
 def dense_visual_3d(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
     pose_transfer = c2w_matrix(theta, phi, 0.)
-    count, count_empty = 0, 0
     batch_size = 1024
 
     points_record = np.asarray([])
@@ -83,14 +82,12 @@ def dense_visual_3d(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
             points_record = np.append(points_record, p[binary_idx].reshape(-1,3))
 
         points_empty = np.append(points_empty, p[torch.nonzero(torch.logical_not(binary_out)).cpu().detach().numpy()].reshape(-1,3))
-
     points_record = np.reshape(np.array(points_record), (-1,3))
     dense_record = np.asarray(dense_record)
     points_empty = np.asarray(points_empty).reshape(-1,3)
 
     pr_tran = np.concatenate((points_record, np.ones((len(points_record), 1))), 1)
     pr_tran = np.dot(pose_transfer, pr_tran.T).T[:, :3]
-    # print(p_tran.shape)
     if draw:
         ax = plt.figure().add_subplot(projection='3d')
         ax.scatter(
@@ -118,6 +115,81 @@ def dense_visual_3d(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
 
     return points_record, points_empty
 
+
+def test_model(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
+    target_pose = c2w_matrix(theta, phi, 4.)
+    target_pose = torch.from_numpy(target_pose.astype('float32')).to(device)
+    rays_o, rays_d = get_rays(height, width, focal, target_pose)
+    rays_o = rays_o.reshape([-1, 3])
+    rays_d = rays_d.reshape([-1, 3])
+
+    count, count_empty = 0, 0
+
+    points_record = np.asarray([])
+    dense_record = np.asarray([])
+    points_empty = np.asarray([])
+
+    outputs = nerf_forward(rays_o, rays_d,
+                           near, far, encode, model,
+                           kwargs_sample_stratified=kwargs_sample_stratified,
+                           n_samples_hierarchical=n_samples_hierarchical,
+                           kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+                           fine_model=fine_model,
+                           viewdirs_encoding_fn=encode_viewdirs,
+                           chunksize=chunksize)
+
+    # Check for any numerical issues.
+    for k, v in outputs.items():
+        if torch.isnan(v).any():
+            print(f"! [Numerical Alert] {k} contains NaN.")
+        if torch.isinf(v).any():
+            print(f"! [Numerical Alert] {k} contains Inf.")
+
+    all_points = outputs["query_points"].detach().cpu().numpy().reshape(-1, 3)
+    rgb_each_point = outputs["rgb_each_point"].reshape(-1)
+
+    sign = torch.sign(rgb_each_point)
+    binary_out = torch.relu(sign)
+
+    nonempty_idx = torch.nonzero(binary_out).cpu().detach().numpy().reshape(-1)
+
+    query_size = 1000
+
+    nonempty_idx = nonempty_idx[:query_size]
+    # query_points = np.random.choice(len(all_points), query_size)
+
+    query_xyz = all_points[nonempty_idx]
+    # query_rgb = rgb_each_point[query_points]
+    # query_rgb = np.sum(rgb_each_point[query_points],1)
+
+    # occupied_point_idx = np.nonzero(query_rgb)
+    #
+    # query_xyz = query_xyz[occupied_point_idx]
+
+    ax = plt.figure().add_subplot(projection='3d')
+    ax.scatter(
+        query_xyz[:, 0],
+        query_xyz[:, 2],
+        query_xyz[:, 1],
+        # alpha=query_rgb
+    )
+    # ax.scatter(
+    #     points_empty[:, 0],
+    #     points_empty[:, 2],
+    #     points_empty[:, 1],
+    #     alpha=0.01,
+    # )
+    # ax.set_xlim(-2, 2)
+    # ax.set_ylim(-2, 2)
+    # ax.set_zlim(-2, 2)
+    # ax.set_xlabel('X')
+    # ax.set_ylabel('Y')
+    # ax.set_zlabel('Z')
+    plt.show()
+    # os.makedirs(log_pth+'/visual_test',exist_ok= True)
+    # plt.savefig(log_pth +'/visual_test/%04d.png' % i)
+
+    return points_record, points_empty
 
 def pose_transfer_visualize(points_record, points_empty, theta=30, phi=30):
     pose_transfer = w2c_matrix(theta, phi, 4.)[:3, :3]
@@ -181,10 +253,19 @@ def dense_visual_box(theta, phi, more_dof=False):
 
 if __name__ == "__main__":
 
-    test_model_pth = 'train_log/log_1000data/'
+    test_model_pth = 'train_log/log_100data/epoch_5000_model/'
 
-    # make_video()
+    DOF = 2
+    num_data = 100
     n_samples_hierarchical = 64
+    height = 100
+    width = 100
+    near = 2.
+    far = 6.
+
+    data = np.load('data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
+    focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
+
     kwargs_sample_stratified = {
         'n_samples': 64,
         'perturb': True,
@@ -197,15 +278,18 @@ if __name__ == "__main__":
 
     model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper = init_models()
     fine_model.load_state_dict(
-        torch.load(test_model_pth+"best_model/nerf-fine.pt", map_location=torch.device(device)))
+        torch.load(test_model_pth+"nerf-fine.pt", map_location=torch.device(device)))
+    model.load_state_dict(torch.load(test_model_pth+"nerf.pt", map_location=torch.device(device)))
     fine_model.eval()
+    model.eval()
 
     loop = np.linspace(-180., 180., 120, endpoint=False)
     for i in range(1):
         theta = loop[i % 120]
         phi = (np.sin((i / 60) * 2 * np.pi) - 1.5) * 30.
-        p_dense, p_empty = dense_visual_3d(log_pth=test_model_pth, draw=True, theta=theta, phi=phi, idx=i)
+        p_dense, p_empty = test_model(log_pth=test_model_pth, draw=True, theta=theta, phi=phi, idx=i)
 
     # pose_transfer_visualize(points_record=p_dense, points_empty=p_empty, theta=30, phi=30)
     # dense_visual_box(theta=0., phi=0.)
 
+    # make_video()

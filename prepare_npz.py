@@ -58,15 +58,16 @@ def prepare_data(my_env, path, num_data):
         obs, _, _, _ = my_env.step(angle_list)
         angles = obs[0] * 90.  # obs[0] -> angles of motors, size = motor num
         w2c_m = w2c_matrix(angles[0], angles[1], HYPER_radius_scaler)
-        image_record.append(1. - obs[1] / 255.)
+        img = 1. - obs[1] / 255.
+        image_record.append(img[...,0])
         pose_record.append(w2c_m)
         angle_record.append(angles)
 
-        np.savez(path + 'dof%d_data%d.npz' % (DOF, num_data),
-                 images=np.array(image_record),
-                 poses=np.array(pose_record),
-                 angles=np.array(angle_record),
-                 focal=focal)
+    np.savez(path + 'dof%d_data%d.npz' % (DOF, num_data),
+             images=np.array(image_record),
+             poses=np.array(pose_record),
+             angles=np.array(angle_record),
+             focal=focal)
 
     # keep running
     if RENDER:
@@ -149,7 +150,7 @@ if __name__ == "__main__":
     # Data_collection
     log_pth = "data/arm_data/"
     os.makedirs(log_pth, exist_ok=True)
-    prepare_data(my_env=MyEnv, path=log_pth, num_data=125)
+    prepare_data(my_env=MyEnv, path=log_pth, num_data=100)
 
     """visual test"""
     # matrix_visual()

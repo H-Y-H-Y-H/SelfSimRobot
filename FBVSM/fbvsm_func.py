@@ -107,7 +107,6 @@ def transfer_box(vbox, norm_angles, c_h=1.106, forward_flag=False):
     return new_view_box, flatten_new_view_box
 
 
-
 def get_rays(
         height: int,
         width: int,
@@ -226,7 +225,8 @@ def raw2outputs(
     # dists: size 2500x63, the dists between two corresponding points.
     # Difference between consecutive elements of `z_vals`. [n_rays, n_samples]
     dists = z_vals[..., 1:] - z_vals[..., :-1]
-    dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1) # add one elements for each ray to compensate the size to 64
+    dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1)
+    # add one elements for each ray to compensate the size to 64
 
     # Multiply each distance by the norm of its corresponding direction ray
     # to convert to real world distance (accounts for non-unit directions).
@@ -240,14 +240,14 @@ def raw2outputs(
 
     # Predict density of each sample along each ray. Higher values imply
     # higher likelihood of being absorbed at this point. [n_rays, n_samples]
-    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 3] + noise) * dists)
+    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1] + noise) * dists)
 
     # Compute weight for RGB of each sample along each ray. [n_rays, n_samples]
     # The higher the alpha, the lower subsequent weights are driven.
     weights = alpha * cumprod_exclusive(1. - alpha + 1e-10)
 
     # Compute weighted RGB map.
-    rgb = torch.sigmoid(raw[..., :3])  # [n_rays, n_samples, 3]
+    rgb = torch.sigmoid(raw[..., :1])  # [n_rays, n_samples, 3]
     rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)  # [n_rays, 3]
 
     # Estimated depth map is predicted distance.

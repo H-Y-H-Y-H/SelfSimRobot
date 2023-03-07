@@ -9,28 +9,30 @@ print(device)
 prepare data and parameters
 """
 near, far = 2., 6.
-Flag_save_image_during_training = False
+Flag_save_image_during_training = True
 DOF = 2  # the number of motors
-num_data = 1000
-tr = 0.8 # training ratio
+num_data = 125
+tr = 0.8  # training ratio
 
 data = np.load('data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
-valid_amount = int(num_data*(1-tr))
+valid_amount = int(num_data * (1 - tr))
 valid_img_visual = []
 for vimg in range(valid_amount):
-    valid_img_visual.append(data['images'][int(num_data*tr)+vimg])
+    valid_img_visual.append(data['images'][int(num_data * tr) + vimg])
 testing_img_valid = np.hstack(valid_img_visual)
+valid_img_visual = np.dstack((valid_img_visual,valid_img_visual,valid_img_visual))
 
 # Gather as torch tensors
 focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
 
-training_img =    torch.from_numpy(data['images'][:int(num_data*tr)].astype('float32')).to(device)
-training_poses =  torch.from_numpy(data['poses' ][:int(num_data*tr)].astype('float32')).to(device)
-training_angles = torch.from_numpy(data['angles'][:int(num_data*tr)].astype('float32')).to(device)
+training_img = torch.from_numpy(data['images'][:int(num_data * tr)].astype('float32')).to(device)
+training_poses = torch.from_numpy(data['poses'][:int(num_data * tr)].astype('float32')).to(device)
+training_angles = torch.from_numpy(data['angles'][:int(num_data * tr)].astype('float32')).to(device)
 
-testing_img =    torch.from_numpy(data['images'][int(num_data*tr):].astype('float32')).to(device)
-testing_poses =  torch.from_numpy(data['poses' ][int(num_data*tr):].astype('float32')).to(device)
-testing_angles = torch.from_numpy(data['angles'][int(num_data*tr):].astype('float32')).to(device)
+
+testing_img = torch.from_numpy(data['images'][int(num_data * tr):].astype('float32')).to(device)
+testing_poses = torch.from_numpy(data['poses'][int(num_data * tr):].astype('float32')).to(device)
+testing_angles = torch.from_numpy(data['angles'][int(num_data * tr):].astype('float32')).to(device)
 
 # Grab rays from sample image
 height, width = training_img.shape[1:3]
@@ -66,7 +68,7 @@ perturb_hierarchical = False  # If set, applies noise to sample positions
 lr = 5e-4  # Learning rate
 
 # Training
-n_iters = 30000
+n_iters = 10000
 batch_size = 2 ** 14  # Number of rays per gradient step (power of 2)
 one_image_per_step = True  # One image per gradient step (disables batching)
 chunksize = 2 ** 14  # Modify as needed to fit in GPU memory
@@ -175,12 +177,12 @@ def init_models():
 
     # Models
     model = FBV_SM(encoder.d_output, n_layers=n_layers, d_filter=d_filter, skip=skip,
-                 d_viewdirs=d_viewdirs)
+                   d_viewdirs=d_viewdirs)
     model.to(device)
     model_params = list(model.parameters())
     if use_fine_model:
         fine_model = FBV_SM(encoder.d_output, n_layers=n_layers, d_filter=d_filter, skip=skip,
-                          d_viewdirs=d_viewdirs)
+                            d_viewdirs=d_viewdirs)
         fine_model.to(device)
         model_params = model_params + list(fine_model.parameters())
     else:
@@ -201,7 +203,6 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
     """
     # Shuffle rays across all images.
     if not one_image_per_step:
-
         # get_rays -> (rays_o, rays_d): ray origins and ray directions.
         height, width = training_img.shape[1:3]
         all_rays = torch.stack([torch.stack(get_rays(height, width, focal, p), 0) for p in training_poses], 0)
@@ -222,14 +223,14 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
         if one_image_per_step:
             # Randomly pick an image as the target.
-            target_img_idx = np.random.randint(training_img.shape[0]-1)
-            target_img = training_img[target_img_idx].to(device)
-            angle = training_angles[target_img_idx].to(device)
+            target_img_idx = np.random.randint(training_img.shape[0] - 1)
+            target_img = training_img[target_img_idx]
+            angle = training_angles[target_img_idx]
 
             if center_crop and i < center_crop_iters:
                 target_img = crop_center(target_img)
             height, width = target_img.shape[:2]
-            target_pose = training_poses[target_img_idx].to(device)
+            target_pose = training_poses[target_img_idx]
             rays_o, rays_d = get_rays(height, width, focal, target_pose)
             rays_o = rays_o.reshape([-1, 3])
             rays_d = rays_d.reshape([-1, 3])
@@ -244,6 +245,8 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             if i_batch >= rays_rgb.shape[0]:
                 rays_rgb = rays_rgb[torch.randperm(rays_rgb.shape[0])]
                 i_batch = 0
+
+        target_img = torch.dstack((target_img,target_img,target_img))
         target_img = target_img.reshape([-1, 3])
 
         # Run one iteration of TinyNeRF and get the rendered RGB image.
@@ -254,9 +257,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                                kwargs_sample_hierarchical=kwargs_sample_hierarchical,
                                fine_model=fine_model,
                                viewdirs_encoding_fn=encode_viewdirs,
-                               chunksize=chunksize,
-                               arm_angle=angle,
-                               if_3dof=(d_input == 4))
+                               chunksize=chunksize)
 
         # Check for any numerical issues.
         for k, v in outputs.items():
@@ -267,7 +268,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
         # Backprop!
         rgb_predicted = outputs['rgb_map']
-        loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
+        loss = torch.nn.functional.mse_loss(rgb_predicted, target_img) # target_img[..., 0]: one channel
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -294,12 +295,12 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                                        kwargs_sample_hierarchical=kwargs_sample_hierarchical,
                                        fine_model=fine_model,
                                        viewdirs_encoding_fn=encode_viewdirs,
-                                       chunksize=chunksize,
-                                       arm_angle=testing_angles[v_i],
-                                       if_3dof=(d_input == 4))
+                                       chunksize=chunksize)
 
                 rgb_predicted = outputs['rgb_map']
-                loss = torch.nn.functional.mse_loss(rgb_predicted, testing_img[v_i].reshape(-1, 3))
+                img_label = torch.dstack((testing_img[v_i],testing_img[v_i],testing_img[v_i]))
+
+                loss = torch.nn.functional.mse_loss(rgb_predicted, img_label.reshape(-1,3))
                 val_psnr = (-10. * torch.log10(loss)).item()
                 valid_epoch_loss.append(loss.item())
                 valid_psnr.append(val_psnr)
@@ -311,6 +312,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
             # save test image
             np_image_combine = np.hstack(valid_image)
+
             matplotlib.image.imsave(LOG_PATH + 'image/' + 'latest.png', np_image_combine)
             if Flag_save_image_during_training:
                 matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png' % i, np_image_combine)
@@ -327,6 +329,10 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                 patience = 0
             else:
                 patience += 1
+            os.makedirs(LOG_PATH+ "epoch_%d_model"%i,exist_ok=True)
+            torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt'%i)
+            torch.save(fine_model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf-fine.pt'%i)
+
 
         # Check PSNR for issues and stop if any are found.
         if i == warmup_iters - 1:
@@ -346,7 +352,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
 if __name__ == "__main__":
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata/"%num_data
+    LOG_PATH = "train_log/log_%ddata/" % num_data
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
