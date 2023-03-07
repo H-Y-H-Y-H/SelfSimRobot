@@ -69,8 +69,7 @@ def dense_visual_3d(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
         p = np.random.rand(batch_size, 3) * 4. - 2.
         point = encode(torch.from_numpy(p.astype(np.float32))).to(device)
         out = fine_model(point)
-        sign = torch.sign(out[:, 3])
-        binary_out = torch.relu(sign)
+        binary_out = torch.relu(out[:, 3])
         dense = 1.0 - torch.exp(-nn.functional.relu(out[:, 3]))
 
         binary_idx = torch.nonzero(binary_out)
@@ -118,8 +117,8 @@ def dense_visual_3d(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
 
 def test_model(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
     target_pose = c2w_matrix(theta, phi, 4.)
-    target_pose = torch.from_numpy(target_pose.astype('float32')).to(device)
-    rays_o, rays_d = get_rays(height, width, focal, target_pose)
+    target_pose_tensor = torch.from_numpy(target_pose.astype('float32')).to(device)
+    rays_o, rays_d = get_rays(height, width, focal, target_pose_tensor)
     rays_o = rays_o.reshape([-1, 3])
     rays_d = rays_d.reshape([-1, 3])
 
@@ -148,40 +147,44 @@ def test_model(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
     all_points = outputs["query_points"].detach().cpu().numpy().reshape(-1, 3)
     rgb_each_point = outputs["rgb_each_point"].reshape(-1)
 
-    sign = torch.sign(rgb_each_point)
-    binary_out = torch.relu(sign)
+    binary_out = torch.relu(rgb_each_point)
 
     nonempty_idx = torch.nonzero(binary_out).cpu().detach().numpy().reshape(-1)
 
-    query_size = 1000
+    # query_size = 4000
 
-    nonempty_idx = nonempty_idx[:query_size]
+    # nonempty_idx = nonempty_idx[:query_size]
     # query_points = np.random.choice(len(all_points), query_size)
 
     query_xyz = all_points[nonempty_idx]
     # query_rgb = rgb_each_point[query_points]
     # query_rgb = np.sum(rgb_each_point[query_points],1)
-
     # occupied_point_idx = np.nonzero(query_rgb)
-    #
     # query_xyz = query_xyz[occupied_point_idx]
 
     ax = plt.figure().add_subplot(projection='3d')
+
+    target_pose = c2w_matrix(theta, phi, 0.)
+
+    query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
+    query_xyz = np.dot(target_pose, query_xyz.T).T[:, :3]
+
     ax.scatter(
         query_xyz[:, 0],
         query_xyz[:, 2],
         query_xyz[:, 1],
         # alpha=query_rgb
     )
+
     # ax.scatter(
     #     points_empty[:, 0],
     #     points_empty[:, 2],
     #     points_empty[:, 1],
     #     alpha=0.01,
     # )
-    # ax.set_xlim(-2, 2)
-    # ax.set_ylim(-2, 2)
-    # ax.set_zlim(-2, 2)
+    ax.set_xlim(-2, 2)
+    ax.set_ylim(-2, 2)
+    ax.set_zlim(-2, 2)
     # ax.set_xlabel('X')
     # ax.set_ylabel('Y')
     # ax.set_zlabel('Z')
@@ -253,7 +256,7 @@ def dense_visual_box(theta, phi, more_dof=False):
 
 if __name__ == "__main__":
 
-    test_model_pth = 'train_log/log_100data/epoch_5000_model/'
+    test_model_pth = 'train_log/log_100data/epoch_2000_model/'
 
     DOF = 2
     num_data = 100
@@ -287,6 +290,8 @@ if __name__ == "__main__":
     for i in range(1):
         theta = loop[i % 120]
         phi = (np.sin((i / 60) * 2 * np.pi) - 1.5) * 30.
+        theta,phi = 90,-45
+        print(theta,phi)
         p_dense, p_empty = test_model(log_pth=test_model_pth, draw=True, theta=theta, phi=phi, idx=i)
 
     # pose_transfer_visualize(points_record=p_dense, points_empty=p_empty, theta=30, phi=30)

@@ -150,7 +150,7 @@ if __name__ == "__main__":
     # Data_collection
     log_pth = "data/arm_data/"
     os.makedirs(log_pth, exist_ok=True)
-    prepare_data(my_env=MyEnv, path=log_pth, num_data=100)
+    prepare_data(my_env=MyEnv, path=log_pth, num_data=1000)
 
     """visual test"""
     # matrix_visual()

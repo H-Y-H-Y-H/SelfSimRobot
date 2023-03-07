@@ -252,7 +252,10 @@ def raw2outputs(
 
     # Compute weighted RGB map.
     rgb = torch.sigmoid(raw[..., :3])  # [n_rays, n_samples, 3]
-    rgb_each_point = raw[..., 3]
+    rgb_each_point = weights * torch.sigmoid(raw[..., 3])
+    # rgb_each_point = torch.sigmoid(torch.relu(weights)) * raw[..., 3]
+
+    render_img = torch.sum(rgb_each_point, dim=1)
     rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)  # [n_rays, 3]
     # density_map = torch.sum(weights[..., None], dim=-2)  # [n_rays, 3]
 
@@ -269,7 +272,7 @@ def raw2outputs(
     if white_bkgd:
         rgb_map = rgb_map + (1. - acc_map[..., None])
 
-    return rgb_map, depth_map, acc_map, weights, rgb_each_point
+    return render_img, depth_map, acc_map, weights, rgb_each_point
 
 
 def sample_pdf(
@@ -480,23 +483,24 @@ def nerf_forward(
             predictions.append(fine_model(batch, viewdirs=batch_viewdirs))
         raw = torch.cat(predictions, dim=0)
 
-        raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
+        raw_ = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 
         # Perform differentiable volume rendering to re-synthesize the RGB image.
-        rgb_map, depth_map, acc_map, weights, rgb_each_point = raw2outputs(raw, z_vals_combined, rays_d)
+        rgb_map, depth_map, acc_map, weights, rgb_each_point = raw2outputs(raw_, z_vals_combined, rays_d)
 
         # Store outputs.
         outputs['z_vals_hierarchical'] = z_hierarch
         outputs['rgb_map_0'] = rgb_map_0
         outputs['depth_map_0'] = depth_map_0
         outputs['acc_map_0'] = acc_map_0
+        outputs['query_points'] = query_points
 
     # Store outputs.
     outputs['rgb_map'] = rgb_map
     outputs['depth_map'] = depth_map
     outputs['acc_map'] = acc_map
     outputs['weights'] = weights
-    outputs['query_points']=query_points
+
     outputs['rgb_each_point'] = rgb_each_point
     return outputs
 

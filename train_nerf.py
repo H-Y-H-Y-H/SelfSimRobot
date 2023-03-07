@@ -11,7 +11,7 @@ prepare data and parameters
 near, far = 2., 6.
 Flag_save_image_during_training = True
 DOF = 2  # the number of motors
-num_data = 125
+num_data = 100
 tr = 0.8  # training ratio
 
 data = np.load('data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
@@ -20,7 +20,7 @@ valid_img_visual = []
 for vimg in range(valid_amount):
     valid_img_visual.append(data['images'][int(num_data * tr) + vimg])
 testing_img_valid = np.hstack(valid_img_visual)
-valid_img_visual = np.dstack((valid_img_visual,valid_img_visual,valid_img_visual))
+valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
 
 # Gather as torch tensors
 focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
@@ -28,7 +28,6 @@ focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
 training_img = torch.from_numpy(data['images'][:int(num_data * tr)].astype('float32')).to(device)
 training_poses = torch.from_numpy(data['poses'][:int(num_data * tr)].astype('float32')).to(device)
 training_angles = torch.from_numpy(data['angles'][:int(num_data * tr)].astype('float32')).to(device)
-
 
 testing_img = torch.from_numpy(data['images'][int(num_data * tr):].astype('float32')).to(device)
 testing_poses = torch.from_numpy(data['poses'][int(num_data * tr):].astype('float32')).to(device)
@@ -246,8 +245,8 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                 rays_rgb = rays_rgb[torch.randperm(rays_rgb.shape[0])]
                 i_batch = 0
 
-        target_img = torch.dstack((target_img,target_img,target_img))
-        target_img = target_img.reshape([-1, 3])
+        # target_img = torch.dstack((target_img,target_img,target_img))
+        target_img = target_img.reshape([-1])
 
         # Run one iteration of TinyNeRF and get the rendered RGB image.
         outputs = nerf_forward(rays_o, rays_d,
@@ -268,7 +267,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
         # Backprop!
         rgb_predicted = outputs['rgb_map']
-        loss = torch.nn.functional.mse_loss(rgb_predicted, target_img) # target_img[..., 0]: one channel
+        loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)  # target_img[..., 0]: one channel
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -276,9 +275,8 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
         # Compute mean-squared error between predicted and target images.
         psnr = -10. * torch.log10(loss)
         train_psnrs.append(psnr.item())
-
         # Evaluate testimg at given display rate.
-        if i % display_rate == 0:
+        if (i) % display_rate == 0:
             model.eval()
             valid_epoch_loss = []
             valid_psnr = []
@@ -298,13 +296,13 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                                        chunksize=chunksize)
 
                 rgb_predicted = outputs['rgb_map']
-                img_label = torch.dstack((testing_img[v_i],testing_img[v_i],testing_img[v_i]))
-
-                loss = torch.nn.functional.mse_loss(rgb_predicted, img_label.reshape(-1,3))
+                # img_label = torch.dstack((testing_img[v_i],testing_img[v_i],testing_img[v_i]))
+                img_label = testing_img[v_i]
+                loss = torch.nn.functional.mse_loss(rgb_predicted, img_label.reshape(-1))
                 val_psnr = (-10. * torch.log10(loss)).item()
                 valid_epoch_loss.append(loss.item())
                 valid_psnr.append(val_psnr)
-                np_image = rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy()
+                np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
                 valid_image.append(np_image)
             psnr_v = np.mean(valid_psnr)
             val_psnrs.append(psnr_v)
@@ -312,6 +310,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
 
             # save test image
             np_image_combine = np.hstack(valid_image)
+            np_image_combine = np.dstack((np_image_combine, np_image_combine, np_image_combine))
 
             matplotlib.image.imsave(LOG_PATH + 'image/' + 'latest.png', np_image_combine)
             if Flag_save_image_during_training:
@@ -329,10 +328,9 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                 patience = 0
             else:
                 patience += 1
-            os.makedirs(LOG_PATH+ "epoch_%d_model"%i,exist_ok=True)
-            torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt'%i)
-            torch.save(fine_model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf-fine.pt'%i)
-
+            os.makedirs(LOG_PATH + "epoch_%d_model" % i, exist_ok=True)
+            torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
+            torch.save(fine_model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf-fine.pt' % i)
 
         # Check PSNR for issues and stop if any are found.
         if i == warmup_iters - 1:
@@ -362,7 +360,7 @@ if __name__ == "__main__":
     Patience_threshold = 100
 
     # Save testing gt image for visualization
-
+    testing_img_valid = np.dstack((testing_img_valid,testing_img_valid,testing_img_valid))
     matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', testing_img_valid)
 
     for _ in range(n_restarts):

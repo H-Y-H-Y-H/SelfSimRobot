@@ -8,7 +8,7 @@ import cv2
 
 
 class FBVSM_Env(gym.Env):
-    def __init__(self, show_moving_cam, width=400, height=400, render_flag=False, num_motor=2):
+    def __init__(self, show_moving_cam, width=400, height=400, render_flag=False, num_motor=2,max_num_motor = 3):
 
         self.show_moving_cam = show_moving_cam
         self.camera_pos_inverse = None
@@ -19,6 +19,7 @@ class FBVSM_Env(gym.Env):
         self.maxVelocity = 1.5
         self.action_space = 90
         self.num_motor = num_motor
+        self.max_num_motor = max_num_motor
         #  camera z offset
         self.z_offset = 1.106
         self.action_shift = np.asarray([90, 90, 0, 0])[:num_motor]
@@ -89,9 +90,14 @@ class FBVSM_Env(gym.Env):
                     p.setJointMotorControl2(self.robot_id, i_m, controlMode=p.POSITION_CONTROL, targetPosition=action[i_m],
                                             force=self.force,
                                             maxVelocity=self.maxVelocity)
-
                     joint_state = p.getJointState(self.robot_id, i_m)[0]
                     joint_pos.append(joint_state)
+
+                if self.num_motor<self.max_num_motor:
+                    for i_m in range(self.num_motor,self.max_num_motor):
+                        p.setJointMotorControl2(self.robot_id, i_m, controlMode=p.POSITION_CONTROL, targetPosition=0,
+                                                force=self.force,maxVelocity=self.maxVelocity)
+
                 joint_pos = np.asarray(joint_pos)
 
                 for _ in range(50):
