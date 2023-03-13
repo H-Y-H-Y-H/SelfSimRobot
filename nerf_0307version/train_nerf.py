@@ -14,7 +14,7 @@ DOF = 2  # the number of motors
 num_data = 100
 tr = 0.8  # training ratio
 
-data = np.load('data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
+data = np.load('../data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
 valid_amount = int(num_data * (1 - tr))
 valid_img_visual = []
 for vimg in range(valid_amount):

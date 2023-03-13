@@ -49,59 +49,23 @@ def w2c_matrix(theta, phi, radius):
     return w2c
 
 
-def random_data(DOF, num_data):
-    log_angle_list = []
-
-    for i in range(num_data):
-        angle_list = np.random.rand(DOF) * 2 - 1
-        log_angle_list.append(angle_list)
-
-    return np.asarray(log_angle_list)
-
-
-def uniform_data(uniform_samples=10):
-    theta_0_linspace = np.linspace(-1., 1., uniform_samples, endpoint=True)
-    theta_1_linspace = np.linspace(-1., 1., uniform_samples, endpoint=True)
-    theta_2_linspace = np.linspace(-1., 1., uniform_samples, endpoint=True)
-
-    log_angle_list = []
-    if DOF == 2:
-        for i in range(uniform_samples ** DOF):
-            theta0 = theta_0_linspace[i // uniform_samples]
-            theta1 = theta_1_linspace[i % uniform_samples]
-            log_angle_list.append([theta0, theta1])
-    if DOF == 3:
-        for i in range(uniform_samples):
-            theta0 = theta_0_linspace[i]
-            for j in range(uniform_samples ** (DOF-1)):
-                theta1 = theta_1_linspace[j // uniform_samples]
-                theta2 = theta_2_linspace[j %  uniform_samples]
-                log_angle_list.append([theta0, theta1, theta2])
-
-    log_angle_list = np.asarray(log_angle_list)
-
-    return log_angle_list
-
-
-def prepare_data(my_env, path, action_lists):
+def prepare_data(my_env, path, num_data, save_id):
     my_env.reset()
     image_record, pose_record, angle_record = [], [], []
 
-    for i in range(len(action_lists)):
-        action_l = action_lists[i]
-        print(action_l)
-        obs, _, _, _ = my_env.step(action_l)
+    for i in range(num_data):
+        angle_list = np.random.rand(DOF)*2 - 1
+        obs, _, _, _ = my_env.step(angle_list)
         angles = obs[0] * 90.  # obs[0] -> angles of motors, size = motor num
-        # w2c_m = w2c_matrix(angles[0], angles[1], HYPER_radius_scaler)
+        w2c_m = w2c_matrix(angles[0], angles[1], HYPER_radius_scaler)
         img = 1. - obs[1] / 255.
-        # img = obs[1] / 255.
         image_record.append(img[..., 0])
-        # pose_record.append(w2c_m)
+        pose_record.append(w2c_m)
         angle_record.append(angles)
 
-    np.savez(path + 'dof%d_data%d.npz' % (DOF, len(action_lists)),
+    np.savez(path + 'dof%d_data%d_%d.npz' % (DOF, num_data, save_id),
              images=np.array(image_record),
-             # poses=np.array(pose_record),
+             poses=np.array(pose_record),
              angles=np.array(angle_record),
              focal=focal)
 
@@ -164,9 +128,7 @@ if __name__ == "__main__":
     MOV_CAM = False
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 4  # distance between the camera and the robot arm
-    DOF = 2  # the number of motors
-    sample_num = 10
-
+    DOF = 3  # the number of motors
     # Camera config: focal
     Camera_FOV = 42.
     camera_angle_x = Camera_FOV * np.pi / 180.
@@ -185,14 +147,12 @@ if __name__ == "__main__":
     # prepare_data_4dof(full_env=MyEnv, path="data/arm_data/")
 
     # Data_collection
-    log_pth = "data/uniform_data/"
+    log_pth = "data/arm_data/"
     os.makedirs(log_pth, exist_ok=True)
 
-    action_lists = uniform_data(20)
+    for save_id in range(10):
+        prepare_data(my_env=MyEnv, path=log_pth, num_data=1000, save_id = save_id)
 
-    prepare_data(my_env=MyEnv,
-                 path=log_pth,
-                 action_lists=action_lists)
 
     """visual test"""
     # matrix_visual()

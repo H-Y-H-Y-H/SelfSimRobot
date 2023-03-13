@@ -10,14 +10,15 @@ prepare data and parameters
 """
 near, far = 2., 6.
 Flag_save_image_during_training = True
-DOF = 2  # the number of motors
-num_data = 100
+DOF = 3  # the number of motors
+num_data = 200
 tr = 0.8  # training ratio
-
 data = np.load('data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
+
 valid_amount = int(num_data * (1 - tr))
+max_pic_save = 20
 valid_img_visual = []
-for vimg in range(valid_amount):
+for vimg in range(max_pic_save):
     valid_img_visual.append(data['images'][int(num_data * tr) + vimg])
 testing_img_valid = np.hstack(valid_img_visual)
 valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
@@ -39,7 +40,7 @@ print('IMG (height, width)', (height, width))
 
 # Encoders
 """arm dof=2, input=3;  arm dof=3, input=4"""
-d_input = 3  # Number of input dimensions
+d_input = 4  # Number of input dimensions
 
 n_freqs = 10  # Number of encoding functions for samples
 log_space = True  # If set, frequencies scale in log space
@@ -54,10 +55,16 @@ inverse_depth = False  # If set, samples points linearly in inverse depth
 # Model
 d_filter = 128  # Dimensions of linear layer filters
 n_layers = 2  # Number of layers in network bottleneck
+# d_filter = 256  # Dimensions of linear layer filters
+# n_layers = 2  # Number of layers in network bottleneck
+
 skip = []  # Layers at which to apply input residual
 use_fine_model = True  # If set, creates a fine model
+
 d_filter_fine = 128  # Dimensions of linear layer filters of fine network
 n_layers_fine = 6  # Number of layers in fine network bottleneck
+# d_filter_fine = 256  # Dimensions of linear layer filters of fine network
+# n_layers_fine = 6  # Number of layers in fine network bottleneck
 
 # Hierarchical sampling
 n_samples_hierarchical = 64  # Number of samples per ray
@@ -156,7 +163,7 @@ class EarlyStopping:
         return stop
 
 
-def init_models():
+def init_models(pretrained_model_pth = None):
     r"""
   Initialize models, encoders, and optimizer for NeRF training.
   """
@@ -187,11 +194,17 @@ def init_models():
     else:
         fine_model = None
 
+    # Pretrained Model
+    if pretrained_model_pth != None:
+        model.load_state_dict(torch.load(pretrained_model_pth + "nerf.pt", map_location=torch.device(device)))
+        fine_model.load_state_dict(
+            torch.load(pretrained_model_pth + "nerf-fine.pt", map_location=torch.device(device)))
+
     # Optimizer
     optimizer = torch.optim.Adam(model_params, lr=lr)
 
     # Early Stopping
-    warmup_stopper = EarlyStopping(patience=50)
+    warmup_stopper = EarlyStopping(patience=100)
 
     return model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper
 
@@ -216,8 +229,10 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
     val_psnrs = []
     iternums = []
     best_psnr = 0.
+    psnr_v_last = 0
+    patience = 0
     for i in trange(n_iters):
-        patience = 0
+
         model.train()
 
         if one_image_per_step:
@@ -244,6 +259,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             if i_batch >= rays_rgb.shape[0]:
                 rays_rgb = rays_rgb[torch.randperm(rays_rgb.shape[0])]
                 i_batch = 0
+            angle = 0  # Currently not use.
 
         # target_img = torch.dstack((target_img,target_img,target_img))
         target_img = target_img.reshape([-1])
@@ -256,7 +272,8 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                                kwargs_sample_hierarchical=kwargs_sample_hierarchical,
                                fine_model=fine_model,
                                viewdirs_encoding_fn=encode_viewdirs,
-                               chunksize=chunksize)
+                               chunksize=chunksize,
+                               arm_angle=angle)
 
         # Check for any numerical issues.
         for k, v in outputs.items():
@@ -283,6 +300,9 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             valid_image = []
             height, width = testing_img[0].shape[:2]
             for v_i in range(valid_amount):
+                angle_label = testing_angles[v_i]
+                img_label = testing_img[v_i]
+
                 rays_o, rays_d = get_rays(height, width, focal, testing_poses[v_i])
                 rays_o = rays_o.reshape([-1, 3])
                 rays_d = rays_d.reshape([-1, 3])
@@ -293,17 +313,19 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
                                        kwargs_sample_hierarchical=kwargs_sample_hierarchical,
                                        fine_model=fine_model,
                                        viewdirs_encoding_fn=encode_viewdirs,
-                                       chunksize=chunksize)
+                                       chunksize=chunksize,
+                                       arm_angle=angle_label)
 
                 rgb_predicted = outputs['rgb_map']
                 # img_label = torch.dstack((testing_img[v_i],testing_img[v_i],testing_img[v_i]))
-                img_label = testing_img[v_i]
+
                 loss = torch.nn.functional.mse_loss(rgb_predicted, img_label.reshape(-1))
                 val_psnr = (-10. * torch.log10(loss)).item()
                 valid_epoch_loss.append(loss.item())
                 valid_psnr.append(val_psnr)
                 np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
-                valid_image.append(np_image)
+                if v_i < max_pic_save:
+                    valid_image.append(np_image)
             psnr_v = np.mean(valid_psnr)
             val_psnrs.append(psnr_v)
             print("Loss:", np.mean(valid_epoch_loss), "PSNR: ", psnr_v)
@@ -332,6 +354,10 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
             torch.save(fine_model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf-fine.pt' % i)
 
+            if psnr_v < 16.4 and i>=300:
+                print("restart")
+                return False, train_psnrs, psnr_v
+
         # Check PSNR for issues and stop if any are found.
         if i == warmup_iters - 1:
             if psnr_v < warmup_min_fitness:
@@ -357,11 +383,13 @@ if __name__ == "__main__":
 
     record_file_train = open(LOG_PATH + "log_train.txt", "w")
     record_file_val = open(LOG_PATH + "log_val.txt", "w")
-    Patience_threshold = 100
+    Patience_threshold = 20
 
     # Save testing gt image for visualization
-    testing_img_valid = np.dstack((testing_img_valid,testing_img_valid,testing_img_valid))
+    testing_img_valid = np.dstack((testing_img_valid, testing_img_valid, testing_img_valid))
     matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', testing_img_valid)
+
+    # pretrained_model_pth = 'train_log/log_1000data/best_model/'
 
     for _ in range(n_restarts):
         model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper = init_models()

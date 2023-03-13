@@ -281,10 +281,19 @@ def green_black(img):
     img = np.array(img)
     t = 60
     # print(img)
-    for x in range(img.shape[0]):
-        for y in range(img.shape[1]):
-            if img[x, y, 1] > 100:
-                img[x, y] = np.array([255., 255., 255.])
+
+    # Mask image to only select browns
+    mask = cv2.inRange(img[...,1], 100, 255)
+
+    # Change image to red where we found brown
+    img[mask > 0] = (255, 255, 255)
+
+
+    # for x in range(img.shape[0]):
+    #     for y in range(img.shape[1]):
+    #         if img[x, y, 1] > 100:
+    #             img[x, y] = np.array([255., 255., 255.])
+
     return img
 
 

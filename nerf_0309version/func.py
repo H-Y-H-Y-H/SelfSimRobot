@@ -128,83 +128,11 @@ def get_rays(
                               -torch.ones_like(i)
                               ], dim=-1)
 
-
     # Apply camera pose to directions
     rays_d = torch.sum(directions[..., None, :] * c2w[:3, :3], dim=-1)
 
     # Origin is same for all directions (the optical center)
     rays_o = c2w[:3, -1].expand(rays_d.shape)
-
-
-    # rays_o = rays_o.detach().cpu().numpy().reshape(-1,3)
-    # ax = plt.figure().add_subplot(projection='3d')
-    # directions = directions.detach().cpu().numpy()
-    # rays_d = rays_d.detach().cpu().numpy()
-    # rays_d = rays_d.reshape(-1,3)
-    # directions = directions.reshape(-1, 3)
-    # for plt_i in [0,49,2450,2499]:
-    #     ax.plot3D([directions[plt_i, 0], 0],
-    #               [directions[plt_i, 2], 0],
-    #               [directions[plt_i, 1], 0])
-    #
-    #     ax.plot3D([rays_d[plt_i, 0], 0],
-    #               [rays_d[plt_i, 2], 0],
-    #               [rays_d[plt_i, 1], 0])
-    # print(rays_o)
-    # # ax.scatter(rays_o[0][0],rays_o[0][2],rays_o[0][1])
-    # plt.show()
-    # quit()
-
-    return rays_o, rays_d
-
-
-def get_fixed_camera_rays(
-        height: int,
-        width: int,
-        focal_length: float,
-        distance2camera = 4,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-
-    c2w = w2c_matrix(0, 0, distance2camera)
-    c2w = torch.from_numpy(c2w).type(torch.float32).to(device)
-    # Find origin and direction of rays through every pixel and camera origin.
-
-    # Apply pinhole camera model to gather directions at each pixel
-    i, j = torch.meshgrid(
-        torch.arange(width, dtype=torch.float32).to(device),
-        torch.arange(height, dtype=torch.float32).to(device),
-        indexing='ij')
-    i, j = i.transpose(-1, -2), j.transpose(-1, -2)
-    directions = torch.stack([(i - width * .5) / focal_length,
-                              -(j - height * .5) / focal_length,
-                              -torch.ones_like(i)
-                              ], dim=-1)
-
-    # Apply camera pose to directions
-    rays_d = torch.sum(directions[..., None, :] * c2w[:3, :3], dim=-1)
-
-    # Origin is same for all directions (the optical center)
-    rays_o = c2w[:3, -1].expand(rays_d.shape)
-
-    # rays_o = rays_o.detach().cpu().numpy().reshape(-1,3)
-    # ax = plt.figure().add_subplot(projection='3d')
-    # directions = directions.detach().cpu().numpy()
-    # rays_d = rays_d.detach().cpu().numpy()
-    # rays_d = rays_d.reshape(-1,3)
-    # directions = directions.reshape(-1, 3)
-    # for plt_i in [0,49,2450,2499]:
-    #     ax.plot3D([directions[plt_i, 0], 0],
-    #               [directions[plt_i, 2], 0],
-    #               [directions[plt_i, 1], 0])
-    #
-    #     ax.plot3D([rays_d[plt_i, 0], 0],
-    #               [rays_d[plt_i, 2], 0],
-    #               [rays_d[plt_i, 1], 0])
-    # print(rays_o)
-    # # ax.scatter(rays_o[0][0],rays_o[0][2],rays_o[0][1])
-    # plt.show()
-    # quit()
-
     return rays_o, rays_d
 
 
@@ -242,17 +170,6 @@ def sample_stratified(
     # Apply scale from `rays_d` and offset from `rays_o` to samples
     # pts: (width, height, n_samples, 3)
     pts = rays_o[..., None, :] + rays_d[..., None, :] * z_vals[..., :, None]
-
-
-    # pts = pts.detach().cpu().numpy().reshape(-1,3)
-    # ax = plt.figure().add_subplot(projection='3d')
-    # ax.scatter(pts[:,0],
-    #            pts[:,2],
-    #            pts[:,1],
-    #            s = 0.1)
-    # plt.show()
-    # quit()
-
     return pts, z_vals
 
 
@@ -345,73 +262,6 @@ def raw2outputs(
         rgb_map = rgb_map + (1. - acc_map[..., None])
 
     return render_img, depth_map, acc_map, weights, rgb_each_point
-
-def raw2dense(
-        raw: torch.Tensor,
-        z_vals: torch.Tensor,
-        rays_d: torch.Tensor,
-        raw_noise_std: float = 0.0,
-        white_bkgd: bool = False
-) -> Tuple[torch.Tensor,torch.Tensor]:
-    r"""
-    Convert the raw NeRF output into RGB and other maps.
-    """
-    # raw = raw[...,0]
-    # multiplied_ray = torch.prod(raw,dim=1)*255
-    # return multiplied_ray
-
-    # z_vals: size: 2500x64, cropped image 50x50 pixel 64 depth.
-    # dists: size 2500x63, the dists between two corresponding points.
-    # Difference between consecutive elements of `z_vals`. [n_rays, n_samples]
-    dists = z_vals[..., 1:] - z_vals[..., :-1]
-    dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1)
-    # add one elements for each ray to compensate the size to 64
-
-    # Multiply each distance by the norm of its corresponding direction ray
-    # to convert to real world distance (accounts for non-unit directions).
-    dists = dists * torch.norm(rays_d[..., None, :], dim=-1)
-
-    # Add noise to model's predictions for density. Can be used to
-    # regularize network during training (prevents floater artifacts).
-    noise = 0.
-    if raw_noise_std > 0.:
-        noise = torch.randn(raw[..., 0].shape) * raw_noise_std
-
-    # Predict density of each sample along each ray. Higher values imply
-    # higher likelihood of being absorbed at this point. [n_rays, n_samples]
-    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[:, :, 1] + noise) * dists)
-    # The larger the dists or the output(density), the closer alpha is to 1.
-
-    # Compute weight for RGB of each sample along each ray. [n_rays, n_samples]
-    # The higher the alpha, the lower subsequent weights are driven.
-    weights = alpha * cumprod_exclusive(1. - alpha + 1e-10)
-
-    # Compute weighted RGB map.
-    rgb = torch.sigmoid(raw[..., :2])  # [n_rays, n_samples, 3]
-    rgb_each_point = weights * torch.sigmoid(raw[..., 1])
-
-    # rgb = raw[..., :2]  # [n_rays, n_samples, 3]
-    # rgb_each_point = weights * raw[..., 0]
-
-    render_img = torch.sum(rgb_each_point, dim=1)
-    rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)  # [n_rays, 3]
-
-    # Estimated depth map is predicted distance.
-    depth_map = torch.sum(weights * z_vals, dim=-1)
-
-    # Disparity map is inverse depth.
-    disp_map = 1. / torch.max(1e-10 * torch.ones_like(depth_map), depth_map / torch.sum(weights, -1))
-
-    # Sum of weights along each ray. In [0, 1] up to numerical error.
-    acc_map = torch.sum(weights, dim=-1)
-
-    # To composite onto a white background, use the accumulated alpha map.
-    if white_bkgd:
-        rgb_map = rgb_map + (1. - acc_map[..., None])
-
-    # render_img = torch.sigmoid(render_img)
-
-    return render_img, rgb_each_point
 
 
 def sample_pdf(
@@ -512,14 +362,14 @@ def get_chunks(
 
 def prepare_chunks(
         points: torch.Tensor,
-        # encoding_function: Callable[[torch.Tensor], torch.Tensor],
+        encoding_function: Callable[[torch.Tensor], torch.Tensor],
         chunksize: int = 2 ** 15
 ) -> List[torch.Tensor]:
     r"""
   Encode and chunkify points to prepare for NeRF model.
   """
     points = points.reshape((-1, points.shape[-1]))
-    # points = encoding_function(points)
+    points = encoding_function(points)
     points = get_chunks(points, chunksize=chunksize)
     return points
 
@@ -546,12 +396,14 @@ def nerf_forward(
         rays_d: torch.Tensor,
         near: float,
         far: float,
-        model: nn.Module,
-        arm_angle: torch.Tensor,
-        DOF: int,
+        encoding_fn: Callable[[torch.Tensor], torch.Tensor],
+        coarse_model: nn.Module,
+        arm_angle: list,
         kwargs_sample_stratified: dict = None,
         n_samples_hierarchical: int = 0,
         kwargs_sample_hierarchical: dict = None,
+        fine_model=None,
+        viewdirs_encoding_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
         chunksize: int = 2 ** 15,
 
         if_3dof: bool = False
@@ -571,23 +423,79 @@ def nerf_forward(
         rays_o, rays_d, near, far, **kwargs_sample_stratified)
     # Prepare batches.
 
-    arm_angle = arm_angle/180*np.pi
-    model_input = torch.cat((query_points, arm_angle[:DOF].repeat(list(query_points.shape[:2]) + [1])), dim=-1)
-    batches = prepare_chunks(model_input, chunksize=chunksize)
+    query_points = torch.cat((query_points, arm_angle[2].repeat(list(query_points.shape[:2]) + [1])), dim=-1)
+    batches = prepare_chunks(query_points, encoding_fn, chunksize=chunksize)
+    if viewdirs_encoding_fn is not None:
+        batches_viewdirs = prepare_viewdirs_chunks(query_points, rays_d,
+                                                   viewdirs_encoding_fn,
+                                                   chunksize=chunksize)
+    else:
+        batches_viewdirs = [None] * len(batches)
+
+    # Coarse model pass.
+    # Split the encoded points into "chunks", run the model on all chunks, and
+    # concatenate the results (to avoid out-of-memory issues).
     predictions = []
-    for batch in batches:
-        predictions.append(model(batch))
+
+    for batch, batch_viewdirs in zip(batches, batches_viewdirs):
+
+        predictions.append(coarse_model(batch, viewdirs=batch_viewdirs))
     raw = torch.cat(predictions, dim=0)
     raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 
     # Perform differentiable volume rendering to re-synthesize the RGB image.
-    rgb_map, rgb_each_point = raw2dense(raw, z_vals, rays_d)
-    outputs = {}
+    rgb_map, depth_map, acc_map, weights, rgb_each_point = raw2outputs(raw, z_vals, rays_d)
+    # rgb_map, depth_map, acc_map, weights = render_volume_density(raw, rays_o, z_vals)
+    outputs = {
+        'z_vals_stratified': z_vals
+    }
+
+    # Fine model pass.
+    if n_samples_hierarchical > 0:
+        # Save previous outputs to return.
+        rgb_map_0, depth_map_0, acc_map_0 = rgb_map, depth_map, acc_map
+
+        # Apply hierarchical sampling for fine query points.
+        query_points, z_vals_combined, z_hierarch = sample_hierarchical(
+            rays_o, rays_d, z_vals, weights, n_samples_hierarchical,
+            **kwargs_sample_hierarchical, angle=arm_angle, more_dof=if_3dof)
+
+        data_input = torch.cat((query_points, arm_angle[2].repeat(list(query_points.shape[:2]) + [1])), dim=-1)
+        # Prepare inputs as before.
+        batches = prepare_chunks(data_input, encoding_fn, chunksize=chunksize)
+        if viewdirs_encoding_fn is not None:
+            batches_viewdirs = prepare_viewdirs_chunks(data_input, rays_d,
+                                                       viewdirs_encoding_fn,
+                                                       chunksize=chunksize)
+        else:
+            batches_viewdirs = [None] * len(batches)
+
+        # Forward pass new samples through fine model.
+        fine_model = fine_model if fine_model is not None else coarse_model
+        predictions = []
+        for batch, batch_viewdirs in zip(batches, batches_viewdirs):
+            predictions.append(fine_model(batch, viewdirs=batch_viewdirs))
+        raw = torch.cat(predictions, dim=0)
+
+        raw_ = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
+
+        # Perform differentiable volume rendering to re-synthesize the RGB image.
+        rgb_map, depth_map, acc_map, weights, rgb_each_point = raw2outputs(raw_, z_vals_combined, rays_d)
+
+        # Store outputs.
+        outputs['z_vals_hierarchical'] = z_hierarch
+        outputs['rgb_map_0'] = rgb_map_0
+        outputs['depth_map_0'] = depth_map_0
+        outputs['acc_map_0'] = acc_map_0
+        outputs['query_points'] = query_points
 
     # Store outputs.
     outputs['rgb_map'] = rgb_map
+    outputs['depth_map'] = depth_map
+    outputs['acc_map'] = acc_map
+    outputs['weights'] = weights
+
     outputs['rgb_each_point'] = rgb_each_point
-    outputs['query_points'] = query_points
     return outputs
 
 
@@ -660,11 +568,20 @@ if __name__ == "__main__":
     new_box, f_new_box = transfer_box(vbox=my_box, norm_angles=[0.75, 0.5], forward_flag=True)
     print(new_box.shape)
     print(f_new_box.shape)
+    # new_box = my_box.reshape(box_shape[0]*box_shape[1]*box_shape[2], box_shape[-1])
+    # print(new_box.shape)
+    # new_box = my_box.reshape(box_shape[0], box_shape[1], box_shape[2], box_shape[-1])
+    # print(new_box)
 
-
-
-
-
+    # view_edge_len = 0.3
+    # orig_view_box = np.array([
+    #     [0, view_edge_len, view_edge_len],
+    #     [0, view_edge_len, -view_edge_len],
+    #     [0, -view_edge_len, -view_edge_len],
+    #     [0, -view_edge_len, view_edge_len],
+    #     [0.8, 0, 0]
+    # ])
+    #
     fig = plt.figure()
     ax = plt.axes(projection='3d')
     ax.scatter3D(

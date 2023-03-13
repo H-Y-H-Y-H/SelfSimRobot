@@ -166,6 +166,9 @@ def test_model(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
     query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
     query_xyz = np.dot(target_pose, query_xyz.T).T[:, :3]
 
+    empty_xyz = np.concatenate((empty_xyz, np.ones((len(empty_xyz), 1))), 1)
+    empty_xyz = np.dot(target_pose, empty_xyz.T).T[:, :3]
+
     ax.scatter(
         query_xyz[:, 0],
         query_xyz[:, 2],
@@ -253,9 +256,9 @@ def dense_visual_box(theta, phi, more_dof=False):
 
 if __name__ == "__main__":
 
-    test_model_pth = 'train_log/log_125data/best_model/'
+    test_model_pth = 'train_log/log_100data/best_model/'
 
-    DOF = 2
+    DOF = 3
     num_data = 100
     n_samples_hierarchical = 64
     height = 100
@@ -263,7 +266,7 @@ if __name__ == "__main__":
     near = 2.
     far = 6.
 
-    data = np.load('data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
+    data = np.load('../data/arm_data/dof%d_data%d.npz' % (DOF, num_data))
     focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
 
     kwargs_sample_stratified = {
@@ -287,9 +290,9 @@ if __name__ == "__main__":
     for i in range(1):
         theta = loop[i % 120]
         phi = (np.sin((i / 60) * 2 * np.pi) - 1.5) * 30.
-        theta,phi = 90,0
+        theta,phi = 90,50
         print(theta,phi)
-        p_dense, p_empty = dense_visual_3d(log_pth=test_model_pth, draw=True, theta=theta, phi=phi, idx=i)
+        p_dense, p_empty = test_model(log_pth=test_model_pth, draw=True, theta=theta, phi=phi, idx=i)
 
     # pose_transfer_visualize(points_record=p_dense, points_empty=p_empty, theta=30, phi=30)
     # dense_visual_box(theta=0., phi=0.)
