@@ -73,7 +73,7 @@ class EarlyStopping:
         return stop
 
 
-def init_models(d_input, n_layers, d_filter, pretrained_model_pth=None,lr=5e-5):
+def init_models(d_input, n_layers, d_filter, pretrained_model_pth=None,lr=5e-4):
     # Models
     model = FBV_SM(d_input=d_input,
                    n_layers=n_layers,
@@ -110,15 +110,13 @@ def train(model, optimizer):
 
         target_img = training_img[target_img_idx]
         angle = training_angles[target_img_idx]
-        pose_matrix = training_pose_matrix[target_img_idx]
 
         if center_crop and i < center_crop_iters:
             target_img = crop_center(target_img)
         height, width = target_img.shape[:2]
         # print(training_angles[target_img_idx])
 
-        rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
-        # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
+        rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
 
         rays_o = rays_o.reshape([-1, 3])
         rays_d = rays_d.reshape([-1, 3])
@@ -196,10 +194,8 @@ def train(model, optimizer):
                 for v_i in range(valid_amount):
                     angle = testing_angles[v_i]
                     img_label = testing_img[v_i]
-                    pose_matrix = testing_pose_matrix[v_i]
 
-                    rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
-                    # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
+                    rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
                     rays_o = rays_o.reshape([-1, 3])
                     rays_d = rays_d.reshape([-1, 3])
                     outputs = nerf_forward(rays_o, rays_d,
@@ -282,9 +278,9 @@ if __name__ == "__main__":
     near, far = 2., 6.
     Flag_save_image_during_training = True
     DOF = 2  # the number of motors
-    num_data = 100
+    num_data = 1600
     tr = 0.8  # training ratio
-    data = np.load('data/uniform_data_with_pose_matrix/dof%d_data%d.npz' % (DOF, num_data))
+    data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
     Overfitting_test = False
     sample_id = random.sample(range(num_data), num_data)
 
@@ -305,11 +301,9 @@ if __name__ == "__main__":
 
     training_img = torch.from_numpy(data['images'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
     training_angles = torch.from_numpy(data['angles'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
-    training_pose_matrix = torch.from_numpy(data['poses'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
 
     testing_img = torch.from_numpy(data['images'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
     testing_angles = torch.from_numpy(data['angles'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
-    testing_pose_matrix = torch.from_numpy(data['poses'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
 
     # Grab rays from sample image
     height, width = training_img.shape[1:3]
@@ -335,7 +329,7 @@ if __name__ == "__main__":
     chunksize = 2 ** 14  # Modify as needed to fit in GPU memory
     center_crop = True  # Crop the center of image (one_image_per_)
     center_crop_iters = 50  # Stop cropping center after this many epochs
-    display_rate = 20  # Display test output every X epochs
+    display_rate = 200  # Display test output every X epochs
 
     # Early Stopping
     warmup_iters = 400  # Number of iterations during warmup phase

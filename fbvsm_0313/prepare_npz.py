@@ -92,16 +92,16 @@ def prepare_data(my_env, path, action_lists):
         print(action_l)
         obs, _, _, _ = my_env.step(action_l)
         angles = obs[0] * 90.  # obs[0] -> angles of motors, size = motor num
-        w2c_m = w2c_matrix(angles[0], angles[1], HYPER_radius_scaler)
+        # w2c_m = w2c_matrix(angles[0], angles[1], HYPER_radius_scaler)
         img = 1. - obs[1] / 255.
         # img = obs[1] / 255.
         image_record.append(img[..., 0])
-        pose_record.append(w2c_m)
+        # pose_record.append(w2c_m)
         angle_record.append(angles)
 
     np.savez(path + 'dof%d_data%d.npz' % (DOF, len(action_lists)),
              images=np.array(image_record),
-             poses=np.array(pose_record),
+             # poses=np.array(pose_record),
              angles=np.array(angle_record),
              focal=focal)
 
@@ -185,10 +185,10 @@ if __name__ == "__main__":
     # prepare_data_4dof(full_env=MyEnv, path="data/arm_data/")
 
     # Data_collection
-    log_pth = "data/uniform_data_with_pose_matrix/"
+    log_pth = "data/uniform_data/"
     os.makedirs(log_pth, exist_ok=True)
 
-    action_lists = uniform_data(10)
+    action_lists = uniform_data(20)
 
     prepare_data(my_env=MyEnv,
                  path=log_pth,

@@ -292,7 +292,7 @@ def raw2outputs(
         rays_d: torch.Tensor,
         raw_noise_std: float = 0.0,
         white_bkgd: bool = False
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     r"""
     Convert the raw NeRF output into RGB and other maps.
     """
@@ -344,8 +344,7 @@ def raw2outputs(
     if white_bkgd:
         rgb_map = rgb_map + (1. - acc_map[..., None])
 
-    # return render_img, depth_map, acc_map, weights, rgb_each_point
-    return render_img, rgb_each_point
+    return render_img, depth_map, acc_map, weights, rgb_each_point
 
 def raw2dense(
         raw: torch.Tensor,
@@ -582,7 +581,7 @@ def nerf_forward(
     raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 
     # Perform differentiable volume rendering to re-synthesize the RGB image.
-    rgb_map, rgb_each_point = raw2outputs(raw, z_vals, rays_d)
+    rgb_map, rgb_each_point = raw2dense(raw, z_vals, rays_d)
     outputs = {}
 
     # Store outputs.
