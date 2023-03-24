@@ -290,7 +290,7 @@ if __name__ == "__main__":
     theta_1_loop = np.linspace(0., 90., 30, endpoint=False)
     theta_2_loop = np.linspace(0., 0., 30, endpoint=False)
 
-    for i in range(1):
+    for i in range(10):
         angle = list([theta_0_loop[i], theta_1_loop[i], theta_2_loop[i]])
         p_dense, p_empty = test_model(angle=angle, log_pth=test_model_pth, idx=i)
 

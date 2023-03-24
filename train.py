@@ -248,7 +248,7 @@ def train(model, optimizer):
                 os.makedirs(LOG_PATH + "epoch_%d_model" % i, exist_ok=True)
                 torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
 
-                if psnr_v < 16.2 and i >= 2000:
+                if psnr_v < 16.2 and i >= 2000: #TBD
                     print("restart")
                     return False, train_psnrs, psnr_v
 
@@ -282,9 +282,9 @@ if __name__ == "__main__":
     near, far = 2., 6.
     Flag_save_image_during_training = True
     DOF = 2  # the number of motors
-    num_data = 100
+    num_data = 1600
     tr = 0.8  # training ratio
-    data = np.load('data/uniform_data_with_pose_matrix/dof%d_data%d.npz' % (DOF, num_data))
+    data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
     Overfitting_test = False
     sample_id = random.sample(range(num_data), num_data)
 

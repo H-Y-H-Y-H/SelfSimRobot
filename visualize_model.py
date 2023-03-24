@@ -268,7 +268,7 @@ if __name__ == "__main__":
 
     data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
     focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
-
+    print(focal)
     kwargs_sample_stratified = {
         'n_samples': 64,
         'perturb': True,
