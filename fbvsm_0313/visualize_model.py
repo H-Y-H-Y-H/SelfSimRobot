@@ -266,7 +266,7 @@ if __name__ == "__main__":
     near = 2.
     far = 6.
 
-    data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
+    data = np.load('../data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
     focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
 
     kwargs_sample_stratified = {
