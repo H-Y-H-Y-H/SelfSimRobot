@@ -8,6 +8,16 @@ print(device)
 
 
 def ray_sum():
+    # model: xyz to dense
+    # ray_sum: dense to pixels' value, 0/1
+    pass
+
+def get_ray():
+    # pose to o, d
+    pass
+
+def sample_points():
+    # o, d to x,y,z
     pass
 
 
