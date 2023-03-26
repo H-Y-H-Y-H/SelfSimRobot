@@ -73,9 +73,9 @@ def uniform_data(uniform_samples=10):
     if DOF == 3:
         for i in range(uniform_samples):
             theta0 = theta_0_linspace[i]
-            for j in range(uniform_samples ** (DOF-1)):
+            for j in range(uniform_samples ** (DOF - 1)):
                 theta1 = theta_1_linspace[j // uniform_samples]
-                theta2 = theta_2_linspace[j %  uniform_samples]
+                theta2 = theta_2_linspace[j % uniform_samples]
                 log_angle_list.append([theta0, theta1, theta2])
 
     log_angle_list = np.asarray(log_angle_list)
@@ -111,6 +111,21 @@ def prepare_data(my_env, path, action_lists):
             p.stepSimulation()
             time.sleep(1 / 240)
         pass
+
+
+def df_data(data_num: int, dof: int) -> np.array:
+    # data for dense field
+    if dof == 1:
+        theta_0_list = np.linspace(-1., 1., data_num, endpoint=False)  # no repeated angles
+        theta_1_list = np.ones_like(theta_0_list) * 0.3
+        theta_2_list = np.ones_like(theta_0_list) * 0.3
+        return np.stack((theta_0_list, theta_1_list, theta_2_list), -1)
+
+    elif dof == 3:
+        theta_0_list = np.linspace(-1., 1., data_num, endpoint=False)  # no repeated angles
+        theta_1_list = np.linspace(-1., 1., data_num, endpoint=False)
+        theta_2_list = np.linspace(-1., 1., data_num, endpoint=False)
+        return np.stack((theta_0_list, theta_1_list, theta_2_list), -1)
 
 
 def matrix_visual():
@@ -164,8 +179,8 @@ if __name__ == "__main__":
     MOV_CAM = False
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 4  # distance between the camera and the robot arm
-    DOF = 2  # the number of motors
-    sample_num = 40 # separate the action space
+    DOF = 3  # the number of motors
+    sample_num = 40  # separate the action space
 
     # Camera config: focal
     Camera_FOV = 42.
@@ -185,10 +200,12 @@ if __name__ == "__main__":
     # prepare_data_4dof(full_env=MyEnv, path="data/arm_data/")
 
     # Data_collection
-    log_pth = "data/uniform_data/"
+    log_pth = "data/NeDF_data/"
     os.makedirs(log_pth, exist_ok=True)
 
-    action_lists = uniform_data(sample_num)
+    # action_lists = uniform_data(sample_num)
+    action_lists = df_data(data_num=sample_num, dof=1)
+    print(action_lists.shape)
 
     prepare_data(my_env=MyEnv,
                  path=log_pth,
