@@ -14,7 +14,7 @@ class NeDF(nn.Module):
         super().__init__()
         self.d_input = d_input
         self.skip = skip
-        self.act = nn.functional.relu
+        self.act = nn.ReLU
 
         # Create model layers
         self.layers = nn.ModuleList(
