@@ -1,8 +1,10 @@
+import os
 import random
 import torch
 from model import NeDF
 from tqdm import trange
 import numpy as np
+import matplotlib.image
 
 # from func import *
 
@@ -34,6 +36,14 @@ def sample_points():
 def train(model, optimizer, n_iter):
     for i in trange(n_iter):
         model.train()
+        if Overfitting_test:
+            target_img_idx = 0
+        else:
+            target_img_idx = np.random.randint(training_img.shape[0] - 1)
+
+        target_img = training_img[target_img_idx]
+        angle = training_angles[target_img_idx]
+        pose_matrix = training_pose_matrix[target_img_idx]
 
     pass
 
@@ -98,6 +108,20 @@ if __name__ == "__main__":
     """
     training
     """
+
+    # Run training session(s)
+    LOG_PATH = "train_log/log_%ddata/" % num_data
+
+    os.makedirs(LOG_PATH + "image/", exist_ok=True)
+    os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
+
+    record_file_train = open(LOG_PATH + "log_train.txt", "w")
+    record_file_val = open(LOG_PATH + "log_val.txt", "w")
+    Patience_threshold = 20
+
+    # Save testing gt image for visualization
+    matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', valid_img_visual)
+
     # train(model=Model,
     #       optimizer=Optimizer,
     #       n_iter=10000)
