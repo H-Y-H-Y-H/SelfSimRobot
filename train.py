@@ -73,7 +73,7 @@ class EarlyStopping:
         return stop
 
 
-def init_models(d_input, n_layers, d_filter, pretrained_model_pth=None,lr=5e-5):
+def init_models(d_input, n_layers, d_filter, pretrained_model_pth=None, lr=5e-5):
     # Models
     model = FBV_SM(d_input=d_input,
                    n_layers=n_layers,
@@ -248,7 +248,7 @@ def train(model, optimizer):
                 os.makedirs(LOG_PATH + "epoch_%d_model" % i, exist_ok=True)
                 torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
 
-                if psnr_v < 16.2 and i >= 2000: #TBD
+                if psnr_v < 16.2 and i >= 2000:  # TBD
                     print("restart")
                     return False, train_psnrs, psnr_v
 
@@ -269,7 +269,6 @@ def train(model, optimizer):
 
 
 if __name__ == "__main__":
-
 
     seed_num = 6
     np.random.seed(seed_num)
@@ -327,7 +326,6 @@ if __name__ == "__main__":
     n_samples_hierarchical = 64  # Number of samples per ray
     perturb_hierarchical = False  # If set, applies noise to sample positions
 
-
     # Training
     n_iters = 100000
     batch_size = 2 ** 14  # Number of rays per gradient step (power of 2)
@@ -352,8 +350,6 @@ if __name__ == "__main__":
         'perturb': perturb
     }
 
-
-
     # Run training session(s)
     LOG_PATH = "train_log/log_%ddata/" % num_data
 
@@ -368,7 +364,6 @@ if __name__ == "__main__":
     matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', valid_img_visual)
 
     # pretrained_model_pth = 'train_log/log_1000data/best_model/'
-
 
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,
