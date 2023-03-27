@@ -347,6 +347,7 @@ def raw2outputs(
     # return render_img, depth_map, acc_map, weights, rgb_each_point
     return render_img, rgb_each_point
 
+
 def raw2dense(
         raw: torch.Tensor,
         z_vals: torch.Tensor,
@@ -582,7 +583,7 @@ def nerf_forward(
     raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 
     # Perform differentiable volume rendering to re-synthesize the RGB image.
-    rgb_map, rgb_each_point = raw2outputs(raw, z_vals, rays_d)
+    rgb_map, rgb_each_point = raw2dense(raw, z_vals, rays_d)
     outputs = {}
 
     # Store outputs.

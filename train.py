@@ -104,7 +104,7 @@ def train(model, optimizer):
         model.train()
         # Randomly pick an image as the target.
         if Overfitting_test:
-            target_img_idx = 0
+            target_img_idx = OVERFITTING_ID
         else:
             target_img_idx = np.random.randint(training_img.shape[0] - 1)
 
@@ -117,8 +117,8 @@ def train(model, optimizer):
         height, width = target_img.shape[:2]
         # print(training_angles[target_img_idx])
 
-        rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
-        # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
+        # rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+        rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
 
         rays_o = rays_o.reshape([-1, 3])
         rays_d = rays_d.reshape([-1, 3])
@@ -162,9 +162,9 @@ def train(model, optimizer):
             height, width = testing_img[0].shape[:2]
 
             if Overfitting_test:
-                target_img_idx = 0
                 target_img = training_img[target_img_idx]
                 angle = training_angles[target_img_idx]
+                # rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
 
                 rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
                 rays_o = rays_o.reshape([-1, 3])
@@ -186,7 +186,7 @@ def train(model, optimizer):
                 np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
                 np_image = np.clip(0, 1, np_image)
                 np_image_combine = np.dstack((np_image, np_image, np_image))
-                matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % i, np_image_combine)
+                matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % target_img_idx, np_image_combine)
 
                 psnr_v = val_psnr
                 val_psnrs.append(psnr_v)
@@ -198,8 +198,8 @@ def train(model, optimizer):
                     img_label = testing_img[v_i]
                     pose_matrix = testing_pose_matrix[v_i]
 
-                    rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
-                    # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
+                    # rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+                    rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
                     rays_o = rays_o.reshape([-1, 3])
                     rays_d = rays_d.reshape([-1, 3])
                     outputs = nerf_forward(rays_o, rays_d,
@@ -270,7 +270,7 @@ def train(model, optimizer):
 
 if __name__ == "__main__":
 
-    seed_num = 6
+    seed_num = 5
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
@@ -281,18 +281,18 @@ if __name__ == "__main__":
     near, far = 2., 6.
     Flag_save_image_during_training = True
     DOF = 2  # the number of motors
-    num_data = 1600
+    num_data = 100
     tr = 0.8  # training ratio
     data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
     Overfitting_test = False
     sample_id = random.sample(range(num_data), num_data)
-
+    OVERFITTING_ID = 55
     if Overfitting_test:
-        valid_img_visual = data['images'][sample_id[0]]
+        valid_img_visual = data['images'][sample_id[OVERFITTING_ID]]
         valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
     else:
         valid_amount = int(num_data * (1 - tr))
-        max_pic_save = 20
+        max_pic_save = 10
         valid_img_visual = []
         for vimg in range(max_pic_save):
             valid_img_visual.append(data['images'][sample_id[int(num_data * tr) + vimg]])
@@ -333,7 +333,7 @@ if __name__ == "__main__":
     chunksize = 2 ** 14  # Modify as needed to fit in GPU memory
     center_crop = True  # Crop the center of image (one_image_per_)
     center_crop_iters = 50  # Stop cropping center after this many epochs
-    display_rate = 20  # Display test output every X epochs
+    display_rate = 200  # Display test output every X epochs
 
     # Early Stopping
     warmup_iters = 400  # Number of iterations during warmup phase
@@ -351,7 +351,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata/" % num_data
+    LOG_PATH = "train_log/log_%ddata(1)/" % num_data
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -367,8 +367,11 @@ if __name__ == "__main__":
 
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,
-                                       n_layers=8,
-                                       d_filter=256)
+                                       n_layers=4,
+                                       d_filter=64)
+
+        # 4x64
+        # 6x64
         success, train_psnrs, val_psnrs = train(model, optimizer)
         if success and val_psnrs[-1] >= warmup_min_fitness:
             print('Training successful!')

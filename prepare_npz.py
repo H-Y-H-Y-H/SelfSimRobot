@@ -179,8 +179,8 @@ if __name__ == "__main__":
     MOV_CAM = False
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 4  # distance between the camera and the robot arm
-    DOF = 3  # the number of motors
-    sample_num = 40  # separate the action space
+    DOF = 2  # the number of motors
+    sample_num = 10  # separate the action space
 
     # Camera config: focal
     Camera_FOV = 42.
@@ -203,8 +203,8 @@ if __name__ == "__main__":
     log_pth = "data/NeDF_data/"
     os.makedirs(log_pth, exist_ok=True)
 
-    # action_lists = uniform_data(sample_num)
-    action_lists = df_data(data_num=sample_num, dof=1)
+    action_lists = uniform_data(sample_num)
+    # action_lists = df_data(data_num=sample_num, dof=DOF)
     print(action_lists.shape)
 
     prepare_data(my_env=MyEnv,
