@@ -7,112 +7,112 @@ from func import w2c_matrix, c2w_matrix
 import numpy as np
 from torch import nn
 
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
-def pos2img(new_pose, ArmAngle, more_dof=False):
-    height, width, focal = 100, 100, 130.25446
-    near, far = 2., 6.
-    rays_o, rays_d = get_rays(height, width, focal, new_pose)
-    rays_o = rays_o.reshape([-1, 3])
-    rays_d = rays_d.reshape([-1, 3])
-    outputs = nerf_forward(rays_o, rays_d,
-                           near, far, encode, model,
-                           kwargs_sample_stratified=kwargs_sample_stratified,
-                           n_samples_hierarchical=n_samples_hierarchical,
-                           kwargs_sample_hierarchical=kwargs_sample_hierarchical,
-                           fine_model=fine_model,
-                           viewdirs_encoding_fn=encode_viewdirs,
-                           chunksize=chunksize,
-                           arm_angle=ArmAngle,
-                           if_3dof=more_dof)
-
-    rgb_predicted = outputs['rgb_map']
-    np_image = rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy()
-    return np_image
-
-
-def angles2pos(theta, phi, arm_angle):
-    my_pose = w2c_matrix(theta, phi, 4.)
-    my_pose = torch.from_numpy(my_pose.astype('float32')).to(device)
-    arm_angle = torch.tensor(arm_angle).to(device)
-    image = pos2img(my_pose, arm_angle)
-    return image
+# def pos2img(new_pose, ArmAngle, more_dof=False):
+#     height, width, focal = 100, 100, 130.25446
+#     near, far = 2., 6.
+#     rays_o, rays_d = get_rays(height, width, focal, new_pose)
+#     rays_o = rays_o.reshape([-1, 3])
+#     rays_d = rays_d.reshape([-1, 3])
+#     outputs = nerf_forward(rays_o, rays_d,
+#                            near, far, encode, model,
+#                            kwargs_sample_stratified=kwargs_sample_stratified,
+#                            n_samples_hierarchical=n_samples_hierarchical,
+#                            kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+#                            fine_model=fine_model,
+#                            viewdirs_encoding_fn=encode_viewdirs,
+#                            chunksize=chunksize,
+#                            arm_angle=ArmAngle,
+#                            if_3dof=more_dof)
+#
+#     rgb_predicted = outputs['rgb_map']
+#     np_image = rgb_predicted.reshape([height, width, 3]).detach().cpu().numpy()
+#     return np_image
 
 
-def make_video():
-    import cv2
-    size = (100, 100)
-    n_frames = 120
-    out = cv2.VideoWriter('arm_video_01.mp4', cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
-
-    loop = np.linspace(-180., 180., 120, endpoint=False)
-    for i in range(n_frames):
-        theta = loop[i % 120]
-        phi = (np.sin((i / 120) * 2 * np.pi) * 0.6 - 1.) * 90.
-        armAngle = np.sin((i / 120) * 2 * np.pi) * 0.6
-        img = angles2pos(theta, phi, armAngle)
-        img = (img * 255).astype(np.uint8)
-        out.write(img)
-    out.release()
+# def angles2pos(theta, phi, arm_angle):
+#     my_pose = w2c_matrix(theta, phi, 4.)
+#     my_pose = torch.from_numpy(my_pose.astype('float32')).to(device)
+#     arm_angle = torch.tensor(arm_angle).to(device)
+#     image = pos2img(my_pose, arm_angle)
+#     return image
 
 
-def dense_visual_3d(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
-    pose_transfer = c2w_matrix(theta, phi, 0.)
-    batch_size = 4096
+# def make_video():
+#     import cv2
+#     size = (100, 100)
+#     n_frames = 120
+#     out = cv2.VideoWriter('arm_video_01.mp4', cv2.VideoWriter_fourcc(*'DIVX'), 30, size)
+#
+#     loop = np.linspace(-180., 180., 120, endpoint=False)
+#     for i in range(n_frames):
+#         theta = loop[i % 120]
+#         phi = (np.sin((i / 120) * 2 * np.pi) * 0.6 - 1.) * 90.
+#         armAngle = np.sin((i / 120) * 2 * np.pi) * 0.6
+#         img = angles2pos(theta, phi, armAngle)
+#         img = (img * 255).astype(np.uint8)
+#         out.write(img)
+#     out.release()
 
-    points_record = np.asarray([])
-    dense_record = np.asarray([])
-    points_empty = np.asarray([])
-    for j in range(10):
-        p = np.random.rand(batch_size, 3) * 4. - 2.
-        point = encode(torch.from_numpy(p.astype(np.float32))).to(device)
-        out = fine_model(point)
-        binary_out = torch.relu(out[:, 1])
-        dense = 1.0 - torch.exp(-nn.functional.relu(out[:, 1]))
 
-        binary_idx = torch.nonzero(binary_out)
-        dense = dense.cpu().detach().numpy()
-        binary_idx = binary_idx.cpu().detach().numpy()
-
-        if torch.sum(binary_out) > 0:
-            dense_record = np.append(dense_record, dense[binary_idx])
-            points_record = np.append(points_record, p[binary_idx].reshape(-1, 3))
-
-        points_empty = np.append(points_empty,
-                                 p[torch.nonzero(torch.logical_not(binary_out)).cpu().detach().numpy()].reshape(-1, 3))
-    points_record = np.reshape(np.array(points_record), (-1, 3))
-    dense_record = np.asarray(dense_record)
-    points_empty = np.asarray(points_empty).reshape(-1, 3)
-
-    pr_tran = np.concatenate((points_record, np.ones((len(points_record), 1))), 1)
-    pr_tran = np.dot(pose_transfer, pr_tran.T).T[:, :3]
-    if draw:
-        ax = plt.figure().add_subplot(projection='3d')
-        ax.scatter(
-            pr_tran[:, 0],
-            pr_tran[:, 2],
-            pr_tran[:, 1],
-            alpha=dense_record,
-            # s=0.1
-        )
-        ax.scatter(
-            points_empty[:, 0],
-            points_empty[:, 2],
-            points_empty[:, 1],
-            alpha=0.01,
-        )
-        ax.set_xlim(-2, 2)
-        ax.set_ylim(-2, 2)
-        ax.set_zlim(-2, 2)
-        # ax.set_xlabel('X')
-        # ax.set_ylabel('Y')
-        # ax.set_zlabel('Z')
-        plt.show()
-        # os.makedirs(log_pth+'/visual_test',exist_ok= True)
-        # plt.savefig(log_pth +'/visual_test/%04d.png' % i)
-
-    return points_record, points_empty
+# def dense_visual_3d(log_pth, count_num=100, draw=True, theta=30, phi=30, idx=1):
+#     pose_transfer = c2w_matrix(theta, phi, 0.)
+#     batch_size = 4096
+#
+#     points_record = np.asarray([])
+#     dense_record = np.asarray([])
+#     points_empty = np.asarray([])
+#     for j in range(10):
+#         p = np.random.rand(batch_size, 3) * 4. - 2.
+#         point = encode(torch.from_numpy(p.astype(np.float32))).to(device)
+#         out = fine_model(point)
+#         binary_out = torch.relu(out[:, 1])
+#         dense = 1.0 - torch.exp(-nn.functional.relu(out[:, 1]))
+#
+#         binary_idx = torch.nonzero(binary_out)
+#         dense = dense.cpu().detach().numpy()
+#         binary_idx = binary_idx.cpu().detach().numpy()
+#
+#         if torch.sum(binary_out) > 0:
+#             dense_record = np.append(dense_record, dense[binary_idx])
+#             points_record = np.append(points_record, p[binary_idx].reshape(-1, 3))
+#
+#         points_empty = np.append(points_empty,
+#                                  p[torch.nonzero(torch.logical_not(binary_out)).cpu().detach().numpy()].reshape(-1, 3))
+#     points_record = np.reshape(np.array(points_record), (-1, 3))
+#     dense_record = np.asarray(dense_record)
+#     points_empty = np.asarray(points_empty).reshape(-1, 3)
+#
+#     pr_tran = np.concatenate((points_record, np.ones((len(points_record), 1))), 1)
+#     pr_tran = np.dot(pose_transfer, pr_tran.T).T[:, :3]
+#     if draw:
+#         ax = plt.figure().add_subplot(projection='3d')
+#         ax.scatter(
+#             pr_tran[:, 0],
+#             pr_tran[:, 2],
+#             pr_tran[:, 1],
+#             alpha=dense_record,
+#             # s=0.1
+#         )
+#         ax.scatter(
+#             points_empty[:, 0],
+#             points_empty[:, 2],
+#             points_empty[:, 1],
+#             alpha=0.01,
+#         )
+#         ax.set_xlim(-2, 2)
+#         ax.set_ylim(-2, 2)
+#         ax.set_zlim(-2, 2)
+#         # ax.set_xlabel('X')
+#         # ax.set_ylabel('Y')
+#         # ax.set_zlabel('Z')
+#         plt.show()
+#         # os.makedirs(log_pth+'/visual_test',exist_ok= True)
+#         # plt.savefig(log_pth +'/visual_test/%04d.png' % i)
+#
+#     return points_record, points_empty
 
 
 def test_model(log_pth, angle, idx=1):
@@ -198,6 +198,7 @@ def test_model(log_pth, angle, idx=1):
 
     return points_record, points_empty
 
+
 def pose_transfer_visualize(points_record, points_empty, theta=30, phi=30):
     pose_transfer = w2c_matrix(theta, phi, 4.)[:3, :3]
     pr_new = np.dot(points_record, pose_transfer)
@@ -261,10 +262,10 @@ def pose_transfer_visualize(points_record, points_empty, theta=30, phi=30):
 if __name__ == "__main__":
 
     # test_model_pth = 'train_log/log_1600data/best_model/'
-    test_model_pth = 'train_log/log_100data(2)/best_model/'
+    test_model_pth = 'train_log/log_100data_nerf(2)_out1/best_model/'
     DOF = 2
     num_data = 100
-    n_samples_hierarchical = 10
+    n_samples_hierarchical = 64
     height = 100
     width = 100
     near = 2.
@@ -274,7 +275,7 @@ if __name__ == "__main__":
     focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
     print(focal)
     kwargs_sample_stratified = {
-        'n_samples': 20,
+        'n_samples': 64,
         'perturb': True,
         'inverse_depth': False
     }
@@ -285,7 +286,7 @@ if __name__ == "__main__":
 
     model, optimizer = init_models(d_input=DOF + 3,
                                    n_layers=8,
-                                   d_filter=128)
+                                   d_filter=128, output_size=1)
     model.load_state_dict(torch.load(test_model_pth + "nerf.pt", map_location=torch.device(device)))
 
     model.eval()

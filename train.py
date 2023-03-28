@@ -4,7 +4,7 @@ import torch
 from model import FBV_SM, PositionalEncoder
 from func import *
 
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(device)
 
 
@@ -284,7 +284,7 @@ if __name__ == "__main__":
     DOF = 2  # the number of motors
     num_data = 100
     tr = 0.8  # training ratio
-    data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
+    data = np.load('data/NeDF_data_May28/dof%d_data%d.npz' % (DOF, num_data))
     Overfitting_test = False
     sample_id = random.sample(range(num_data), num_data)
     OVERFITTING_ID = 55
@@ -352,7 +352,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata_nerf(1)/" % num_data
+    LOG_PATH = "train_log/log_%ddata_nerf_out1_img400_dis1/" % num_data
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)

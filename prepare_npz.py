@@ -177,15 +177,15 @@ if __name__ == "__main__":
     """data collection"""
     RENDER = False
     MOV_CAM = False
-    WIDTH, HEIGHT = 100, 100
-    HYPER_radius_scaler = 4  # distance between the camera and the robot arm
+    WIDTH, HEIGHT = 400, 400
+    HYPER_radius_scaler = 1  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
     DOF = 2  # the number of motors
     sample_num = 10  # separate the action space
 
     # Camera config: focal
     Camera_FOV = 42.
     camera_angle_x = Camera_FOV * np.pi / 180.
-    focal = .5 * 100 / np.tan(.5 * camera_angle_x)
+    focal = .5 * WIDTH / np.tan(.5 * camera_angle_x)
     p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
 
     MyEnv = FBVSM_Env(
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     # prepare_data_4dof(full_env=MyEnv, path="data/arm_data/")
 
     # Data_collection
-    log_pth = "data/NeDF_data/"
+    log_pth = "data/NeDF_data_May28/"
     os.makedirs(log_pth, exist_ok=True)
 
     action_lists = uniform_data(sample_num)
