@@ -118,8 +118,8 @@ def train(model, optimizer):
         height, width = target_img.shape[:2]
         # print(training_angles[target_img_idx])
 
-        # rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
-        rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
+        rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+        # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
 
         rays_o = rays_o.reshape([-1, 3])
         rays_d = rays_d.reshape([-1, 3])
@@ -165,9 +165,9 @@ def train(model, optimizer):
             if Overfitting_test:
                 target_img = training_img[target_img_idx]
                 angle = training_angles[target_img_idx]
-                # rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+                rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
 
-                rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
+                # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
                 rays_o = rays_o.reshape([-1, 3])
                 rays_d = rays_d.reshape([-1, 3])
                 outputs = nerf_forward(rays_o, rays_d,
@@ -199,8 +199,8 @@ def train(model, optimizer):
                     img_label = testing_img[v_i]
                     pose_matrix = testing_pose_matrix[v_i]
 
-                    # rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
-                    rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
+                    rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+                    # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
                     rays_o = rays_o.reshape([-1, 3])
                     rays_d = rays_d.reshape([-1, 3])
                     outputs = nerf_forward(rays_o, rays_d,
@@ -352,7 +352,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata(3)_out1/" % num_data
+    LOG_PATH = "train_log/log_%ddata_nerf(1)/" % num_data
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -370,7 +370,7 @@ if __name__ == "__main__":
         model, optimizer = init_models(d_input=DOF + 3,
                                        n_layers=8,
                                        d_filter=128,
-                                       output_size=1)  # model shape, output 1
+                                       output_size=2)
 
         # 4x64 log_100data; log_100data(1)
         # 8x128 log_100data(2)
