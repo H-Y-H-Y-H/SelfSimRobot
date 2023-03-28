@@ -370,7 +370,7 @@ if __name__ == "__main__":
         model, optimizer = init_models(d_input=DOF + 3,
                                        n_layers=8,
                                        d_filter=128,
-                                       output_size=2)
+                                       output_size=1)
 
         # 4x64 log_100data; log_100data(1)
         # 8x128 log_100data(2)

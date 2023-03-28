@@ -416,6 +416,75 @@ def raw2dense(
     return render_img, rgb_each_point
 
 
+def raw2dense_out1(
+        raw: torch.Tensor,
+        z_vals: torch.Tensor,
+        rays_d: torch.Tensor,
+        raw_noise_std: float = 0.0,
+        white_bkgd: bool = False
+) -> Tuple[torch.Tensor,torch.Tensor]:
+    r"""
+    Convert the raw NeRF output into RGB and other maps.
+    """
+    # raw = raw[...,0]
+    # multiplied_ray = torch.prod(raw,dim=1)*255
+    # return multiplied_ray
+
+    # z_vals: size: 2500x64, cropped image 50x50 pixel 64 depth.
+    # dists: size 2500x63, the dists between two corresponding points.
+    # Difference between consecutive elements of `z_vals`. [n_rays, n_samples]
+    dists = z_vals[..., 1:] - z_vals[..., :-1]
+    dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1)
+    # add one elements for each ray to compensate the size to 64
+
+    # Multiply each distance by the norm of its corresponding direction ray
+    # to convert to real world distance (accounts for non-unit directions).
+    dists = dists * torch.norm(rays_d[..., None, :], dim=-1)
+
+    # Add noise to model's predictions for density. Can be used to
+    # regularize network during training (prevents floater artifacts).
+    noise = 0.
+    if raw_noise_std > 0.:
+        noise = torch.randn(raw[..., 0].shape) * raw_noise_std
+
+    # Predict density of each sample along each ray. Higher values imply
+    # higher likelihood of being absorbed at this point. [n_rays, n_samples]
+    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[:, :, 0] + noise) * dists)
+    # The larger the dists or the output(density), the closer alpha is to 1.
+
+    # Compute weight for RGB of each sample along each ray. [n_rays, n_samples]
+    # The higher the alpha, the lower subsequent weights are driven.
+    weights = alpha * cumprod_exclusive(1. - alpha + 1e-10)
+
+    # Compute weighted RGB map.
+    # rgb = torch.sigmoid(raw[..., 0])  # [n_rays, n_samples, 3]
+    rgb_each_point = weights * torch.sigmoid(raw[..., 0])
+
+    # rgb = raw[..., :2]  # [n_rays, n_samples, 3]
+    # rgb_each_point = weights * raw[..., 0]
+
+    render_img = torch.sum(rgb_each_point, dim=1)
+    # rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)  # [n_rays, 3]
+
+    # Estimated depth map is predicted distance.
+    # depth_map = torch.sum(weights * z_vals, dim=-1)
+
+    # Disparity map is inverse depth.
+    # disp_map = 1. / torch.max(1e-10 * torch.ones_like(depth_map), depth_map / torch.sum(weights, -1))
+
+    # Sum of weights along each ray. In [0, 1] up to numerical error.
+    # acc_map = torch.sum(weights, dim=-1)
+
+    # To composite onto a white background, use the accumulated alpha map.
+    # if white_bkgd:
+    #     rgb_map = rgb_map + (1. - acc_map[..., None])
+
+    # render_img = torch.sigmoid(render_img)
+
+    return render_img, rgb_each_point
+
+
+
 def sample_pdf(
         bins: torch.Tensor,
         weights: torch.Tensor,
@@ -582,14 +651,18 @@ def nerf_forward(
     raw = torch.cat(predictions, dim=0)
     raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 
+    # print(raw.shape)
     # Perform differentiable volume rendering to re-synthesize the RGB image.
-    rgb_map, rgb_each_point = raw2dense(raw, z_vals, rays_d)
-    outputs = {}
+    # rgb_map, rgb_each_point = raw2dense(raw, z_vals, rays_d)
+
+    rgb_map, rgb_each_point = raw2dense_out1(raw, z_vals, rays_d)  # out1 raw to dense
+
+    outputs = {
+        'rgb_map': rgb_map,
+        'rgb_each_point': rgb_each_point,
+        'query_points': query_points}
 
     # Store outputs.
-    outputs['rgb_map'] = rgb_map
-    outputs['rgb_each_point'] = rgb_each_point
-    outputs['query_points'] = query_points
     return outputs
 
 
