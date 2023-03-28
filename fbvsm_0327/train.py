@@ -4,7 +4,7 @@ import torch
 from model import FBV_SM, PositionalEncoder
 from func import *
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 print(device)
 
 
@@ -73,11 +73,12 @@ class EarlyStopping:
         return stop
 
 
-def init_models(d_input, n_layers, d_filter, pretrained_model_pth=None,lr=5e-4):
+def init_models(d_input, n_layers, d_filter, pretrained_model_pth=None, lr=5e-5, output_size=2):
     # Models
     model = FBV_SM(d_input=d_input,
                    n_layers=n_layers,
-                   d_filter=d_filter)
+                   d_filter=d_filter,
+                   output_size=output_size)
 
     model.to(device)
 
@@ -104,18 +105,20 @@ def train(model, optimizer):
         model.train()
         # Randomly pick an image as the target.
         if Overfitting_test:
-            target_img_idx = 0
+            target_img_idx = OVERFITTING_ID
         else:
             target_img_idx = np.random.randint(training_img.shape[0] - 1)
 
         target_img = training_img[target_img_idx]
         angle = training_angles[target_img_idx]
+        pose_matrix = training_pose_matrix[target_img_idx]
 
         if center_crop and i < center_crop_iters:
             target_img = crop_center(target_img)
         height, width = target_img.shape[:2]
         # print(training_angles[target_img_idx])
 
+        # rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
         rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
 
         rays_o = rays_o.reshape([-1, 3])
@@ -160,9 +163,9 @@ def train(model, optimizer):
             height, width = testing_img[0].shape[:2]
 
             if Overfitting_test:
-                target_img_idx = 0
                 target_img = training_img[target_img_idx]
                 angle = training_angles[target_img_idx]
+                # rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
 
                 rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
                 rays_o = rays_o.reshape([-1, 3])
@@ -184,7 +187,7 @@ def train(model, optimizer):
                 np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
                 np_image = np.clip(0, 1, np_image)
                 np_image_combine = np.dstack((np_image, np_image, np_image))
-                matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % i, np_image_combine)
+                matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % target_img_idx, np_image_combine)
 
                 psnr_v = val_psnr
                 val_psnrs.append(psnr_v)
@@ -194,7 +197,9 @@ def train(model, optimizer):
                 for v_i in range(valid_amount):
                     angle = testing_angles[v_i]
                     img_label = testing_img[v_i]
+                    pose_matrix = testing_pose_matrix[v_i]
 
+                    # rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
                     rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
                     rays_o = rays_o.reshape([-1, 3])
                     rays_d = rays_d.reshape([-1, 3])
@@ -244,7 +249,7 @@ def train(model, optimizer):
                 os.makedirs(LOG_PATH + "epoch_%d_model" % i, exist_ok=True)
                 torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
 
-                if psnr_v < 16.2 and i >= 2000:
+                if psnr_v < 16.2 and i >= 2000:  # TBD
                     print("restart")
                     return False, train_psnrs, psnr_v
 
@@ -266,8 +271,7 @@ def train(model, optimizer):
 
 if __name__ == "__main__":
 
-
-    seed_num = 6
+    seed_num = 5
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
@@ -278,18 +282,18 @@ if __name__ == "__main__":
     near, far = 2., 6.
     Flag_save_image_during_training = True
     DOF = 2  # the number of motors
-    num_data = 1600
+    num_data = 100
     tr = 0.8  # training ratio
     data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
     Overfitting_test = False
     sample_id = random.sample(range(num_data), num_data)
-
+    OVERFITTING_ID = 55
     if Overfitting_test:
-        valid_img_visual = data['images'][sample_id[0]]
+        valid_img_visual = data['images'][sample_id[OVERFITTING_ID]]
         valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
     else:
         valid_amount = int(num_data * (1 - tr))
-        max_pic_save = 20
+        max_pic_save = 10
         valid_img_visual = []
         for vimg in range(max_pic_save):
             valid_img_visual.append(data['images'][sample_id[int(num_data * tr) + vimg]])
@@ -301,9 +305,11 @@ if __name__ == "__main__":
 
     training_img = torch.from_numpy(data['images'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
     training_angles = torch.from_numpy(data['angles'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
+    training_pose_matrix = torch.from_numpy(data['poses'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
 
     testing_img = torch.from_numpy(data['images'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
     testing_angles = torch.from_numpy(data['angles'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
+    testing_pose_matrix = torch.from_numpy(data['poses'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
 
     # Grab rays from sample image
     height, width = training_img.shape[1:3]
@@ -320,7 +326,6 @@ if __name__ == "__main__":
     # Hierarchical sampling
     n_samples_hierarchical = 64  # Number of samples per ray
     perturb_hierarchical = False  # If set, applies noise to sample positions
-
 
     # Training
     n_iters = 100000
@@ -346,10 +351,8 @@ if __name__ == "__main__":
         'perturb': perturb
     }
 
-
-
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata/" % num_data
+    LOG_PATH = "train_log/log_%ddata(3)_out1/" % num_data
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -363,11 +366,15 @@ if __name__ == "__main__":
 
     # pretrained_model_pth = 'train_log/log_1000data/best_model/'
 
-
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,
                                        n_layers=8,
-                                       d_filter=256)
+                                       d_filter=128,
+                                       output_size=1)  # model shape, output 1
+
+        # 4x64 log_100data; log_100data(1)
+        # 8x128 log_100data(2)
+        # 6x64
         success, train_psnrs, val_psnrs = train(model, optimizer)
         if success and val_psnrs[-1] >= warmup_min_fitness:
             print('Training successful!')

@@ -8,7 +8,7 @@ import torch
 from torch import nn
 from typing import Optional, Tuple, List, Union, Callable
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 # import torch
 
@@ -292,7 +292,7 @@ def raw2outputs(
         rays_d: torch.Tensor,
         raw_noise_std: float = 0.0,
         white_bkgd: bool = False
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> Tuple[torch.Tensor, torch.Tensor]:
     r"""
     Convert the raw NeRF output into RGB and other maps.
     """
@@ -344,7 +344,9 @@ def raw2outputs(
     if white_bkgd:
         rgb_map = rgb_map + (1. - acc_map[..., None])
 
-    return render_img, depth_map, acc_map, weights, rgb_each_point
+    # return render_img, depth_map, acc_map, weights, rgb_each_point
+    return render_img, rgb_each_point
+
 
 def raw2dense(
         raw: torch.Tensor,

@@ -51,7 +51,8 @@ class FBV_SM(nn.Module):
             d_input: int = 5,
             n_layers: int = 8,
             d_filter: int = 256,
-            skip: Tuple[int] = (4,)
+            skip: Tuple[int] = (4,),
+            output_size: int = 2
     ):
         super().__init__()
         self.d_input = d_input
@@ -64,7 +65,7 @@ class FBV_SM(nn.Module):
             [nn.Linear(d_filter + self.d_input, d_filter) if i in skip else nn.Linear(d_filter, d_filter) for i in range(n_layers - 1)]
         )
 
-        self.output = nn.Linear(d_filter, 2)
+        self.output = nn.Linear(d_filter, output_size)
 
     def forward(
             self,
