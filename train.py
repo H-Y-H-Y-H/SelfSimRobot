@@ -163,8 +163,8 @@ def train(model, optimizer):
             height, width = testing_img[0].shape[:2]
 
             if Overfitting_test:
-                target_img = training_img[target_img_idx]
-                angle = training_angles[target_img_idx]
+                target_img = training_img[target_img_idx].to(device)
+                angle = training_angles[target_img_idx].to(device)
                 rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
 
                 # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
@@ -195,9 +195,9 @@ def train(model, optimizer):
 
             else:
                 for v_i in range(valid_amount):
-                    angle = testing_angles[v_i]
-                    img_label = testing_img[v_i]
-                    pose_matrix = testing_pose_matrix[v_i]
+                    angle = testing_angles[v_i].to(device)
+                    img_label = testing_img[v_i].to(device)
+                    pose_matrix = testing_pose_matrix[v_i].to(device)
 
                     rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
                     # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
@@ -269,6 +269,10 @@ def train(model, optimizer):
     return True, train_psnrs, val_psnrs
 
 
+# def data_loader():
+
+
+
 if __name__ == "__main__":
 
     seed_num = 5
@@ -303,13 +307,13 @@ if __name__ == "__main__":
     # Gather as torch tensors
     focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
 
-    training_img = torch.from_numpy(data['images'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
-    training_angles = torch.from_numpy(data['angles'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
-    training_pose_matrix = torch.from_numpy(data['poses'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
+    training_img = torch.from_numpy(data['images'][sample_id[:int(num_data * tr)]].astype('float32'))
+    training_angles = torch.from_numpy(data['angles'][sample_id[:int(num_data * tr)]].astype('float32'))
+    training_pose_matrix = torch.from_numpy(data['poses'][sample_id[:int(num_data * tr)]].astype('float32'))
 
-    testing_img = torch.from_numpy(data['images'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
-    testing_angles = torch.from_numpy(data['angles'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
-    testing_pose_matrix = torch.from_numpy(data['poses'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
+    testing_img = torch.from_numpy(data['images'][sample_id[int(num_data * tr):]].astype('float32'))
+    testing_angles = torch.from_numpy(data['angles'][sample_id[int(num_data * tr):]].astype('float32'))
+    testing_pose_matrix = torch.from_numpy(data['poses'][sample_id[int(num_data * tr):]].astype('float32'))
 
     # Grab rays from sample image
     height, width = training_img.shape[1:3]
