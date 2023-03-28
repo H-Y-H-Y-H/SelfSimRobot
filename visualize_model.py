@@ -7,7 +7,7 @@ from func import w2c_matrix, c2w_matrix
 import numpy as np
 from torch import nn
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 
 def pos2img(new_pose, ArmAngle, more_dof=False):
@@ -172,17 +172,21 @@ def test_model(log_pth, angle, idx=1):
 
     ax.scatter(
         query_xyz[:, 0],
-        query_xyz[:, 2],
         query_xyz[:, 1],
+        query_xyz[:, 2],
+        s=1
         # alpha=query_rgb
     )
 
     ax.scatter(
         empty_xyz[:, 0],
-        empty_xyz[:, 2],
         empty_xyz[:, 1],
+        empty_xyz[:, 2],
         alpha=0.1,
     )
+    plt.xlabel('x-axis', fontsize=20)
+    plt.ylabel('y-axis', fontsize=20)
+
     ax.set_xlim(-2, 2)
     ax.set_ylim(-2, 2)
     ax.set_zlim(-2, 2)
@@ -222,45 +226,45 @@ def pose_transfer_visualize(points_record, points_empty, theta=30, phi=30):
     plt.savefig('foo.png')
 
 
-def dense_visual_box(theta, phi, more_dof=False):
-    my_pose = w2c_matrix(theta, phi, 4.)
-    my_pose = torch.from_numpy(my_pose.astype('float32')).to(device)
-    height, width, focal = 100, 100, 130.25446
-    near, far = 2., 6.
-    rays_o, rays_d = get_rays(height, width, focal, my_pose)
-    rays_o = rays_o.reshape([-1, 3])
-    rays_d = rays_d.reshape([-1, 3])
-    raw_outputs = nerf_forward(rays_o, rays_d,
-                               near, far, encode, model,
-                               kwargs_sample_stratified=kwargs_sample_stratified,
-                               n_samples_hierarchical=n_samples_hierarchical,
-                               kwargs_sample_hierarchical=kwargs_sample_hierarchical,
-                               fine_model=fine_model,
-                               viewdirs_encoding_fn=encode_viewdirs,
-                               chunksize=chunksize,
-                               if_3dof=more_dof,
-                               only_raw=True)
-
-    ax = plt.figure().add_subplot(projection='3d')
-    ax.view_init(elev=90, azim=-90)
-    for p in raw_outputs:
-        # print(p[-1])
-        p = p.detach().numpy()
-        if p[-1] > 0.:
-            ax.scatter(p[0], p[2], p[1])
-
-    plt.show()
-
-    # print(raw_outputs.shape)
+# def dense_visual_box(theta, phi, more_dof=False):
+#     my_pose = w2c_matrix(theta, phi, 4.)
+#     my_pose = torch.from_numpy(my_pose.astype('float32')).to(device)
+#     height, width, focal = 100, 100, 130.25446
+#     near, far = 2., 6.
+#     rays_o, rays_d = get_rays(height, width, focal, my_pose)
+#     rays_o = rays_o.reshape([-1, 3])
+#     rays_d = rays_d.reshape([-1, 3])
+#     raw_outputs = nerf_forward(rays_o, rays_d,
+#                                near, far, encode, model,
+#                                kwargs_sample_stratified=kwargs_sample_stratified,
+#                                n_samples_hierarchical=n_samples_hierarchical,
+#                                kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+#                                fine_model=fine_model,
+#                                viewdirs_encoding_fn=encode_viewdirs,
+#                                chunksize=chunksize,
+#                                if_3dof=more_dof,
+#                                only_raw=True)
+#
+#     ax = plt.figure().add_subplot(projection='3d')
+#     ax.view_init(elev=90, azim=-90)
+#     for p in raw_outputs:
+#         # print(p[-1])
+#         p = p.detach().numpy()
+#         if p[-1] > 0.:
+#             ax.scatter(p[0], p[2], p[1])
+#
+#     plt.show()
+#
+#     # print(raw_outputs.shape)
 
 
 if __name__ == "__main__":
 
-    test_model_pth = 'train_log/log_1600data/best_model/'
-
+    # test_model_pth = 'train_log/log_1600data/best_model/'
+    test_model_pth = 'train_log/log_100data(2)/best_model/'
     DOF = 2
-    num_data = 1600
-    n_samples_hierarchical = 64
+    num_data = 100
+    n_samples_hierarchical = 10
     height = 100
     width = 100
     near = 2.
@@ -270,7 +274,7 @@ if __name__ == "__main__":
     focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
     print(focal)
     kwargs_sample_stratified = {
-        'n_samples': 64,
+        'n_samples': 20,
         'perturb': True,
         'inverse_depth': False
     }
@@ -281,7 +285,7 @@ if __name__ == "__main__":
 
     model, optimizer = init_models(d_input=DOF + 3,
                                    n_layers=8,
-                                   d_filter=256)
+                                   d_filter=128)
     model.load_state_dict(torch.load(test_model_pth + "nerf.pt", map_location=torch.device(device)))
 
     model.eval()

@@ -4,7 +4,7 @@ import torch
 from model import FBV_SM, PositionalEncoder
 from func import *
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 print(device)
 
 
@@ -73,11 +73,12 @@ class EarlyStopping:
         return stop
 
 
-def init_models(d_input, n_layers, d_filter, pretrained_model_pth=None, lr=5e-5):
+def init_models(d_input, n_layers, d_filter, pretrained_model_pth=None, lr=5e-5, output_size=2):
     # Models
     model = FBV_SM(d_input=d_input,
                    n_layers=n_layers,
-                   d_filter=d_filter)
+                   d_filter=d_filter,
+                   output_size=output_size)
 
     model.to(device)
 
@@ -351,7 +352,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata(1)/" % num_data
+    LOG_PATH = "train_log/log_%ddata(3)_out1/" % num_data
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -367,10 +368,12 @@ if __name__ == "__main__":
 
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,
-                                       n_layers=4,
-                                       d_filter=64)
+                                       n_layers=8,
+                                       d_filter=128,
+                                       output_size=1)  # model shape, output 1
 
-        # 4x64
+        # 4x64 log_100data; log_100data(1)
+        # 8x128 log_100data(2)
         # 6x64
         success, train_psnrs, val_psnrs = train(model, optimizer)
         if success and val_psnrs[-1] >= warmup_min_fitness:
