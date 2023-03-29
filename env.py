@@ -24,7 +24,7 @@ class FBVSM_Env(gym.Env):
         self.z_offset = 1.106
         self.action_shift = np.asarray([90, 90, 0, 0])[:num_motor]
         self.render_flag = render_flag
-        self.camera_pos = [1.0, 0, self.z_offset]  # previous 0.8 ! May 28
+        self.camera_pos = [0.8, 0, self.z_offset]  # previous 0.8 ! May 28
         self.camera_line = None
         self.camera_line_m = None
         self.step_id = 0

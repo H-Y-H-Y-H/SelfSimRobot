@@ -4,8 +4,8 @@ import torch
 from model import FBV_SM, PositionalEncoder
 from func import *
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-print(device)
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+print("train,", device)
 
 
 def plot_samples(
@@ -163,8 +163,8 @@ def train(model, optimizer):
             height, width = testing_img[0].shape[:2]
 
             if Overfitting_test:
-                target_img = training_img[target_img_idx].to(device)
-                angle = training_angles[target_img_idx].to(device)
+                target_img = training_img[target_img_idx]
+                angle = training_angles[target_img_idx]
                 rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
 
                 # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
@@ -195,9 +195,9 @@ def train(model, optimizer):
 
             else:
                 for v_i in range(valid_amount):
-                    angle = testing_angles[v_i].to(device)
-                    img_label = testing_img[v_i].to(device)
-                    pose_matrix = testing_pose_matrix[v_i].to(device)
+                    angle = testing_angles[v_i]
+                    img_label = testing_img[v_i]
+                    pose_matrix = testing_pose_matrix[v_i]
 
                     rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
                     # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
@@ -272,7 +272,6 @@ def train(model, optimizer):
 # def data_loader():
 
 
-
 if __name__ == "__main__":
 
     seed_num = 5
@@ -283,12 +282,16 @@ if __name__ == "__main__":
     """
     prepare data and parameters
     """
-    near, far = 2., 6.
+    cam_dist = 4.
+    nf_size = 2.
+    near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = True
-    DOF = 2  # the number of motors
-    num_data = 100
+    DOF = 3  # the number of motors
+    num_data = 1000
     tr = 0.8  # training ratio
-    data = np.load('data/NeDF_data_May28/dof%d_data%d.npz' % (DOF, num_data))
+    pxs = 100  # collected data pixels
+    # data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
+    data = np.load('data/data_May29/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
     Overfitting_test = False
     sample_id = random.sample(range(num_data), num_data)
     OVERFITTING_ID = 55
@@ -307,13 +310,13 @@ if __name__ == "__main__":
     # Gather as torch tensors
     focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
 
-    training_img = torch.from_numpy(data['images'][sample_id[:int(num_data * tr)]].astype('float32'))
-    training_angles = torch.from_numpy(data['angles'][sample_id[:int(num_data * tr)]].astype('float32'))
-    training_pose_matrix = torch.from_numpy(data['poses'][sample_id[:int(num_data * tr)]].astype('float32'))
+    training_img = torch.from_numpy(data['images'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
+    training_angles = torch.from_numpy(data['angles'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
+    training_pose_matrix = torch.from_numpy(data['poses'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
 
-    testing_img = torch.from_numpy(data['images'][sample_id[int(num_data * tr):]].astype('float32'))
-    testing_angles = torch.from_numpy(data['angles'][sample_id[int(num_data * tr):]].astype('float32'))
-    testing_pose_matrix = torch.from_numpy(data['poses'][sample_id[int(num_data * tr):]].astype('float32'))
+    testing_img = torch.from_numpy(data['images'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
+    testing_angles = torch.from_numpy(data['angles'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
+    testing_pose_matrix = torch.from_numpy(data['poses'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
 
     # Grab rays from sample image
     height, width = training_img.shape[1:3]
@@ -338,7 +341,7 @@ if __name__ == "__main__":
     chunksize = 2 ** 14  # Modify as needed to fit in GPU memory
     center_crop = True  # Crop the center of image (one_image_per_)
     center_crop_iters = 50  # Stop cropping center after this many epochs
-    display_rate = 200  # Display test output every X epochs
+    display_rate = 100  # Display test output every X epochs
 
     # Early Stopping
     warmup_iters = 400  # Number of iterations during warmup phase
@@ -356,7 +359,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata_nerf_out1_img400_dis1/" % num_data
+    LOG_PATH = "train_log/log_%ddata_out1_img%d/" % (num_data, pxs)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -370,11 +373,14 @@ if __name__ == "__main__":
 
     # pretrained_model_pth = 'train_log/log_1000data/best_model/'
 
+    # DOF = DOF-1
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,
                                        n_layers=8,
-                                       d_filter=128,
+                                       d_filter=200,
                                        output_size=1)
+
+        # mar29, 8*200, log_1000data_out1_img100
 
         # 4x64 log_100data; log_100data(1)
         # 8x128 log_100data(2)

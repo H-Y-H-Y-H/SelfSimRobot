@@ -8,7 +8,7 @@ import torch
 from torch import nn
 from typing import Optional, Tuple, List, Union, Callable
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 # import torch
 
@@ -464,22 +464,7 @@ def raw2dense_out1(
     # rgb_each_point = weights * raw[..., 0]
 
     render_img = torch.sum(rgb_each_point, dim=1)
-    # rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)  # [n_rays, 3]
 
-    # Estimated depth map is predicted distance.
-    # depth_map = torch.sum(weights * z_vals, dim=-1)
-
-    # Disparity map is inverse depth.
-    # disp_map = 1. / torch.max(1e-10 * torch.ones_like(depth_map), depth_map / torch.sum(weights, -1))
-
-    # Sum of weights along each ray. In [0, 1] up to numerical error.
-    # acc_map = torch.sum(weights, dim=-1)
-
-    # To composite onto a white background, use the accumulated alpha map.
-    # if white_bkgd:
-    #     rgb_map = rgb_map + (1. - acc_map[..., None])
-
-    # render_img = torch.sigmoid(render_img)
 
     return render_img, rgb_each_point
 

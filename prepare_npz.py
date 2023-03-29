@@ -99,7 +99,7 @@ def prepare_data(my_env, path, action_lists):
         pose_record.append(w2c_m)
         angle_record.append(angles)
 
-    np.savez(path + 'dof%d_data%d.npz' % (DOF, len(action_lists)),
+    np.savez(path + 'dof%d_data%d_px%d.npz' % (DOF, len(action_lists), WIDTH),
              images=np.array(image_record),
              poses=np.array(pose_record),
              angles=np.array(angle_record),
@@ -177,9 +177,9 @@ if __name__ == "__main__":
     """data collection"""
     RENDER = False
     MOV_CAM = False
-    WIDTH, HEIGHT = 400, 400
-    HYPER_radius_scaler = 1  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
-    DOF = 2  # the number of motors
+    WIDTH, HEIGHT = 100, 100
+    HYPER_radius_scaler = 4.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
+    DOF = 3  # the number of motors
     sample_num = 10  # separate the action space
 
     # Camera config: focal
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     # prepare_data_4dof(full_env=MyEnv, path="data/arm_data/")
 
     # Data_collection
-    log_pth = "data/NeDF_data_May28/"
+    log_pth = "data/data_May29/"
     os.makedirs(log_pth, exist_ok=True)
 
     action_lists = uniform_data(sample_num)

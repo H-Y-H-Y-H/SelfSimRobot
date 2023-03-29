@@ -7,7 +7,7 @@ from func import w2c_matrix, c2w_matrix
 import numpy as np
 from torch import nn
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 
 # def pos2img(new_pose, ArmAngle, more_dof=False):
@@ -174,7 +174,7 @@ def test_model(log_pth, angle, idx=1):
         query_xyz[:, 0],
         query_xyz[:, 1],
         query_xyz[:, 2],
-        s=1
+        # s=1
         # alpha=query_rgb
     )
 
@@ -262,16 +262,16 @@ def pose_transfer_visualize(points_record, points_empty, theta=30, phi=30):
 if __name__ == "__main__":
 
     # test_model_pth = 'train_log/log_1600data/best_model/'
-    test_model_pth = 'train_log/log_100data_nerf(2)_out1/best_model/'
-    DOF = 2
-    num_data = 100
+    test_model_pth = 'train_log/log_1000data_out1_img100/best_model/'
+    DOF = 3
+    num_data = 1000
     n_samples_hierarchical = 64
     height = 100
     width = 100
     near = 2.
     far = 6.
 
-    data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
+    data = np.load('data/data_May29/dof%d_data%d_px%d.npz' % (DOF, num_data, width))
     focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
     print(focal)
     kwargs_sample_stratified = {
@@ -286,17 +286,20 @@ if __name__ == "__main__":
 
     model, optimizer = init_models(d_input=DOF + 3,
                                    n_layers=8,
-                                   d_filter=128, output_size=1)
+                                   d_filter=200, output_size=1)
+
+    # mar29, 8*200, log_1000data_out1_img100
     model.load_state_dict(torch.load(test_model_pth + "nerf.pt", map_location=torch.device(device)))
 
     model.eval()
 
-    theta_0_loop = np.linspace(0., 0, 30, endpoint=False)
+    theta_0_loop = np.linspace(0., 90, 30, endpoint=False)
     theta_1_loop = np.linspace(0., 90., 30, endpoint=False)
-    theta_2_loop = np.linspace(0., 0., 30, endpoint=False)
+    theta_2_loop = np.linspace(0., 90., 30, endpoint=False)
 
     for i in range(1):
-        angle = list([theta_0_loop[i], theta_1_loop[i], theta_2_loop[i]])
+        # angle = list([theta_0_loop[29], theta_1_loop[10], theta_2_loop[10]])
+        angle=[0,0,90]
         p_dense, p_empty = test_model(angle=angle, log_pth=test_model_pth, idx=i)
 
         # pose_transfer_visualize(points_record=p_dense, points_empty=p_empty, theta=30, phi=30)
