@@ -246,8 +246,8 @@ def train(model, optimizer):
                     patience = 0
                 else:
                     patience += 1
-                os.makedirs(LOG_PATH + "epoch_%d_model" % i, exist_ok=True)
-                torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
+                # os.makedirs(LOG_PATH + "epoch_%d_model" % i, exist_ok=True)
+                # torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
 
                 if psnr_v < 16.2 and i >= 2000:  # TBD
                     print("restart")
@@ -359,7 +359,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata_out1_img%d/" % (num_data, pxs)
+    LOG_PATH = "train_log/log_%ddata_in4_out1_img%d/" % (num_data, pxs)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -375,12 +375,12 @@ if __name__ == "__main__":
 
     # DOF = DOF-1
     for _ in range(n_restarts):
-        model, optimizer = init_models(d_input=DOF + 3,
-                                       n_layers=8,
-                                       d_filter=200,
+        model, optimizer = init_models(d_input=4,  # DOF + 3 -> xyz and angle2
+                                       n_layers=10,
+                                       d_filter=128,
                                        output_size=1)
 
-        # mar29, 8*200, log_1000data_out1_img100
+        # mar29, 8*200, log_1000data_out1_img100  # PSNR 24.06
 
         # 4x64 log_100data; log_100data(1)
         # 8x128 log_100data(2)

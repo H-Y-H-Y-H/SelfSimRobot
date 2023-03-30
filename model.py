@@ -51,7 +51,7 @@ class FBV_SM(nn.Module):
             d_input: int = 5,
             n_layers: int = 8,
             d_filter: int = 256,
-            skip: Tuple[int] = (4,),
+            skip: Tuple[int] = (5, ),  # 4 mar 29
             output_size: int = 2
     ):
         super().__init__()

@@ -10,6 +10,7 @@ from typing import Optional, Tuple, List, Union, Callable
 
 device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
+
 # import torch
 
 def rot_X(th):
@@ -107,14 +108,12 @@ def transfer_box(vbox, norm_angles, c_h=1.106, forward_flag=False):
     return new_view_box, flatten_new_view_box
 
 
-
 def get_rays(
         height: int,
         width: int,
         focal_length: float,
         c2w: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-
     # Find origin and direction of rays through every pixel and camera origin.
 
     # Apply pinhole camera model to gather directions at each pixel
@@ -128,13 +127,11 @@ def get_rays(
                               -torch.ones_like(i)
                               ], dim=-1)
 
-
     # Apply camera pose to directions
     rays_d = torch.sum(directions[..., None, :] * c2w[:3, :3], dim=-1)
 
     # Origin is same for all directions (the optical center)
     rays_o = c2w[:3, -1].expand(rays_d.shape)
-
 
     # rays_o = rays_o.detach().cpu().numpy().reshape(-1,3)
     # ax = plt.figure().add_subplot(projection='3d')
@@ -162,9 +159,8 @@ def get_fixed_camera_rays(
         height: int,
         width: int,
         focal_length: float,
-        distance2camera = 4,
+        distance2camera=4,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-
     c2w = w2c_matrix(0, 0, distance2camera)
     c2w = torch.from_numpy(c2w).type(torch.float32).to(device)
     # Find origin and direction of rays through every pixel and camera origin.
@@ -243,7 +239,6 @@ def sample_stratified(
     # pts: (width, height, n_samples, 3)
     pts = rays_o[..., None, :] + rays_d[..., None, :] * z_vals[..., :, None]
 
-
     # pts = pts.detach().cpu().numpy().reshape(-1,3)
     # ax = plt.figure().add_subplot(projection='3d')
     # ax.scatter(pts[:,0],
@@ -282,9 +277,11 @@ def cumprod_exclusive(
 
     return cumprod
 
+
 """
 volume rendering
 """
+
 
 def raw2outputs(
         raw: torch.Tensor,
@@ -354,7 +351,7 @@ def raw2dense(
         rays_d: torch.Tensor,
         raw_noise_std: float = 0.0,
         white_bkgd: bool = False
-) -> Tuple[torch.Tensor,torch.Tensor]:
+) -> Tuple[torch.Tensor, torch.Tensor]:
     r"""
     Convert the raw NeRF output into RGB and other maps.
     """
@@ -422,7 +419,7 @@ def raw2dense_out1(
         rays_d: torch.Tensor,
         raw_noise_std: float = 0.0,
         white_bkgd: bool = False
-) -> Tuple[torch.Tensor,torch.Tensor]:
+) -> Tuple[torch.Tensor, torch.Tensor]:
     r"""
     Convert the raw NeRF output into RGB and other maps.
     """
@@ -465,9 +462,7 @@ def raw2dense_out1(
 
     render_img = torch.sum(rgb_each_point, dim=1)
 
-
     return render_img, rgb_each_point
-
 
 
 def sample_pdf(
@@ -627,8 +622,9 @@ def nerf_forward(
         rays_o, rays_d, near, far, **kwargs_sample_stratified)
     # Prepare batches.
 
-    arm_angle = arm_angle/180*np.pi
-    model_input = torch.cat((query_points, arm_angle[:DOF].repeat(list(query_points.shape[:2]) + [1])), dim=-1)
+    arm_angle = arm_angle / 180 * np.pi
+    model_input = torch.cat((query_points, arm_angle[2].repeat(list(query_points.shape[:2]) + [1])), dim=-1)
+    # arm_angle[:DOF] -> use one angle
     batches = prepare_chunks(model_input, chunksize=chunksize)
     predictions = []
     for batch in batches:
@@ -660,11 +656,13 @@ def w2c_matrix(theta, phi, radius):
     w2c = np.dot(transition_matrix("rot_x", -phi / 180. * np.pi), w2c)
     return w2c
 
+
 def c2w_matrix(theta, phi, radius):
     c2w = transition_matrix("tran_z", radius)
     c2w = np.dot(transition_matrix("rot_x", phi / 180. * np.pi), c2w)
     c2w = np.dot(transition_matrix("rot_y", theta / 180. * np.pi), c2w)
     return c2w
+
 
 def transition_matrix(label, value):
     if label == "rot_x":
@@ -691,7 +689,8 @@ def transition_matrix(label, value):
     else:
         return "wrong label"
 
-def plot_3d_visual(x,y,z,if_transform=True):
+
+def plot_3d_visual(x, y, z, if_transform=True):
     if if_transform:
         x = x.detach().cpu().numpy()
         y = y.detach().cpu().numpy()
@@ -699,14 +698,15 @@ def plot_3d_visual(x,y,z,if_transform=True):
 
     ax = plt.axes(projection='3d')
     ax.scatter3D(x,
-        y,
-        z,s=1
-    )
+                 y,
+                 z, s=1
+                 )
     # ax.scatter3D(0,0,0)
 
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+
     # from rays_check import my_rays
 
     _, _, _, ff, my_box = rays_np(H=6, W=6, D=6)
@@ -720,10 +720,6 @@ if __name__ == "__main__":
     new_box, f_new_box = transfer_box(vbox=my_box, norm_angles=[0.75, 0.5], forward_flag=True)
     print(new_box.shape)
     print(f_new_box.shape)
-
-
-
-
 
     fig = plt.figure()
     ax = plt.axes(projection='3d')
@@ -744,5 +740,5 @@ if __name__ == "__main__":
     # )
     ax.set_xlim([-0.5, 0.5])
     ax.set_ylim([-0.5, 0.5])
-    ax.set_zlim([1.-0.5, 1.+0.5])
+    ax.set_zlim([1. - 0.5, 1. + 0.5])
     plt.show()
