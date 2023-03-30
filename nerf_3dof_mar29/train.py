@@ -376,9 +376,9 @@ if __name__ == "__main__":
 
     # DOF = DOF-1
     for _ in range(n_restarts):
-        model, optimizer = init_models(d_input=3,  # DOF + 3 -> xyz and angle2
+        model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2
                                        n_layers=8,
-                                       d_filter=128,
+                                       d_filter=200,
                                        skip=(4,),
                                        output_size=1)
 
