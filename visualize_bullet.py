@@ -9,11 +9,16 @@ import pybullet as p
 
 # changed Transparency in urdf, line181, Mar31
 
-def collect_pc_data(data_path: str = ""):
-    pass
+def load_point_cloud(angle_list: list, debug_points):
+    test_points = np.random.rand(100, 3)
+    p_rgb = np.ones_like(test_points)
+    p.removeUserDebugItem(debug_points)  # update points every step
+    debug_points = p.addUserDebugPoints(test_points, p_rgb, pointSize=5)
+
+    return debug_points
 
 
-def load_env(
+def interact_env(
         pic_size: int = 100,
         render: bool = True,
         interact: bool = True,
@@ -31,6 +36,7 @@ def load_env(
 
     obs = env.reset()
     c_angle = obs[0]
+    debug_points = 0
 
     if interact:
         # 3 dof
@@ -43,10 +49,10 @@ def load_env(
             c_angle[0] = p.readUserDebugParameter(m0)
             c_angle[1] = p.readUserDebugParameter(m1)
             c_angle[2] = p.readUserDebugParameter(m2)
+            debug_points = load_point_cloud([c_angle[0], c_angle[1], c_angle[2]], debug_points)
             obs, _, _, _ = env.step(c_angle)
             print(obs[0])
 
 
 if __name__ == "__main__":
-    collect_pc_data()
-    load_env()
+    interact_env()
