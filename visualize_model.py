@@ -194,6 +194,10 @@ def test_model(log_pth, angle, idx=1):
     # plt.show()
     os.makedirs(log_pth + '/visual_test', exist_ok=True)
     plt.savefig(log_pth + '/visual_test/%04d.jpg' % idx)
+    if C_POINTS:
+        os.makedirs(log_pth + '/pc_record', exist_ok=True)
+        np.save(log_pth + '/pc_record/%04d.npy' % idx, query_xyz)
+
     plt.clf()
 
     return points_record, points_empty
@@ -271,6 +275,8 @@ if __name__ == "__main__":
     theta_1_loop = np.linspace(-90., 90., sep, endpoint=False)
     theta_2_loop = np.linspace(-90., 90., sep, endpoint=False)
     idx_list = []
+
+    C_POINTS = True  # whether collect points.npy, used in test model
 
     for i in range(sep**3):
         angle = list([theta_0_loop[i//(sep**2)], theta_1_loop[(i//sep)%sep], theta_2_loop[i%sep]])

@@ -311,7 +311,7 @@ def generate_action_list():
 
 
 if __name__ == '__main__':
-    RENDER = False
+    RENDER = True
     NUM_MOTOR = 2
     step_size = 0.1
 
