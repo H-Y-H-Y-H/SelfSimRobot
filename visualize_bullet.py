@@ -68,7 +68,7 @@ def interact_env(
             c_angle[0] = p.readUserDebugParameter(m0)
             c_angle[1] = p.readUserDebugParameter(m1)
             c_angle[2] = p.readUserDebugParameter(m2)
-            print([c_angle[0], c_angle[1], c_angle[2]])
+            # print([c_angle[0], c_angle[1], c_angle[2]])
             debug_points = load_point_cloud([c_angle[0], c_angle[1], c_angle[2]], debug_points, logger)
             obs, _, _, _ = env.step(c_angle)
             # print(obs[0])
