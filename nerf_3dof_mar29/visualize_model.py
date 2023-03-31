@@ -7,7 +7,7 @@ from func import w2c_matrix, c2w_matrix
 import numpy as np
 from torch import nn
 
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 # def pos2img(new_pose, ArmAngle, more_dof=False):
@@ -167,21 +167,21 @@ def test_model(log_pth, angle, idx=1):
     plt.suptitle('M1: %0.2f,  M2: %0.2f,  M3: %0.2f' % (angle[0], angle[1], angle[2]), fontsize=14)
     target_pose = c2w_matrix(theta, phi, 0.)
 
-    # query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
-    # query_xyz = np.dot(target_pose, query_xyz.T).T[:, :3]
+    query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
+    query_xyz = np.dot(target_pose, query_xyz.T).T[:, :3]
 
     ax.scatter(
         query_xyz[:, 0],
+        -query_xyz[:, 2],
         query_xyz[:, 1],
-        query_xyz[:, 2],
         # s=1
         # alpha=query_rgb
     )
 
     ax.scatter(
         empty_xyz[:, 0],
+        -empty_xyz[:, 2],
         empty_xyz[:, 1],
-        empty_xyz[:, 2],
         alpha=0.1,
     )
     plt.xlabel('x-axis', fontsize=20)
@@ -191,78 +191,47 @@ def test_model(log_pth, angle, idx=1):
     ax.set_ylim(-2, 2)
     ax.set_zlim(-2, 2)
 
-    plt.show()
-    # os.makedirs(log_pth + '/visual_test', exist_ok=True)
-    # plt.savefig(log_pth + '/visual_test/%04d.png' % idx)
-    # plt.clf()
+    # plt.show()
+    os.makedirs(log_pth + '/visual_test', exist_ok=True)
+    plt.savefig(log_pth + '/visual_test/%04d.jpg' % idx)
+    plt.clf()
 
     return points_record, points_empty
 
+def interaction(data_pth,angle_list):
+    def call_back_func(x):
+        pass
+    cv2.namedWindow('interaction')
+    cv2.createTrackbar('theta0:', 'interaction', 0,180,call_back_func)
+    cv2.createTrackbar('theta1:', 'interaction', 0,180,call_back_func)
+    cv2.createTrackbar('theta2:', 'interaction', 0,180,call_back_func)
 
-def pose_transfer_visualize(points_record, points_empty, theta=30, phi=30):
-    pose_transfer = w2c_matrix(theta, phi, 4.)[:3, :3]
-    pr_new = np.dot(points_record, pose_transfer)
-    pe_new = np.dot(points_empty, pose_transfer)
-    ax = plt.figure().add_subplot(projection='3d')
-    ax.scatter(
-        pr_new[:, :, 0],
-        pr_new[:, :, 2],
-        pr_new[:, :, 1],
-        # alpha=points_record[:, :, 3]
-        alpha=1.
-    )
-    ax.scatter(
-        pe_new[:, :, 0],
-        pe_new[:, :, 2],
-        pe_new[:, :, 1],
-        alpha=0.1
-    )
-    ax.set_xlim(-3, 3)
-    ax.set_ylim(-3, 3)
-    ax.set_zlim(-3, 3)
-    # ax.set_xlabel('X')
-    # ax.set_ylabel('Y')
-    # ax.set_zlabel('Z')
-    plt.show()
-    plt.savefig('foo.png')
+    while 1:
+        theta0 = cv2.getTrackbarPos('theta0:','interaction' ) -90
+        theta1 = cv2.getTrackbarPos('theta1:', 'interaction') -90
+        theta2 = cv2.getTrackbarPos('theta2:', 'interaction') -90
 
+        target = np.asarray([[theta0,theta1,theta2]]*len(angle_list))
 
-# def dense_visual_box(theta, phi, more_dof=False):
-#     my_pose = w2c_matrix(theta, phi, 4.)
-#     my_pose = torch.from_numpy(my_pose.astype('float32')).to(device)
-#     height, width, focal = 100, 100, 130.25446
-#     near, far = 2., 6.
-#     rays_o, rays_d = get_rays(height, width, focal, my_pose)
-#     rays_o = rays_o.reshape([-1, 3])
-#     rays_d = rays_d.reshape([-1, 3])
-#     raw_outputs = nerf_forward(rays_o, rays_d,
-#                                near, far, encode, model,
-#                                kwargs_sample_stratified=kwargs_sample_stratified,
-#                                n_samples_hierarchical=n_samples_hierarchical,
-#                                kwargs_sample_hierarchical=kwargs_sample_hierarchical,
-#                                fine_model=fine_model,
-#                                viewdirs_encoding_fn=encode_viewdirs,
-#                                chunksize=chunksize,
-#                                if_3dof=more_dof,
-#                                only_raw=True)
-#
-#     ax = plt.figure().add_subplot(projection='3d')
-#     ax.view_init(elev=90, azim=-90)
-#     for p in raw_outputs:
-#         # print(p[-1])
-#         p = p.detach().numpy()
-#         if p[-1] > 0.:
-#             ax.scatter(p[0], p[2], p[1])
-#
-#     plt.show()
-#
-#     # print(raw_outputs.shape)
+        diff = np.sum(abs(target - angle_list),axis=1)
+        idx = np.argmin(diff)
 
+        # idx
+        img = cv2.imread(data_pth+'%04d.jpg' % idx)
+
+        cv2.imshow('interaction',img)
+
+        k = cv2.waitKey(1) & 0xFF
+        if k == 27:
+            break
+
+    # destroys all window
+    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
 
     # test_model_pth = 'train_log/log_1600data/best_model/'
-    test_model_pth = 'train_log/log_1000data_out1_img100/best_model/'
+    test_model_pth = 'log_1000data_out1_img100/best_model/'
     DOF = 3
     num_data = 1000
     n_samples_hierarchical = 64
@@ -271,7 +240,9 @@ if __name__ == "__main__":
     near = 2.
     far = 6.
 
-    data = np.load('data/data_May29/dof%d_data%d_px%d.npz' % (DOF, num_data, width))
+    # data = np.load('data/data_May29/dof%d_data%d_px%d.npz' % (DOF, num_data, width))
+    data = np.load( '../data/uniform_data/dof3_data8000.npz')
+
     focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
     print(focal)
     kwargs_sample_stratified = {
@@ -293,16 +264,23 @@ if __name__ == "__main__":
 
     model.eval()
 
-    theta_0_loop = np.linspace(0., 90, 30, endpoint=False)
-    theta_1_loop = np.linspace(0., 90., 30, endpoint=False)
-    theta_2_loop = np.linspace(0., 90., 30, endpoint=False)
+    sep = 20
+    theta_0_loop = np.linspace(-90., 90,  sep, endpoint=False)
+    theta_1_loop = np.linspace(-90., 90., sep, endpoint=False)
+    theta_2_loop = np.linspace(-90., 90., sep, endpoint=False)
+    idx_list = []
 
-    for i in range(1):
-        # angle = list([theta_0_loop[29], theta_1_loop[10], theta_2_loop[10]])
-        angle=[0,0,90]
-        p_dense, p_empty = test_model(angle=angle, log_pth=test_model_pth, idx=i)
+    # for i in range(sep**3):
+    #     angle = list([theta_0_loop[i//(sep**2)], theta_1_loop[(i//sep)%sep], theta_2_loop[i%sep]])
+    #     idx_list.append(angle)
+    #
+    #     p_dense, p_empty = test_model(angle=angle, log_pth=test_model_pth, idx=i)
+    #
+    # np.savetxt("log_1000data_out1_img100/logger.csv",np.asarray(idx_list),fmt='%i')
 
-        # pose_transfer_visualize(points_record=p_dense, points_empty=p_empty, theta=30, phi=30)
-    # dense_visual_box(theta=0., phi=0.)
+    import cv2
 
-    # make_video()
+    data_pth = 'log_1000data_out1_img100/best_model/visual_test/'
+
+    angle_list = np.loadtxt("log_1000data_out1_img100/logger.csv")
+    interaction(data_pth,angle_list)

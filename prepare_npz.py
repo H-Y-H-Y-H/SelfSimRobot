@@ -179,8 +179,8 @@ if __name__ == "__main__":
     MOV_CAM = False
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 4.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
-    DOF = 2  # the number of motors
-    sample_num = 40  # separate the action space
+    DOF = 3  # the number of motors
+    sample_num = 30  # separate the action space
 
     # Camera config: focal
     Camera_FOV = 42.
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     # prepare_data_4dof(full_env=MyEnv, path="data/arm_data/")
 
     # Data_collection
-    log_pth = "data/data_May29/"
+    log_pth = "data/data_uniform/"
     os.makedirs(log_pth, exist_ok=True)
 
     action_lists = uniform_data(sample_num)
