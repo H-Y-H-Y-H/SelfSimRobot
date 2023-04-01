@@ -4,7 +4,7 @@ import torch
 from model import FBV_SM, PositionalEncoder
 from func import *
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 print("train,", device)
 
 
@@ -287,12 +287,13 @@ if __name__ == "__main__":
     nf_size = 2.
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = True
-    DOF = 2  # the number of motors
-    num_data = 1600
-    tr = 0.8  # training ratio
+    DOF = 3  # the number of motors
+    num_data = 64000
+    tr = 0.99  # training ratio
     pxs = 100  # collected data pixels
     # data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
-    data = np.load('data/data_May29/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
+    # data = np.load('data/data_May29/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
+    data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
     Overfitting_test = False
     sample_id = random.sample(range(num_data), num_data)
     OVERFITTING_ID = 55
@@ -360,7 +361,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata_in5_out1_img%d(3)/" % (num_data, pxs)
+    LOG_PATH = "train_log/log_%ddata_in6_out1_img%d(3)/" % (num_data, pxs)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -378,7 +379,7 @@ if __name__ == "__main__":
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
                                        n_layers=8,
-                                       d_filter=128,
+                                       d_filter=160,
                                        skip=(4,),
                                        output_size=1)
 
