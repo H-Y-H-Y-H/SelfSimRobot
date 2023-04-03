@@ -7,7 +7,7 @@ from func import w2c_matrix, c2w_matrix
 import numpy as np
 from torch import nn
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 # def pos2img(new_pose, ArmAngle, more_dof=False):
@@ -237,9 +237,9 @@ def interaction(data_pth, angle_list):
 
 if __name__ == "__main__":
     # test_model_pth = 'train_log/log_1600data/best_model/'
-    test_model_pth = 'train_log/log_1000data_out1_img100/best_model/'
+    test_model_pth = 'train_log/log_64000data_in6_out1_img100(3)/best_model/'
     DOF = 3
-    num_data = 1000
+    # num_data = 1000
     n_samples_hierarchical = 64
     height = 100
     width = 100
@@ -263,7 +263,7 @@ if __name__ == "__main__":
 
     model, optimizer = init_models(d_input=DOF + 3,
                                    n_layers=8,
-                                   d_filter=200, output_size=1, skip=(4,))
+                                   d_filter=160, output_size=1, skip=(4,))
 
     # mar29, 8*200, log_1000data_out1_img100
     model.load_state_dict(torch.load(test_model_pth + "nerf.pt", map_location=torch.device(device)))
@@ -284,7 +284,7 @@ if __name__ == "__main__":
 
         p_dense, p_empty = test_model(angle=angle, log_pth=test_model_pth, idx=i)
 
-    np.savetxt("train_log/log_1000data_out1_img100/logger.csv",np.asarray(idx_list),fmt='%i')
+    np.savetxt("train_log/log_64000data_in6_out1_img100(3)/logger.csv",np.asarray(idx_list),fmt='%i')
 
     # import cv2
     #

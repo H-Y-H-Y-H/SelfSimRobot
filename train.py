@@ -4,7 +4,7 @@ import torch
 from model import FBV_SM, PositionalEncoder
 from func import *
 
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print("train,", device)
 
 

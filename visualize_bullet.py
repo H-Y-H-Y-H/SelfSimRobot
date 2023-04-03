@@ -42,7 +42,7 @@ def interact_env(
         interact: bool = True,
         dof: int = 3):
     p.connect(p.GUI) if render else p.connect(p.DIRECT)
-    logger = np.loadtxt("train_log/log_1000data_out1_img100/logger.csv")
+    logger = np.loadtxt("train_log/log_64000data_in6_out1_img100(3)/logger.csv")
 
     env = FBVSM_Env(
         show_moving_cam=False,
@@ -75,5 +75,5 @@ def interact_env(
 
 
 if __name__ == "__main__":
-    data_pth = 'train_log/log_1000data_out1_img100/best_model/pc_record/'
+    data_pth = 'train_log/log_64000data_in6_out1_img100(3)/best_model/pc_record/'
     interact_env()
