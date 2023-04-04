@@ -3,7 +3,7 @@ import os
 import numpy as np
 import torch
 
-from env import FBVSM_Env
+from env4 import FBVSM_Env  # if dof=4, env4
 import pybullet as p
 import time
 import matplotlib.pyplot as plt
@@ -63,6 +63,7 @@ def uniform_data(uniform_samples=10):
     theta_0_linspace = np.linspace(-1., 1., uniform_samples, endpoint=True)
     theta_1_linspace = np.linspace(-1., 1., uniform_samples, endpoint=True)
     theta_2_linspace = np.linspace(-1., 1., uniform_samples, endpoint=True)
+    theta_3_linspace = np.linspace(-1., 1., uniform_samples, endpoint=True)
 
     log_angle_list = []
     if DOF == 2:
@@ -77,6 +78,16 @@ def uniform_data(uniform_samples=10):
                 theta1 = theta_1_linspace[j // uniform_samples]
                 theta2 = theta_2_linspace[j % uniform_samples]
                 log_angle_list.append([theta0, theta1, theta2])
+
+    if DOF == 4:
+        for i in range(uniform_samples ** 2):
+            theta0 = theta_0_linspace[i // uniform_samples]
+            theta1 = theta_1_linspace[i % uniform_samples]
+            for j in range(uniform_samples ** 2):
+                theta2 = theta_2_linspace[j // uniform_samples]
+                theta3 = theta_3_linspace[j % uniform_samples]
+                log_angle_list.append([theta0, theta1, theta2, theta3])
+
 
     log_angle_list = np.asarray(log_angle_list)
 
@@ -113,19 +124,19 @@ def prepare_data(my_env, path, action_lists):
         pass
 
 
-def df_data(data_num: int, dof: int) -> np.array:
-    # data for dense field
-    if dof == 1:
-        theta_0_list = np.linspace(-1., 1., data_num, endpoint=False)  # no repeated angles
-        theta_1_list = np.ones_like(theta_0_list) * 0.3
-        theta_2_list = np.ones_like(theta_0_list) * 0.3
-        return np.stack((theta_0_list, theta_1_list, theta_2_list), -1)
-
-    elif dof == 3:
-        theta_0_list = np.linspace(-1., 1., data_num, endpoint=False)  # no repeated angles
-        theta_1_list = np.linspace(-1., 1., data_num, endpoint=False)
-        theta_2_list = np.linspace(-1., 1., data_num, endpoint=False)
-        return np.stack((theta_0_list, theta_1_list, theta_2_list), -1)
+# def df_data(data_num: int, dof: int) -> np.array:
+#     # data for dense field
+#     if dof == 1:
+#         theta_0_list = np.linspace(-1., 1., data_num, endpoint=False)  # no repeated angles
+#         theta_1_list = np.ones_like(theta_0_list) * 0.3
+#         theta_2_list = np.ones_like(theta_0_list) * 0.3
+#         return np.stack((theta_0_list, theta_1_list, theta_2_list), -1)
+#
+#     elif dof == 3:
+#         theta_0_list = np.linspace(-1., 1., data_num, endpoint=False)  # no repeated angles
+#         theta_1_list = np.linspace(-1., 1., data_num, endpoint=False)
+#         theta_2_list = np.linspace(-1., 1., data_num, endpoint=False)
+#         return np.stack((theta_0_list, theta_1_list, theta_2_list), -1)
 
 
 def matrix_visual():

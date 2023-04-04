@@ -22,9 +22,9 @@ class FBVSM_Env(gym.Env):
         self.max_num_motor = max_num_motor
         #  camera z offset
         self.z_offset = 1.106
-        self.action_shift = np.asarray([90, 90, 0, 0])[:num_motor]
+        self.action_shift = np.asarray([90, 180, 0, 0])[:num_motor]
         self.render_flag = render_flag
-        self.camera_pos = [0.8, 0, self.z_offset]  # previous 0.8 ! May 28
+        self.camera_pos = [1, 0, self.z_offset]  # previous 0.8 ! May 28,  # 4dof dist=1
         self.camera_line = None
         self.camera_line_m = None
         self.step_id = 0
@@ -197,7 +197,7 @@ class FBVSM_Env(gym.Env):
         basePos_list = [basePos[0], basePos[1], .8]
         p.resetDebugVisualizerCamera(cameraDistance=1.2, cameraYaw=75, cameraPitch=-20,
                                      cameraTargetPosition=basePos_list)  # fix camera onto model
-        angle_array = [np.pi / 2, np.pi / 2, 0, 0]
+        angle_array = [np.pi / 2, np.pi / 2, 0, 0]  # [np.pi / 2, np.pi / 2, 0, 0]
 
         for i in range(self.num_motor):
             p.setJointMotorControl2(self.robot_id, i, controlMode=p.POSITION_CONTROL, targetPosition=angle_array[i],
