@@ -287,8 +287,8 @@ if __name__ == "__main__":
     nf_size = 2.
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = True
-    DOF = 3  # the number of motors
-    num_data = 64000
+    DOF = 4  # the number of motors  # dof4 apr03
+    num_data = 10000
     tr = 0.99  # training ratio
     pxs = 100  # collected data pixels
     # data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
@@ -361,7 +361,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata_in6_out1_img%d(3)/" % (num_data, pxs)
+    LOG_PATH = "train_log/log_%ddata_in7_out1_img%d(1)/" % (num_data, pxs)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
