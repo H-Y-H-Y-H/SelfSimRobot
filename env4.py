@@ -191,13 +191,13 @@ class FBVSM_Env(gym.Env):
         startPos = [0, 0, 1]
         startOrientation = p.getQuaternionFromEuler([0, 0, 0])
 
-        self.robot_id = p.loadURDF('arm3dof/urdf/arm3dof.urdf', startPos, startOrientation, useFixedBase=1)
+        self.robot_id = p.loadURDF('arm4dof/urdf/arm4dof.urdf', startPos, startOrientation, useFixedBase=1)
 
         basePos, baseOrn = p.getBasePositionAndOrientation(self.robot_id)  # Get model position
         basePos_list = [basePos[0], basePos[1], .8]
         p.resetDebugVisualizerCamera(cameraDistance=1.2, cameraYaw=75, cameraPitch=-20,
                                      cameraTargetPosition=basePos_list)  # fix camera onto model
-        angle_array = [np.pi / 2, np.pi / 2, 0]
+        angle_array = [np.pi / 2, np.pi / 2, 0, 0]
 
         for i in range(self.num_motor):
             p.setJointMotorControl2(self.robot_id, i, controlMode=p.POSITION_CONTROL, targetPosition=angle_array[i],
@@ -312,7 +312,7 @@ def generate_action_list():
 
 if __name__ == '__main__':
     RENDER = True
-    NUM_MOTOR = 2
+    NUM_MOTOR = 4
     step_size = 0.1
 
     p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
@@ -335,13 +335,17 @@ if __name__ == '__main__':
     mode = 'm'  # manual or automatic
 
     if mode == 'm':
-        m0 = p.addUserDebugParameter("motor0: Yaw", -1, 1, 0)
+        m0 = p.addUserDebugParameter("motor0: yaw", -1, 1, 0)
         m1 = p.addUserDebugParameter("motor1: pitch", -1, 1, 0)
+        m2 = p.addUserDebugParameter("motor2: m2", -1, 1, 0)
+        m3 = p.addUserDebugParameter("motor3: m3", -1, 1, 0)
 
         runTimes = 10000
         for i in range(runTimes):
             c_angle[0] = p.readUserDebugParameter(m0)
             c_angle[1] = p.readUserDebugParameter(m1)
+            c_angle[2] = p.readUserDebugParameter(m2)
+            c_angle[3] = p.readUserDebugParameter(m3)
             obs, _, _, _ = env.step(c_angle)
             print(obs[0])
 
