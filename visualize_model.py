@@ -116,7 +116,10 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 def test_model(log_pth, angle, idx=1):
-    theta, phi, third_angle = angle
+    # theta, phi, third_angle = angle
+    # DOF=4:
+    theta, phi, third_angle, fourth_angle = angle
+
     # target_pose = c2w_matrix(theta, phi, 0.)
     # target_pose_tensor = torch.from_numpy(target_pose.astype('float32')).to(device)
     rays_o, rays_d = get_fixed_camera_rays(height, width, focal)
@@ -237,8 +240,9 @@ def interaction(data_pth, angle_list):
 
 if __name__ == "__main__":
     # test_model_pth = 'train_log/log_1600data/best_model/'
-    test_model_pth = 'train_log/log_64000data_in6_out1_img100(3)/best_model/'
-    DOF = 3
+    # test_model_pth = 'train_log/log_64000data_in6_out1_img100(3)/best_model/'
+    test_model_pth = 'train_log/log_10000data_in7_out1_img100(1)/best_model/'
+    DOF = 4
     # num_data = 1000
     n_samples_hierarchical = 64
     height = 100
@@ -270,25 +274,40 @@ if __name__ == "__main__":
 
     model.eval()
 
-    sep = 20
+    sep = 10
     theta_0_loop = np.linspace(-90., 90, sep, endpoint=False)
     theta_1_loop = np.linspace(-90., 90., sep, endpoint=False)
     theta_2_loop = np.linspace(-90., 90., sep, endpoint=False)
+
+    # dof=4:
+    theta_3_loop = np.linspace(-90., 90., sep, endpoint=False)
     idx_list = []
 
     C_POINTS = True  # whether collect points.npy, used in test model
 
-    for i in range(sep**3):
-        angle = list([theta_0_loop[i//(sep**2)], theta_1_loop[(i//sep)%sep], theta_2_loop[i%sep]])
-        idx_list.append(angle)
-
-        p_dense, p_empty = test_model(angle=angle, log_pth=test_model_pth, idx=i)
-
-    np.savetxt("train_log/log_64000data_in6_out1_img100(3)/logger.csv",np.asarray(idx_list),fmt='%i')
-
-    # import cv2
+    """
+    collect images and point clouds and indexes
+    """
+    # for i in range(sep ** 4):
+    #     # angle = list([theta_0_loop[i // (sep ** 2)], theta_1_loop[(i // sep) % sep], theta_2_loop[i % sep]])
+    #     # dof=4:
+    #     angle = list([theta_0_loop[i // (sep ** 3)],
+    #                   theta_1_loop[(i // sep ** 2) % sep],
+    #                   theta_2_loop[(i // sep) % sep],
+    #                   theta_3_loop[i % sep]])
+    #     idx_list.append(angle)
     #
-    # data_pth = 'train_log/log_1000data_out1_img100/best_model/visual_test/'
+    #     p_dense, p_empty = test_model(angle=angle, log_pth=test_model_pth, idx=i)
     #
-    # angle_list = np.loadtxt("train_log/log_1000data_out1_img100/logger.csv")
-    # interaction(data_pth, angle_list)
+    # np.savetxt("train_log/log_10000data_in7_out1_img100(1)/logger.csv", np.asarray(idx_list), fmt='%i')
+
+    """
+    gui matplotlib
+    """
+
+    import cv2
+
+    data_pth = 'train_log/log_10000data_in7_out1_img100(1)/best_model/visual_test/'
+
+    angle_list = np.loadtxt("train_log/log_10000data_in7_out1_img100(1)/logger.csv")
+    interaction(data_pth, angle_list)

@@ -288,8 +288,8 @@ if __name__ == "__main__":
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = True
     DOF = 4  # the number of motors  # dof4 apr03
-    num_data = 10000
-    tr = 0.99  # training ratio
+    num_data = 160000
+    tr = 0.999  # training ratio
     pxs = 100  # collected data pixels
     # data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
     # data = np.load('data/data_May29/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))

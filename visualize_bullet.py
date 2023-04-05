@@ -3,14 +3,19 @@ import torch
 from train import nerf_forward, get_fixed_camera_rays, init_models
 from func import w2c_matrix, c2w_matrix
 import numpy as np
-from env import FBVSM_Env
+# from env import FBVSM_Env
+# 4dof
+from env4 import FBVSM_Env
 import pybullet as p
-
 
 # changed Transparency in urdf, line181, Mar31
 
+# PATH = "train_log/log_64000data_in6_out1_img100(3)/"
+PATH = "train_log/log_10000data_in7_out1_img100(1)/"
+
+
 def scale_points(predict_points):
-    scaled_points = predict_points / 5.  # scale 4 / 0.8
+    scaled_points = predict_points / 4.  # scale /5  0.8
     scaled_points[:, [1, 2]] = scaled_points[:, [2, 1]]
     scaled_points[:, [1, 0]] = scaled_points[:, [0, 1]]
     scaled_points[:, 0] = -scaled_points[:, 0]
@@ -40,9 +45,9 @@ def interact_env(
         pic_size: int = 100,
         render: bool = True,
         interact: bool = True,
-        dof: int = 3):
+        dof: int = 4):  # 4dof
     p.connect(p.GUI) if render else p.connect(p.DIRECT)
-    logger = np.loadtxt("train_log/log_64000data_in6_out1_img100(3)/logger.csv")
+    logger = np.loadtxt(PATH + "logger.csv")
 
     env = FBVSM_Env(
         show_moving_cam=False,
@@ -61,19 +66,24 @@ def interact_env(
         # 3 dof
         m0 = p.addUserDebugParameter("motor0: Yaw", -1, 1, 0)
         m1 = p.addUserDebugParameter("motor1: pitch", -1, 1, 0)
-        m2 = p.addUserDebugParameter("motor1: pitch", -1, 1, 0)
+        m2 = p.addUserDebugParameter("motor2: m2", -1, 1, 0)
+
+        m3 = p.addUserDebugParameter("motor3: m3", -1, 1, 0)  # 4dof
 
         runTimes = 10000
         for i in range(runTimes):
             c_angle[0] = p.readUserDebugParameter(m0)
             c_angle[1] = p.readUserDebugParameter(m1)
             c_angle[2] = p.readUserDebugParameter(m2)
+            c_angle[3] = p.readUserDebugParameter(m3)  # 4dof
             # print([c_angle[0], c_angle[1], c_angle[2]])
-            debug_points = load_point_cloud([c_angle[0], c_angle[1], c_angle[2]], debug_points, logger)
+            debug_points = load_point_cloud([c_angle[0], c_angle[1], c_angle[2], c_angle[3]],
+                                            debug_points,
+                                            logger)
             obs, _, _, _ = env.step(c_angle)
             # print(obs[0])
 
 
 if __name__ == "__main__":
-    data_pth = 'train_log/log_64000data_in6_out1_img100(3)/best_model/pc_record/'
+    data_pth = PATH + 'best_model/pc_record/'
     interact_env()
