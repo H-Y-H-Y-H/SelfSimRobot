@@ -288,26 +288,26 @@ if __name__ == "__main__":
     """
     collect images and point clouds and indexes
     """
-    # for i in range(sep ** 4):
-    #     # angle = list([theta_0_loop[i // (sep ** 2)], theta_1_loop[(i // sep) % sep], theta_2_loop[i % sep]])
-    #     # dof=4:
-    #     angle = list([theta_0_loop[i // (sep ** 3)],
-    #                   theta_1_loop[(i // sep ** 2) % sep],
-    #                   theta_2_loop[(i // sep) % sep],
-    #                   theta_3_loop[i % sep]])
-    #     idx_list.append(angle)
-    #
-    #     p_dense, p_empty = test_model(angle=angle, log_pth=test_model_pth, idx=i)
-    #
-    # np.savetxt("train_log/log_10000data_in7_out1_img100(1)/logger.csv", np.asarray(idx_list), fmt='%i')
+    for i in range(sep ** 4):
+        # angle = list([theta_0_loop[i // (sep ** 2)], theta_1_loop[(i // sep) % sep], theta_2_loop[i % sep]])
+        # dof=4:
+        angle = list([theta_0_loop[i // (sep ** 3)],
+                      theta_1_loop[(i // sep ** 2) % sep],
+                      theta_2_loop[(i // sep) % sep],
+                      theta_3_loop[i % sep]])
+        idx_list.append(angle)
+
+        p_dense, p_empty = test_model(angle=angle, log_pth=test_model_pth, idx=i)
+
+    np.savetxt("train_log/log_10000data_in7_out1_img100(1)/logger.csv", np.asarray(idx_list), fmt='%i')
 
     """
     gui matplotlib
     """
 
-    import cv2
-
-    data_pth = 'train_log/log_10000data_in7_out1_img100(1)/best_model/visual_test/'
-
-    angle_list = np.loadtxt("train_log/log_10000data_in7_out1_img100(1)/logger.csv")
-    interaction(data_pth, angle_list)
+    # import cv2
+    #
+    # data_pth = 'train_log/log_10000data_in7_out1_img100(1)/best_model/visual_test/'
+    #
+    # angle_list = np.loadtxt("train_log/log_10000data_in7_out1_img100(1)/logger.csv")
+    # interaction(data_pth, angle_list)
