@@ -9,6 +9,7 @@ from torch import nn
 from typing import Optional, Tuple, List, Union, Callable
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+print(device)
 
 
 # import torch

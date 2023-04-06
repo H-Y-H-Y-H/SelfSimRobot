@@ -4,9 +4,9 @@ import torch
 from model import FBV_SM, PositionalEncoder
 from func import *
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-print("train,", device)
 
+# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# print("train,", device)
 
 def plot_samples(
         z_vals: torch.Tensor,
@@ -270,7 +270,27 @@ def train(model, optimizer):
     return True, train_psnrs, val_psnrs
 
 
-# def data_loader():
+class Dataset(torch.utils.data.Dataset):
+    """Characterizes a dataset for PyTorch"""
+
+    def __init__(self, images, angles, matrices):
+        """Initialization"""
+        self.images = images
+        self.angles = angles
+        self.matrices = matrices
+
+    def __len__(self):
+        """Denotes the total number of samples"""
+        return len(self.angles)
+
+    def __getitem__(self, index):
+        """Generates one sample of data"""
+        # Select sample
+        image = self.images[index]
+        angle = self.angles[index]
+        matrix = self.angles[index]
+
+        return image, angle, matrix
 
 
 if __name__ == "__main__":
@@ -386,7 +406,6 @@ if __name__ == "__main__":
         # mar30, 2dof, 3input 10 * 128 skip=5 log_1600data_in3_out1_img100
         # mar30, 2dof, 3input 8 * 128 skip=4 log_1600data_in3_out1_img100(2)  psnr 20
         # mar30, 2dof, 5input 8 * 128 skip=4 log_1600data_in5_out1_img100(3)  0.002044 PSNR:  27.65, record this one!
-
 
         # mar29, 3dof, 6input 8*200, log_1000data_out1_img100  # PSNR 24.06
         # mar29, 3dof, 4input 10*128  # psnr 20
