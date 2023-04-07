@@ -188,9 +188,9 @@ if __name__ == "__main__":
     """data collection"""
     RENDER = False
     MOV_CAM = False
-    WIDTH, HEIGHT = 100, 100
+    WIDTH, HEIGHT = 200, 200
     HYPER_radius_scaler = 4.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
-    DOF = 4  # the number of motors
+    DOF = 3  # the number of motors
     sample_num = 20  # separate the action space
 
     # Camera config: focal

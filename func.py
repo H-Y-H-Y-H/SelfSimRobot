@@ -565,7 +565,7 @@ def get_chunks(
 def prepare_chunks(
         points: torch.Tensor,
         # encoding_function: Callable[[torch.Tensor], torch.Tensor],
-        chunksize: int = 2 ** 15
+        chunksize: int = 2 ** 14
 ) -> List[torch.Tensor]:
     r"""
   Encode and chunkify points to prepare for NeRF model.
@@ -632,6 +632,7 @@ def nerf_forward(
     predictions = []
     for batch in batches:
         predictions.append(model(batch))
+
     raw = torch.cat(predictions, dim=0)
     raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 

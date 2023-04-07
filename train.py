@@ -120,13 +120,15 @@ def train(model, optimizer):
         # print(training_angles[target_img_idx])
 
         rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+
+        # todo: apr 6, spliter
         # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
 
         rays_o = rays_o.reshape([-1, 3])
         rays_d = rays_d.reshape([-1, 3])
 
         target_img = target_img.reshape([-1])
-
+        print(rays_o.shape, rays_d.shape)
         # Run one iteration of TinyNeRF and get the rendered RGB image.
         outputs = nerf_forward(rays_o, rays_d,
                                near, far, model,
@@ -146,18 +148,22 @@ def train(model, optimizer):
 
         # Backprop!
         rgb_predicted = outputs['rgb_map']
+        optimizer.zero_grad()
         loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
+        # loss.to(device)   # todo
         loss.backward()
         optimizer.step()
-        optimizer.zero_grad()
-
+        # torch.cuda.empty_cache()
         # Compute mean-squared error between predicted and target images.
         psnr = -10. * torch.log10(loss)
         train_psnrs.append(psnr.item())
 
+        # torch.cuda.empty_cache()  # save memory
+
         # Evaluate testimg at given display rate.
         if i % display_rate == 0:
             model.eval()
+            torch.no_grad()
             valid_epoch_loss = []
             valid_psnr = []
             valid_image = []
@@ -267,6 +273,7 @@ def train(model, optimizer):
         if patience > Patience_threshold:
             break
 
+        # torch.cuda.empty_cache()    # to save memory
     return True, train_psnrs, val_psnrs
 
 
@@ -307,14 +314,15 @@ if __name__ == "__main__":
     nf_size = 2.
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = True
-    DOF = 4  # the number of motors  # dof4 apr03
-    num_data = 160000
-    tr = 0.999  # training ratio
-    pxs = 100  # collected data pixels
+    DOF = 3  # the number of motors  # dof4 apr03
+    num_data = 8000
+    tr = 0.99  # training ratio
+    pxs = 200  # collected data pixels
     # data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
     # data = np.load('data/data_May29/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
     data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
-    Overfitting_test = False
+    Overfitting_test = True
+
     sample_id = random.sample(range(num_data), num_data)
     OVERFITTING_ID = 55
     if Overfitting_test:
@@ -361,9 +369,9 @@ if __name__ == "__main__":
     batch_size = 2 ** 14  # Number of rays per gradient step (power of 2)
     one_image_per_step = True  # One image per gradient step (disables batching)
     chunksize = 2 ** 14  # Modify as needed to fit in GPU memory
-    center_crop = True  # Crop the center of image (one_image_per_)
+    center_crop = False  # Crop the center of image (one_image_per_)   # debug
     center_crop_iters = 50  # Stop cropping center after this many epochs
-    display_rate = 200  # Display test output every X epochs
+    display_rate = 100  # Display test output every X epochs
 
     # Early Stopping
     warmup_iters = 400  # Number of iterations during warmup phase
@@ -381,7 +389,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata_in7_out1_img%d(1)/" % (num_data, pxs)
+    LOG_PATH = "train_log/log_%ddata_in6_out1_img%d(1)/" % (num_data, pxs)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -398,9 +406,9 @@ if __name__ == "__main__":
     # DOF = DOF-1
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
-                                       n_layers=8,
-                                       d_filter=160,
-                                       skip=(4,),
+                                       n_layers=3,
+                                       d_filter=128,
+                                       skip=(),
                                        output_size=1)
 
         # mar30, 2dof, 3input 10 * 128 skip=5 log_1600data_in3_out1_img100
