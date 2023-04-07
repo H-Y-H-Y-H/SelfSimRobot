@@ -1,5 +1,7 @@
 #  from notebook: https://towardsdatascience.com/its-nerf-from-nothing-build-a-vanilla-nerf-with-pytorch-7846e4c45666
 import random
+
+import numpy as np
 import torch
 from model import FBV_SM, PositionalEncoder
 from func import *
@@ -92,6 +94,25 @@ def init_models(d_input, n_layers, d_filter, skip, pretrained_model_pth=None, lr
     return model, optimizer
 
 
+def img_spliter(o, d, img, split_num=10000, shuffle=True):
+    # flatten
+    o = o.reshape([-1, 3])
+    d = d.reshape([-1, 3])
+    img = img.reshape([-1])
+    # print(o.shape, d.shape, img.shape)
+    if shuffle:
+        # shaffle index
+        shuffle_index = torch.randperm(img.shape[0])
+        o = o[shuffle_index, :]
+        d = d[shuffle_index, :]
+        img = img[shuffle_index]
+    o_s = torch.split(o, split_num)
+    d_s = torch.split(d, split_num)
+    img_s = torch.split(img, split_num)
+
+    return o_s, d_s, img_s
+
+
 def train(model, optimizer):
     r"""
     Launch training session for NeRF.
@@ -120,43 +141,35 @@ def train(model, optimizer):
         # print(training_angles[target_img_idx])
 
         rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
-
-        # todo: apr 6, spliter
         # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
 
-        rays_o = rays_o.reshape([-1, 3])
-        rays_d = rays_d.reshape([-1, 3])
+        # split to save memory
+        o_s, d_s, img_s = img_spliter(o=rays_o, d=rays_d, img=target_img)
+        one_img_loss = []
+        for id_train in range(len(img_s)):
+            # print("cc")
+            # Run one iteration of TinyNeRF and get the rendered RGB image.
+            outputs = nerf_forward(o_s[id_train], d_s[id_train],
+                                   near, far, model,
+                                   kwargs_sample_stratified=kwargs_sample_stratified,
+                                   n_samples_hierarchical=n_samples_hierarchical,
+                                   kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+                                   chunksize=chunksize,
+                                   arm_angle=angle,
+                                   DOF=DOF)
 
-        target_img = target_img.reshape([-1])
-        print(rays_o.shape, rays_d.shape)
-        # Run one iteration of TinyNeRF and get the rendered RGB image.
-        outputs = nerf_forward(rays_o, rays_d,
-                               near, far, model,
-                               kwargs_sample_stratified=kwargs_sample_stratified,
-                               n_samples_hierarchical=n_samples_hierarchical,
-                               kwargs_sample_hierarchical=kwargs_sample_hierarchical,
-                               chunksize=chunksize,
-                               arm_angle=angle,
-                               DOF=DOF)
 
-        # Check for any numerical issues.
-        for k, v in outputs.items():
-            if torch.isnan(v).any():
-                print(f"! [Numerical Alert] {k} contains NaN.")
-            if torch.isinf(v).any():
-                print(f"! [Numerical Alert] {k} contains Inf.")
-
-        # Backprop!
-        rgb_predicted = outputs['rgb_map']
-        optimizer.zero_grad()
-        loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
-        # loss.to(device)   # todo
-        loss.backward()
-        optimizer.step()
+            # Backprop!
+            rgb_predicted = outputs['rgb_map']
+            optimizer.zero_grad()
+            loss = torch.nn.functional.mse_loss(rgb_predicted, img_s[id_train])
+            loss.backward()
+            optimizer.step()
+            one_img_loss.append(loss.item())
         # torch.cuda.empty_cache()
         # Compute mean-squared error between predicted and target images.
-        psnr = -10. * torch.log10(loss)
-        train_psnrs.append(psnr.item())
+        psnr = -10. * np.log10(np.mean(one_img_loss))
+        train_psnrs.append(psnr)
 
         # torch.cuda.empty_cache()  # save memory
 
@@ -174,24 +187,33 @@ def train(model, optimizer):
                 angle = training_angles[target_img_idx]
                 rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
 
-                # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
-                rays_o = rays_o.reshape([-1, 3])
-                rays_d = rays_d.reshape([-1, 3])
-                outputs = nerf_forward(rays_o, rays_d,
-                                       near, far, model,
-                                       kwargs_sample_stratified=kwargs_sample_stratified,
-                                       n_samples_hierarchical=n_samples_hierarchical,
-                                       kwargs_sample_hierarchical=kwargs_sample_hierarchical,
-                                       chunksize=chunksize,
-                                       arm_angle=angle,
-                                       DOF=DOF)
+                # split
+                o_s, d_s, img_s = img_spliter(o=rays_o, d=rays_d, img=target_img, shuffle=False)  # no shuffle combine
+                one_img_loss = []
+                rgb_combine = []
+                for id_test in range(len(img_s)):
+                    # print("of")
+                    # Run one iteration of TinyNeRF and get the rendered RGB image.
+                    outputs = nerf_forward(o_s[id_test], d_s[id_test],
+                                           near, far, model,
+                                           kwargs_sample_stratified=kwargs_sample_stratified,
+                                           n_samples_hierarchical=n_samples_hierarchical,
+                                           kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+                                           chunksize=chunksize,
+                                           arm_angle=angle,
+                                           DOF=DOF)
 
-                rgb_predicted = outputs['rgb_map']
+                    # Backprop!
+                    rgb_predicted = outputs['rgb_map']
+                    rgb_combine.append(rgb_predicted)
+                    optimizer.zero_grad()
+                    loss = torch.nn.functional.mse_loss(rgb_predicted, img_s[id_test])
+                    one_img_loss.append(loss.item())
+                val_psnr = -10. * np.log10(np.mean(one_img_loss))
+                valid_epoch_loss = np.mean(one_img_loss)
 
-                loss = torch.nn.functional.mse_loss(rgb_predicted, target_img.reshape(-1))
-                val_psnr = (-10. * torch.log10(loss)).item()
-                valid_epoch_loss = loss.item()
-                np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
+                rgb_out = torch.cat(rgb_combine, dim=0)  # combine split images
+                np_image = rgb_out.reshape([height, width, 1]).detach().cpu().numpy()
                 np_image = np.clip(0, 1, np_image)
                 np_image_combine = np.dstack((np_image, np_image, np_image))
                 matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % target_img_idx, np_image_combine)
@@ -208,25 +230,37 @@ def train(model, optimizer):
 
                     rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
                     # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
-                    rays_o = rays_o.reshape([-1, 3])
-                    rays_d = rays_d.reshape([-1, 3])
-                    outputs = nerf_forward(rays_o, rays_d,
-                                           near, far, model,
-                                           kwargs_sample_stratified=kwargs_sample_stratified,
-                                           n_samples_hierarchical=n_samples_hierarchical,
-                                           kwargs_sample_hierarchical=kwargs_sample_hierarchical,
-                                           chunksize=chunksize,
-                                           arm_angle=angle,
-                                           DOF=DOF)
 
-                    rgb_predicted = outputs['rgb_map']
-                    # img_label = torch.dstack((testing_img[v_i],testing_img[v_i],testing_img[v_i]))
+                    # split
+                    o_s, d_s, img_s = img_spliter(o=rays_o, d=rays_d, img=img_label,
+                                                  shuffle=False)  # no shuffle combine
+                    one_img_loss = []
+                    rgb_combine = []
+                    for id_test in range(len(img_s)):
+                        # print("of")
+                        # Run one iteration of TinyNeRF and get the rendered RGB image.
+                        outputs = nerf_forward(o_s[id_test], d_s[id_test],
+                                               near, far, model,
+                                               kwargs_sample_stratified=kwargs_sample_stratified,
+                                               n_samples_hierarchical=n_samples_hierarchical,
+                                               kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+                                               chunksize=chunksize,
+                                               arm_angle=angle,
+                                               DOF=DOF)
 
-                    loss = torch.nn.functional.mse_loss(rgb_predicted, img_label.reshape(-1))
-                    val_psnr = (-10. * torch.log10(loss)).item()
-                    valid_epoch_loss.append(loss.item())
+                        # Backprop!
+                        rgb_predicted = outputs['rgb_map']
+                        rgb_combine.append(rgb_predicted)
+                        optimizer.zero_grad()
+                        loss = torch.nn.functional.mse_loss(rgb_predicted, img_s[id_test])
+                        one_img_loss.append(loss.item())
+                    val_psnr = -10. * np.log10(np.mean(one_img_loss))
+
+                    valid_epoch_loss.append(np.mean(one_img_loss))
                     valid_psnr.append(val_psnr)
-                    np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
+
+                    rgb_out = torch.cat(rgb_combine, dim=0)  # combine split images
+                    np_image = rgb_out.reshape([height, width, 1]).detach().cpu().numpy()
                     np_image = np.clip(0, 1, np_image)
                     if v_i < max_pic_save:
                         valid_image.append(np_image)
@@ -321,7 +355,7 @@ if __name__ == "__main__":
     # data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
     # data = np.load('data/data_May29/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
     data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
-    Overfitting_test = True
+    Overfitting_test = False
 
     sample_id = random.sample(range(num_data), num_data)
     OVERFITTING_ID = 55
