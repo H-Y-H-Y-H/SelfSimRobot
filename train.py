@@ -94,7 +94,7 @@ def init_models(d_input, n_layers, d_filter, skip, pretrained_model_pth=None, lr
     return model, optimizer
 
 
-def img_spliter(o, d, img, split_num=10000, shuffle=True):
+def img_spliter(o, d, img, split_num=40000, shuffle=True):
     # flatten
     o = o.reshape([-1, 3])
     d = d.reshape([-1, 3])
@@ -158,20 +158,20 @@ def train(model, optimizer):
                                    arm_angle=angle,
                                    DOF=DOF)
 
-
             # Backprop!
             rgb_predicted = outputs['rgb_map']
             optimizer.zero_grad()
-            loss = torch.nn.functional.mse_loss(rgb_predicted, img_s[id_train])
+            loss = torch.nn.functional.mse_loss(rgb_predicted.cpu(), img_s[id_train])
             loss.backward()
             optimizer.step()
+            torch.cuda.empty_cache()  # to save memory
             one_img_loss.append(loss.item())
         # torch.cuda.empty_cache()
         # Compute mean-squared error between predicted and target images.
         psnr = -10. * np.log10(np.mean(one_img_loss))
         train_psnrs.append(psnr)
 
-        # torch.cuda.empty_cache()  # save memory
+        torch.cuda.empty_cache()
 
         # Evaluate testimg at given display rate.
         if i % display_rate == 0:
@@ -208,6 +208,7 @@ def train(model, optimizer):
                     rgb_combine.append(rgb_predicted)
                     optimizer.zero_grad()
                     loss = torch.nn.functional.mse_loss(rgb_predicted, img_s[id_test])
+                    torch.cuda.empty_cache()  # to save memory
                     one_img_loss.append(loss.item())
                 val_psnr = -10. * np.log10(np.mean(one_img_loss))
                 valid_epoch_loss = np.mean(one_img_loss)
@@ -253,6 +254,7 @@ def train(model, optimizer):
                         rgb_combine.append(rgb_predicted)
                         optimizer.zero_grad()
                         loss = torch.nn.functional.mse_loss(rgb_predicted, img_s[id_test])
+                        torch.cuda.empty_cache()  # to save memory
                         one_img_loss.append(loss.item())
                     val_psnr = -10. * np.log10(np.mean(one_img_loss))
 
@@ -293,16 +295,6 @@ def train(model, optimizer):
                 if psnr_v < 16.2 and i >= 2000:  # TBD
                     print("restart")
                     return False, train_psnrs, psnr_v
-
-        # Check PSNR for issues and stop if any are found.
-        if i == warmup_iters - 1:
-            if psnr_v < warmup_min_fitness:
-                print(f'Val PSNR {psnr_v} below warmup_min_fitness {warmup_min_fitness}. Stopping...')
-                return False, train_psnrs, psnr_v
-        # elif i < warmup_iters:
-        #     if warmup_stopper is not None and warmup_stopper(i, psnr):
-        #         print(f'Train PSNR flatlined at {psnr} for {warmup_stopper.patience} iters. Stopping...')
-        #         return False, train_psnrs, psnr_v
 
         if patience > Patience_threshold:
             break
@@ -372,15 +364,15 @@ if __name__ == "__main__":
         valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
 
     # Gather as torch tensors
-    focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
+    focal = torch.from_numpy(data['focal'].astype('float32'))
 
-    training_img = torch.from_numpy(data['images'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
-    training_angles = torch.from_numpy(data['angles'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
-    training_pose_matrix = torch.from_numpy(data['poses'][sample_id[:int(num_data * tr)]].astype('float32')).to(device)
+    training_img = torch.from_numpy(data['images'][sample_id[:int(num_data * tr)]].astype('float32'))
+    training_angles = torch.from_numpy(data['angles'][sample_id[:int(num_data * tr)]].astype('float32'))
+    training_pose_matrix = torch.from_numpy(data['poses'][sample_id[:int(num_data * tr)]].astype('float32'))
 
-    testing_img = torch.from_numpy(data['images'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
-    testing_angles = torch.from_numpy(data['angles'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
-    testing_pose_matrix = torch.from_numpy(data['poses'][sample_id[int(num_data * tr):]].astype('float32')).to(device)
+    testing_img = torch.from_numpy(data['images'][sample_id[int(num_data * tr):]].astype('float32'))
+    testing_angles = torch.from_numpy(data['angles'][sample_id[int(num_data * tr):]].astype('float32'))
+    testing_pose_matrix = torch.from_numpy(data['poses'][sample_id[int(num_data * tr):]].astype('float32'))
 
     # Grab rays from sample image
     height, width = training_img.shape[1:3]
@@ -440,7 +432,7 @@ if __name__ == "__main__":
     # DOF = DOF-1
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
-                                       n_layers=3,
+                                       n_layers=4,
                                        d_filter=128,
                                        skip=(),
                                        output_size=1)
