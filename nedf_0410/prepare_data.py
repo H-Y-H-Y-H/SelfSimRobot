@@ -5,6 +5,7 @@ import torch
 import numpy as np
 import pybullet as p
 
+
 def transition_matrix(label, value):
     if label == "rot_x":
         return np.array([
@@ -30,11 +31,13 @@ def transition_matrix(label, value):
     else:
         return "wrong label"
 
+
 def w2c_matrix(theta, phi, radius):
     w2c = transition_matrix("tran_z", radius)
     w2c = np.dot(transition_matrix("rot_y", -theta / 180. * np.pi), w2c)
     w2c = np.dot(transition_matrix("rot_x", -phi / 180. * np.pi), w2c)
     return w2c
+
 
 def uniform_data(uniform_samples=10):
     theta_0_linspace = np.linspace(-1., 1., uniform_samples, endpoint=True)
@@ -75,13 +78,14 @@ def uniform_data(uniform_samples=10):
 
     return log_angle_list
 
+
 def data_collect(
         data_path: str,
         env: FBVSM_Env,
         action_list: np.array):
     env.reset()
     data_length = action_list.shape[0]
-    save_text_len = str(int(np.log10(data_length)+1))
+    save_text_len = str(int(np.log10(data_length) + 1))
     print(save_text_len)
     # todo:
     #  1. collect image,
@@ -96,7 +100,7 @@ def data_collect(
         img = 1. - obs[1] / 255.
         # save (image, w2c, angles) by order
         # update data length if needed, %4d
-        np.savetxt(data_path + "images/" + "%04d.txt" % idx, img[..., 0], fmt="%3i")    # save as int
+        np.savetxt(data_path + "images/" + "%04d.txt" % idx, img[..., 0], fmt="%3i")  # save as int
         np.savetxt(data_path + "w2c/" + "%04d.txt" % idx, w2c_m)
         angle_record.append(angles)
         idx += 1
@@ -124,7 +128,7 @@ if __name__ == "__main__":
         width=WIDTH,
         height=HEIGHT,
         render_flag=RENDER,
-        num_motor=4)    # here num_motor != DOF if we fixed the last motor
+        num_motor=4)  # here num_motor != DOF if we fixed the last motor
 
     np.random.seed(2023)
     torch.manual_seed(2023)

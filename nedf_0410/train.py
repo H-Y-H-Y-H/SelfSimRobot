@@ -2,6 +2,8 @@
 import random
 import matplotlib.image
 import os
+
+import numpy as np
 from tqdm import trange
 from model import FBV_SM
 from func import *
@@ -87,24 +89,60 @@ def train(model, optimizer):
         train_psnrs.append(psnr.item())
 
         # Evaluate testimg at given display rate.
-        if i % display_rate == 0:
-            model.eval()
-            torch.no_grad()
-            valid_epoch_loss = []
-            valid_psnr = []
-            valid_image = []
-            height, width = pxs, pxs
 
-            if Overfitting_test:
-                target_img = valid_data[target_img_idx]["image"]
-                angle = valid_data[target_img_idx]["angle"]
-                pose_matrix = valid_data[target_img_idx]["matrix"]
+        # if i % display_rate == 0:
+        model.eval()
+        torch.no_grad()
+        valid_epoch_loss = []
+        valid_psnr = []
+        valid_image = []
+        height, width = pxs, pxs
+
+        if Overfitting_test:
+            target_img = valid_data[target_img_idx]["image"]
+            angle = valid_data[target_img_idx]["angle"]
+            pose_matrix = valid_data[target_img_idx]["matrix"]
+            rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+
+            rays_o = rays_o.reshape([-1, 3])
+            rays_d = rays_d.reshape([-1, 3])
+            target_img = target_img.reshape([-1])
+
+            outputs = nerf_forward(rays_o, rays_d,
+                                   near, far, model,
+                                   kwargs_sample_stratified=kwargs_sample_stratified,
+                                   n_samples_hierarchical=n_samples_hierarchical,
+                                   kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+                                   chunksize=chunksize,
+                                   arm_angle=angle,
+                                   DOF=DOF)
+
+            # Backprop!
+            rgb_predicted = outputs['rgb_map']
+            optimizer.zero_grad()
+            loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
+            val_psnr = (-10. * torch.log10(loss)).item()
+            valid_epoch_loss = loss.item()
+            np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
+            np_image = np.clip(0, 1, np_image)
+            np_image_combine = np.dstack((np_image, np_image, np_image))
+            matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % target_img_idx, np_image_combine)
+
+            psnr_v = val_psnr
+            val_psnrs.append(psnr_v)
+            print("Loss:", valid_epoch_loss, "PSNR: ", psnr_v)
+
+        else:
+            for v_i in range(valid_length):
+                angle = valid_data[v_i]["angle"]
+                img_label = valid_data[v_i]["image"]
+                pose_matrix = valid_data[v_i]["matrix"]
+
                 rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+                # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
 
                 rays_o = rays_o.reshape([-1, 3])
                 rays_d = rays_d.reshape([-1, 3])
-                target_img = target_img.reshape([-1])
-
                 outputs = nerf_forward(rays_o, rays_d,
                                        near, far, model,
                                        kwargs_sample_stratified=kwargs_sample_stratified,
@@ -114,81 +152,46 @@ def train(model, optimizer):
                                        arm_angle=angle,
                                        DOF=DOF)
 
-                # Backprop!
                 rgb_predicted = outputs['rgb_map']
-                optimizer.zero_grad()
-                loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
+                # img_label = torch.dstack((testing_img[v_i],testing_img[v_i],testing_img[v_i]))
+
+                loss = torch.nn.functional.mse_loss(rgb_predicted, img_label.reshape(-1))
                 val_psnr = (-10. * torch.log10(loss)).item()
-                valid_epoch_loss = loss.item()
+                valid_epoch_loss.append(loss.item())
+                valid_psnr.append(val_psnr)
                 np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
                 np_image = np.clip(0, 1, np_image)
-                np_image_combine = np.dstack((np_image, np_image, np_image))
-                matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % target_img_idx, np_image_combine)
+                if v_i < max_pic_save:
+                    valid_image.append(np_image)
+            psnr_v = np.mean(valid_psnr)
+            val_psnrs.append(psnr_v)
+            print("Loss:", np.mean(valid_epoch_loss), "PSNR: ", psnr_v)
 
-                psnr_v = val_psnr
-                val_psnrs.append(psnr_v)
-                print("Loss:", valid_epoch_loss, "PSNR: ", psnr_v)
+            # save test image
+            np_image_combine = np.hstack(valid_image)
+            np_image_combine = np.dstack((np_image_combine, np_image_combine, np_image_combine))
 
+            matplotlib.image.imsave(LOG_PATH + 'image/' + 'latest.png', np_image_combine)
+            if Flag_save_image_during_training:
+                matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png' % i, np_image_combine)
+
+            record_file_train.write(str(psnr) + "\n")
+            record_file_val.write(str(psnr_v) + "\n")
+
+            if psnr_v > best_psnr:
+                """record the best image and model"""
+                best_psnr = psnr_v
+                matplotlib.image.imsave(LOG_PATH + 'image/' + 'best.png', np_image_combine)
+                torch.save(model.state_dict(), LOG_PATH + 'best_model/nerf.pt')
+                patience = 0
             else:
-                for v_i in range(valid_length):
-                    angle = valid_data[v_i]["angle"]
-                    img_label = valid_data[v_i]["image"]
-                    pose_matrix = valid_data[v_i]["matrix"]
+                patience += 1
+            # os.makedirs(LOG_PATH + "epoch_%d_model" % i, exist_ok=True)
+            # torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
 
-                    rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
-                    # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
-
-                    rays_o = rays_o.reshape([-1, 3])
-                    rays_d = rays_d.reshape([-1, 3])
-                    outputs = nerf_forward(rays_o, rays_d,
-                                           near, far, model,
-                                           kwargs_sample_stratified=kwargs_sample_stratified,
-                                           n_samples_hierarchical=n_samples_hierarchical,
-                                           kwargs_sample_hierarchical=kwargs_sample_hierarchical,
-                                           chunksize=chunksize,
-                                           arm_angle=angle,
-                                           DOF=DOF)
-
-                    rgb_predicted = outputs['rgb_map']
-                    # img_label = torch.dstack((testing_img[v_i],testing_img[v_i],testing_img[v_i]))
-
-                    loss = torch.nn.functional.mse_loss(rgb_predicted, img_label.reshape(-1))
-                    val_psnr = (-10. * torch.log10(loss)).item()
-                    valid_epoch_loss.append(loss.item())
-                    valid_psnr.append(val_psnr)
-                    np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
-                    np_image = np.clip(0, 1, np_image)
-                    if v_i < max_pic_save:
-                        valid_image.append(np_image)
-                psnr_v = np.mean(valid_psnr)
-                val_psnrs.append(psnr_v)
-                print("Loss:", np.mean(valid_epoch_loss), "PSNR: ", psnr_v)
-
-                # save test image
-                np_image_combine = np.hstack(valid_image)
-                np_image_combine = np.dstack((np_image_combine, np_image_combine, np_image_combine))
-
-                matplotlib.image.imsave(LOG_PATH + 'image/' + 'latest.png', np_image_combine)
-                if Flag_save_image_during_training:
-                    matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png' % i, np_image_combine)
-
-                record_file_train.write(str(psnr) + "\n")
-                record_file_val.write(str(psnr_v) + "\n")
-
-                if psnr_v > best_psnr:
-                    """record the best image and model"""
-                    best_psnr = psnr_v
-                    matplotlib.image.imsave(LOG_PATH + 'image/' + 'best.png', np_image_combine)
-                    torch.save(model.state_dict(), LOG_PATH + 'best_model/nerf.pt')
-                    patience = 0
-                else:
-                    patience += 1
-                # os.makedirs(LOG_PATH + "epoch_%d_model" % i, exist_ok=True)
-                # torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
-
-                if psnr_v < 16.2 and i >= 2000:  # TBD
-                    print("restart")
-                    return False, train_psnrs, psnr_v
+            if psnr_v < 16.2 and i >= 2000:  # TBD
+                print("restart")
+                return False, train_psnrs, psnr_v
 
         if patience > Patience_threshold:
             break
@@ -245,7 +248,7 @@ if __name__ == "__main__":
     train_length = int(num_data * tr)
     valid_length = num_data - train_length
     pxs = 200  # collected data pixels
-    data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
+    # data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
 
     Overfitting_test = False
     sample_id = random.sample(range(num_data), num_data)
@@ -262,7 +265,7 @@ if __name__ == "__main__":
         max_pic_save = 10
         valid_img_visual = []
         for vimg in range(max_pic_save):
-            valid_img_visual.append(valid_data[train_length + vimg]["image"])
+            valid_img_visual.append(valid_data[vimg]["image"])
         valid_img_visual = np.hstack(valid_img_visual)
         valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
 
@@ -283,7 +286,7 @@ if __name__ == "__main__":
 
     Camera_FOV = 42.
     camera_angle_x = Camera_FOV * np.pi / 180.
-    focal = .5 * pxs / np.tan(.5 * camera_angle_x)
+    focal = np.asarray(.5 * pxs / np.tan(.5 * camera_angle_x))
     focal = torch.from_numpy(focal.astype('float32'))
 
     # Encoders
@@ -323,7 +326,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata_in6_out1_img%d(1)/" % (num_data, pxs)
+    LOG_PATH = "./train_log/log_%ddata_in6_out1_img%d(1)/" % (num_data, pxs)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
