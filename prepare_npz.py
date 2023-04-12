@@ -88,7 +88,6 @@ def uniform_data(uniform_samples=10):
                 theta3 = theta_3_linspace[j % uniform_samples]
                 log_angle_list.append([theta0, theta1, theta2, theta3])
 
-
     log_angle_list = np.asarray(log_angle_list)
 
     return log_angle_list
