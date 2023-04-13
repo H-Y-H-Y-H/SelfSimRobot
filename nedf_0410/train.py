@@ -4,7 +4,7 @@ import matplotlib.image
 import os
 
 import numpy as np
-from tqdm import trange
+from tqdm import trange, tqdm
 from model import FBV_SM
 from func import *
 
@@ -49,48 +49,47 @@ def train(model, optimizer):
     patience = 0
     for i in trange(n_iters):
         model.train()
-        # Randomly pick an image as the target.
-        if Overfitting_test:
-            target_img_idx = OVERFITTING_ID
-        else:
-            target_img_idx = np.random.randint(train_length)
+        for t in tqdm(range(display_rate)):
+            # Randomly pick an image as the target.
+            if Overfitting_test:
+                target_img_idx = OVERFITTING_ID
+            else:
+                target_img_idx = np.random.randint(train_length)
 
-        target_img = train_data[target_img_idx]["image"]
-        angle = train_data[target_img_idx]["angle"]
-        pose_matrix = train_data[target_img_idx]["matrix"]
+            target_img = train_data[target_img_idx]["image"].to(device)
+            angle = train_data[target_img_idx]["angle"].to(device)
+            pose_matrix = train_data[target_img_idx]["matrix"].to(device)
 
-        if center_crop and i < center_crop_iters:
-            target_img = crop_center(target_img)
-        height, width = target_img.shape[:2]
+            if center_crop and i < center_crop_iters:
+                target_img = crop_center(target_img)
+            height, width = target_img.shape[:2]
 
-        rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
-        rays_o = rays_o.reshape([-1, 3])
-        rays_d = rays_d.reshape([-1, 3])
-        target_img = target_img.reshape([-1])
+            rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+            rays_o = rays_o.reshape([-1, 3])
+            rays_d = rays_d.reshape([-1, 3])
+            target_img = target_img.reshape([-1])
 
-        # Run one iteration of TinyNeRF and get the rendered RGB image.
-        outputs = nerf_forward(rays_o, rays_d,
-                               near, far, model,
-                               kwargs_sample_stratified=kwargs_sample_stratified,
-                               n_samples_hierarchical=n_samples_hierarchical,
-                               kwargs_sample_hierarchical=kwargs_sample_hierarchical,
-                               chunksize=chunksize,
-                               arm_angle=angle,
-                               DOF=DOF)
+            # Run one iteration of TinyNeRF and get the rendered RGB image.
+            outputs = nerf_forward(rays_o, rays_d,
+                                   near, far, model,
+                                   kwargs_sample_stratified=kwargs_sample_stratified,
+                                   n_samples_hierarchical=n_samples_hierarchical,
+                                   kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+                                   chunksize=chunksize,
+                                   arm_angle=angle,
+                                   DOF=DOF)
 
-        # Backprop!
-        rgb_predicted = outputs['rgb_map']
-        loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-        # Compute mean-squared error between predicted and target images.
-        psnr = -10. * torch.log10(loss)
-        train_psnrs.append(psnr.item())
+            # Backprop!
+            rgb_predicted = outputs['rgb_map']
+            loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            # Compute mean-squared error between predicted and target images.
+            psnr = -10. * torch.log10(loss)
+            train_psnrs.append(psnr.item())
 
         # Evaluate testimg at given display rate.
-
-        # if i % display_rate == 0:
         model.eval()
         with torch.no_grad():
             valid_epoch_loss = []
@@ -99,9 +98,9 @@ def train(model, optimizer):
             height, width = pxs, pxs
 
             if Overfitting_test:
-                target_img = valid_data[target_img_idx]["image"]
-                angle = valid_data[target_img_idx]["angle"]
-                pose_matrix = valid_data[target_img_idx]["matrix"]
+                target_img = valid_data[target_img_idx]["image"].to(device)
+                angle = valid_data[target_img_idx]["angle"].to(device)
+                pose_matrix = valid_data[target_img_idx]["matrix"].to(device)
                 rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
 
                 rays_o = rays_o.reshape([-1, 3])
@@ -134,9 +133,9 @@ def train(model, optimizer):
 
             else:
                 for v_i in range(valid_length):
-                    angle = valid_data[v_i]["angle"]
-                    img_label = valid_data[v_i]["image"]
-                    pose_matrix = valid_data[v_i]["matrix"]
+                    angle = valid_data[v_i]["angle"].to(device)
+                    img_label = valid_data[v_i]["image"].to(device)
+                    pose_matrix = valid_data[v_i]["matrix"].to(device)
 
                     rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
                     # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
@@ -243,7 +242,7 @@ if __name__ == "__main__":
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = True
     DOF = 3  # the number of motors  # dof4 apr03
-    num_data = 1000
+    num_data = 8000
     tr = 0.99  # training ratio
     train_length = int(num_data * tr)
     valid_length = num_data - train_length
@@ -269,25 +268,10 @@ if __name__ == "__main__":
         valid_img_visual = np.hstack(valid_img_visual)
         valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
 
-    # Gather as torch tensors
-    # focal = torch.from_numpy(data['focal'].astype('float32'))
-
-    # training_img = torch.from_numpy(data['images'][sample_id[:int(num_data * tr)]].astype('float32'))
-    # training_angles = torch.from_numpy(data['angles'][sample_id[:int(num_data * tr)]].astype('float32'))
-    # training_pose_matrix = torch.from_numpy(data['poses'][sample_id[:int(num_data * tr)]].astype('float32'))
-    #
-    # testing_img = torch.from_numpy(data['images'][sample_id[int(num_data * tr):]].astype('float32'))
-    # testing_angles = torch.from_numpy(data['angles'][sample_id[int(num_data * tr):]].astype('float32'))
-    # testing_pose_matrix = torch.from_numpy(data['poses'][sample_id[int(num_data * tr):]].astype('float32'))
-
-    # Grab rays from sample image
-    # height, width = pxs, pxs
-    # print('IMG (height, width)', (height, width))
-
     Camera_FOV = 42.
     camera_angle_x = Camera_FOV * np.pi / 180.
     focal = np.asarray(.5 * pxs / np.tan(.5 * camera_angle_x))
-    focal = torch.from_numpy(focal.astype('float32'))
+    focal = torch.from_numpy(focal.astype('float32')).to(device)
 
     # Encoders
     """arm dof = 2+3; arm dof=3+3"""
@@ -302,7 +286,7 @@ if __name__ == "__main__":
     perturb_hierarchical = False  # If set, applies noise to sample positions
 
     # Training
-    n_iters = 100000
+    n_iters = 1000
     batch_size = 2 ** 14  # Number of rays per gradient step (power of 2)
     one_image_per_step = True  # One image per gradient step (disables batching)
     chunksize = 2 ** 14  # Modify as needed to fit in GPU memory
@@ -345,9 +329,9 @@ if __name__ == "__main__":
         model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
                                        n_layers=4,
                                        d_filter=128,
-                                       skip=(),
+                                       skip=(2,),
                                        output_size=1)
-
+        print("training started")
         success, train_psnrs, val_psnrs = train(model, optimizer)
         if success and val_psnrs[-1] >= warmup_min_fitness:
             print('Training successful!')
