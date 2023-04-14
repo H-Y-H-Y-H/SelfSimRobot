@@ -49,7 +49,7 @@ def train(model, optimizer):
     patience = 0
     for i in trange(n_iters):
         model.train()
-        for t in tqdm(range(display_rate)):
+        for t in range(display_rate):
             # Randomly pick an image as the target.
             if Overfitting_test:
                 target_img_idx = OVERFITTING_ID
@@ -314,7 +314,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "./train_log/log_%ddata_in6_out1_img%d_crop(1)/" % (num_data, pxs)
+    LOG_PATH = "./train_log/log_%ddata_in6_out1_img%d_crop(2)/" % (num_data, pxs)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -331,9 +331,9 @@ if __name__ == "__main__":
     # DOF = DOF-1
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
-                                       n_layers=8,
+                                       n_layers=6,
                                        d_filter=256,
-                                       skip=(4,),
+                                       skip=(3,),
                                        output_size=1)
         print("training started")
         success, train_psnrs, val_psnrs = train(model, optimizer)
