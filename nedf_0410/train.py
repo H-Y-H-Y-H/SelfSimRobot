@@ -137,6 +137,10 @@ def train(model, optimizer):
                     img_label = valid_data[v_i]["image"].to(device)
                     pose_matrix = valid_data[v_i]["matrix"].to(device)
 
+                    if center_crop and i < center_crop_iters:
+                        img_label = crop_center(img_label)
+
+                    height, width = img_label.shape[:2]
                     rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
                     # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
 
@@ -264,7 +268,7 @@ if __name__ == "__main__":
         max_pic_save = 10
         valid_img_visual = []
         for vimg in range(max_pic_save):
-            valid_img_visual.append(valid_data[vimg]["image"])
+            valid_img_visual.append(crop_center(valid_data[vimg]["image"]))
         valid_img_visual = np.hstack(valid_img_visual)
         valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
 
@@ -290,8 +294,8 @@ if __name__ == "__main__":
     batch_size = 2 ** 14  # Number of rays per gradient step (power of 2)
     one_image_per_step = True  # One image per gradient step (disables batching)
     chunksize = 2 ** 14  # Modify as needed to fit in GPU memory
-    center_crop = False  # Crop the center of image (one_image_per_)   # debug
-    center_crop_iters = 50  # Stop cropping center after this many epochs
+    center_crop = True  # Crop the center of image (one_image_per_)   # debug
+    center_crop_iters = 1000  # Stop cropping center after this many epochs
     display_rate = 100  # Display test output every X epochs
 
     # Early Stopping
@@ -310,7 +314,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "./train_log/log_%ddata_in6_out1_img%d(1)/" % (num_data, pxs)
+    LOG_PATH = "./train_log/log_%ddata_in6_out1_img%d_crop(1)/" % (num_data, pxs)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -327,9 +331,9 @@ if __name__ == "__main__":
     # DOF = DOF-1
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
-                                       n_layers=4,
-                                       d_filter=128,
-                                       skip=(2,),
+                                       n_layers=8,
+                                       d_filter=256,
+                                       skip=(4,),
                                        output_size=1)
         print("training started")
         success, train_psnrs, val_psnrs = train(model, optimizer)
