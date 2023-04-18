@@ -3,11 +3,11 @@ import os
 import matplotlib.pyplot as plt
 import torch
 from train import nerf_forward, get_fixed_camera_rays, init_models
-from func import w2c_matrix, c2w_matrix
+from func import w2c_matrix, c2w_matrix, get_rays
 import numpy as np
 from torch import nn
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 
 # def pos2img(new_pose, ArmAngle, more_dof=False):
@@ -116,13 +116,19 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 def test_model(log_pth, angle, idx=1):
-    # theta, phi, third_angle = angle
+    theta, phi, third_angle = angle
     # DOF=4:
-    theta, phi, third_angle, fourth_angle = angle
+    # theta, phi, third_angle, fourth_angle = angle
+    HYPER_radius_scaler = 4.
 
     # target_pose = c2w_matrix(theta, phi, 0.)
     # target_pose_tensor = torch.from_numpy(target_pose.astype('float32')).to(device)
-    rays_o, rays_d = get_fixed_camera_rays(height, width, focal)
+    # rays_o, rays_d = get_fixed_camera_rays(height, width, focal)  # find bug apr 14
+
+    pose_matrix = w2c_matrix(theta, phi, HYPER_radius_scaler)
+    pose_matrix = torch.from_numpy(pose_matrix.astype('float32')).to(device)
+    rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)  # apr 14
+
     rays_o = rays_o.reshape([-1, 3])
     rays_d = rays_d.reshape([-1, 3])
 
@@ -170,8 +176,8 @@ def test_model(log_pth, angle, idx=1):
     plt.suptitle('M1: %0.2f,  M2: %0.2f,  M3: %0.2f' % (angle[0], angle[1], angle[2]), fontsize=14)
     target_pose = c2w_matrix(theta, phi, 0.)
 
-    query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
-    query_xyz = np.dot(target_pose, query_xyz.T).T[:, :3]
+    # query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
+    # query_xyz = np.dot(target_pose, query_xyz.T).T[:, :3]
 
     ax.scatter(
         query_xyz[:, 0],
@@ -194,7 +200,7 @@ def test_model(log_pth, angle, idx=1):
     ax.set_ylim(-2, 2)
     ax.set_zlim(-2, 2)
 
-    # plt.show()
+    plt.show()
     os.makedirs(log_pth + '/visual_test', exist_ok=True)
     plt.savefig(log_pth + '/visual_test/%04d.jpg' % idx)
     if C_POINTS:
@@ -240,9 +246,11 @@ def interaction(data_pth, angle_list):
 
 if __name__ == "__main__":
     # test_model_pth = 'train_log/log_1600data/best_model/'
-    # test_model_pth = 'train_log/log_64000data_in6_out1_img100(3)/best_model/'
-    test_model_pth = 'train_log/log_10000data_in7_out1_img100(1)/best_model/'
-    DOF = 4
+    test_model_pth = 'train_log/log_64000data_in6_out1_img100(3)/best_model/'
+    # test_model_pth = 'train_log/log_10000data_in7_out1_img100(1)/best_model/'
+    visual_pth = 'train_log/log_64000data_in6_out1_img100(3)/' + 'visual_test01/'
+    os.makedirs(visual_pth, exist_ok=True)
+    DOF = 3
     # num_data = 1000
     n_samples_hierarchical = 64
     height = 100
@@ -270,17 +278,18 @@ if __name__ == "__main__":
                                    d_filter=160, output_size=1, skip=(4,))
 
     # mar29, 8*200, log_1000data_out1_img100
+    # 3dof 8*200, 4dof 8*160  apr 14, 64000 160?
     model.load_state_dict(torch.load(test_model_pth + "nerf.pt", map_location=torch.device(device)))
 
     model.eval()
 
-    sep = 10
+    sep = 20
     theta_0_loop = np.linspace(-90., 90, sep, endpoint=False)
     theta_1_loop = np.linspace(-90., 90., sep, endpoint=False)
     theta_2_loop = np.linspace(-90., 90., sep, endpoint=False)
 
     # dof=4:
-    theta_3_loop = np.linspace(-90., 90., sep, endpoint=False)
+    # theta_3_loop = np.linspace(-90., 90., sep, endpoint=False)
     idx_list = []
 
     C_POINTS = True  # whether collect points.npy, used in test model
@@ -288,18 +297,18 @@ if __name__ == "__main__":
     """
     collect images and point clouds and indexes
     """
-    for i in range(sep ** 4):
-        # angle = list([theta_0_loop[i // (sep ** 2)], theta_1_loop[(i // sep) % sep], theta_2_loop[i % sep]])
+    for i in range(sep ** 3):  # here 3 or 4
+        angle = list([theta_0_loop[i // (sep ** 2)], theta_1_loop[(i // sep) % sep], theta_2_loop[i % sep]])
         # dof=4:
-        angle = list([theta_0_loop[i // (sep ** 3)],
-                      theta_1_loop[(i // sep ** 2) % sep],
-                      theta_2_loop[(i // sep) % sep],
-                      theta_3_loop[i % sep]])
+        # angle = list([theta_0_loop[i // (sep ** 3)],
+        #               theta_1_loop[(i // sep ** 2) % sep],
+        #               theta_2_loop[(i // sep) % sep],
+        #               theta_3_loop[i % sep]])
         idx_list.append(angle)
 
-        p_dense, p_empty = test_model(angle=angle, log_pth=test_model_pth, idx=i)
+        p_dense, p_empty = test_model(angle=angle, log_pth=visual_pth, idx=i)
 
-    np.savetxt("train_log/log_10000data_in7_out1_img100(1)/logger.csv", np.asarray(idx_list), fmt='%i')
+    np.savetxt(visual_pth + "logger.csv", np.asarray(idx_list), fmt='%i')
 
     """
     gui matplotlib

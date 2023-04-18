@@ -631,7 +631,8 @@ def nerf_forward(
     batches = prepare_chunks(model_input, chunksize=chunksize)
     predictions = []
     for batch in batches:
-        predictions.append(model(batch.to(device)))
+        # print(batch.dtype)
+        predictions.append(model(batch))
 
     raw = torch.cat(predictions, dim=0)
     raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
@@ -640,7 +641,7 @@ def nerf_forward(
     # Perform differentiable volume rendering to re-synthesize the RGB image.
     # rgb_map, rgb_each_point = raw2dense(raw, z_vals, rays_d)
 
-    rgb_map, rgb_each_point = raw2dense_out1(raw.cpu(), z_vals, rays_d)  # out1 raw to dense
+    rgb_map, rgb_each_point = raw2dense_out1(raw, z_vals, rays_d)  # out1 raw to dense
 
     outputs = {
         'rgb_map': rgb_map,

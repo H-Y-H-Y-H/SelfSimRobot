@@ -219,8 +219,8 @@ class NerfDataset(torch.utils.data.Dataset):
         """Generates one sample of data"""
         # Select sample
         ID = self.list_ids[index]
-        image = np.loadtxt("data/images/%04d.txt" % ID, dtype=np.float32)  # check 04d
-        matrix = np.loadtxt("data/w2c/%04d.txt" % ID, dtype=np.float32)
+        image = np.loadtxt(DATA_PATH+"images/%04d.txt" % ID, dtype=np.float32)  # check 04d
+        matrix = np.loadtxt(DATA_PATH+"w2c/%04d.txt" % ID, dtype=np.float32)
         angle = self.angles[index]
 
         sample = {
@@ -237,6 +237,7 @@ if __name__ == "__main__":
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
+    DATA_PATH = "./data/data02_2dof_100px/"
 
     """
     prepare data and parameters
@@ -245,17 +246,20 @@ if __name__ == "__main__":
     nf_size = 2.
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = True
-    DOF = 3  # the number of motors  # dof4 apr03
-    num_data = 8000
-    tr = 0.99  # training ratio
+    DOF = 2  # the number of motors  # dof4 apr03
+    num_data = 400
+    tr = 0.9  # training ratio
     train_length = int(num_data * tr)
     valid_length = num_data - train_length
-    pxs = 200  # collected data pixels
+    pxs = 100  # collected data pixels
     # data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
+
+    center_crop = True  # Crop the center of image (one_image_per_)   # debug
+    center_crop_iters = 10  # Stop cropping center after this many epochs
 
     Overfitting_test = False
     sample_id = random.sample(range(num_data), num_data)
-    angle_data = np.loadtxt("./data/angle.txt", dtype=np.float32)
+    angle_data = np.loadtxt(DATA_PATH+"angle.txt", dtype=np.float32)
     train_data = NerfDataset(list_ids=sample_id[:train_length], angles=angle_data)
     valid_data = NerfDataset(list_ids=sample_id[train_length:], angles=angle_data)
 
@@ -268,7 +272,10 @@ if __name__ == "__main__":
         max_pic_save = 10
         valid_img_visual = []
         for vimg in range(max_pic_save):
-            valid_img_visual.append(crop_center(valid_data[vimg]["image"]))
+            if center_crop:
+                valid_img_visual.append(crop_center(valid_data[vimg]["image"]))
+            else:
+                valid_img_visual.append(valid_data[vimg]["image"])
         valid_img_visual = np.hstack(valid_img_visual)
         valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
 
@@ -294,9 +301,7 @@ if __name__ == "__main__":
     batch_size = 2 ** 14  # Number of rays per gradient step (power of 2)
     one_image_per_step = True  # One image per gradient step (disables batching)
     chunksize = 2 ** 14  # Modify as needed to fit in GPU memory
-    center_crop = True  # Crop the center of image (one_image_per_)   # debug
-    center_crop_iters = 1000  # Stop cropping center after this many epochs
-    display_rate = 100  # Display test output every X epochs
+    display_rate = 40  # Display test output every X epochs
 
     # Early Stopping
     warmup_iters = 400  # Number of iterations during warmup phase
@@ -314,7 +319,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "./train_log/log_%ddata_in6_out1_img%d_crop(2)/" % (num_data, pxs)
+    LOG_PATH = "./train_log/log_%ddata_in5_out1_img%d(2)/" % (num_data, pxs)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -331,10 +336,10 @@ if __name__ == "__main__":
     # DOF = DOF-1
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
-                                       n_layers=6,
-                                       d_filter=256,
-                                       skip=(3,),
-                                       output_size=1)
+                                       n_layers=8,
+                                       d_filter=128,
+                                       skip=(4,),
+                                       output_size=1,)
         print("training started")
         success, train_psnrs, val_psnrs = train(model, optimizer)
         if success and val_psnrs[-1] >= warmup_min_fitness:

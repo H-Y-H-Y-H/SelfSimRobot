@@ -52,7 +52,10 @@ def uniform_data(uniform_samples=10):
         for i in range(uniform_samples ** DOF):
             theta0 = theta_0_linspace[i // uniform_samples]
             theta1 = theta_1_linspace[i % uniform_samples]
-            log_angle_list.append([theta0, theta1])
+            if fix_4:
+                log_angle_list.append([theta0, theta1, 0., 0.])
+            else:
+                log_angle_list.append([theta0, theta1])
 
     if DOF == 3:
         for i in range(uniform_samples):
@@ -112,10 +115,10 @@ if __name__ == "__main__":
     """data collection"""
     RENDER = False
     MOV_CAM = False
-    WIDTH, HEIGHT = 200, 200
+    WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 4.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
-    DOF = 3  # the number of motors
-    sample_num = 10  # separate the action space
+    DOF = 2  # the number of motors
+    sample_num = 20  # separate the action space
 
     # Camera config: focal
     Camera_FOV = 42.
@@ -133,7 +136,7 @@ if __name__ == "__main__":
     np.random.seed(2023)
     torch.manual_seed(2023)
 
-    DATA_PATH = "./data/"
+    DATA_PATH = "./data/data02_2dof_100px/"
     os.makedirs(DATA_PATH + "images/", exist_ok=True)
     os.makedirs(DATA_PATH + "w2c/", exist_ok=True)
 
