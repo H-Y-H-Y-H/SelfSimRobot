@@ -5,13 +5,14 @@ import torch
 from train import nerf_forward, get_fixed_camera_rays, init_models
 from func import w2c_matrix, c2w_matrix, get_rays
 import numpy as np
-from env4 import FBVSM_Env
+# from env4 import FBVSM_Env
+from env import FBVSM_Env
 import pybullet as p
 import matplotlib.pyplot as plt
 
 # changed Transparency in urdf, line181, Mar31
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 # PATH = "train_log/log_64000data_in6_out1_img100(3)/"
 # PATH = "train_log/log_10000data_in7_out1_img100(1)/"
@@ -39,11 +40,12 @@ camera_angle_x = Camera_FOV * np.pi / 180.
 focal = np.asarray(.5 * width / np.tan(.5 * camera_angle_x))
 focal = torch.from_numpy(focal.astype('float32')).to(device)
 
-test_model_pth = "./train_log/log_8000data_in6_out1_img200_crop(2)/"
+# test_model_pth = "./train_log/log_8000data_in6_out1_img200_crop(2)/"
+test_model_pth = "./train_log/test_2dof/"
 
 
 def scale_points(predict_points):
-    scaled_points = predict_points / 4.  # scale /5  0.8
+    scaled_points = predict_points / 5.  # scale /5  0.8
     scaled_points[:, [1, 2]] = scaled_points[:, [2, 1]]
     scaled_points[:, [1, 0]] = scaled_points[:, [0, 1]]
     scaled_points[:, 0] = -scaled_points[:, 0]
@@ -103,12 +105,12 @@ def interact_env(
         for i in range(runTimes):
             c_angle[0] = p.readUserDebugParameter(m0)
             c_angle[1] = p.readUserDebugParameter(m1)
-            c_angle[2] = p.readUserDebugParameter(m2)
+            # c_angle[2] = p.readUserDebugParameter(m2)
             # c_angle[3] = p.readUserDebugParameter(m3)  # 4dof
             # print([c_angle[0], c_angle[1], c_angle[2]])
-            debug_points = load_point_cloud([c_angle[0], c_angle[1], c_angle[2]],
+            debug_points = load_point_cloud([c_angle[0], c_angle[1]],
                                             debug_points,
-                                            logger,pc_pth=logger_pth+"pc_record/")
+                                            logger, pc_pth=logger_pth + "pc_record/")
             obs, _, _, _ = env.step(c_angle)
             # print(obs[0])
 
@@ -121,12 +123,12 @@ collect point cloud and image data
 def test_model(log_pth, angle, model, dof, idx=1, C_POINTS=True):
     # theta, phi, third_angle = angle
     # DOF=4:
-    theta, phi, third_angle = angle
+    theta, phi = angle
 
     pose_matrix = w2c_matrix(theta, phi, HYPER_radius_scaler)
     pose_matrix = torch.from_numpy(pose_matrix.astype('float32')).to(device)
     rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)  # apr 14
-    rays_o, rays_d = get_fixed_camera_rays(height, width, focal)
+    # rays_o, rays_d = get_fixed_camera_rays(height, width, focal)
     rays_o = rays_o.reshape([-1, 3])
     rays_d = rays_d.reshape([-1, 3])
 
@@ -171,11 +173,11 @@ def test_model(log_pth, angle, model, dof, idx=1, C_POINTS=True):
     empty_xyz = all_points[select_empty_idx]
 
     ax = plt.figure().add_subplot(projection='3d')
-    plt.suptitle('M1: %0.2f,  M2: %0.2f,  M3: %0.2f' % (angle[0], angle[1], angle[2]), fontsize=14)
+    # plt.suptitle('M1: %0.2f,  M2: %0.2f,  M3: %0.2f' % (angle[0], angle[1], angle[2]), fontsize=14)
     target_pose = c2w_matrix(theta, phi, 0.)
 
-    query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
-    query_xyz = np.dot(target_pose, query_xyz.T).T[:, :3]
+    # query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
+    # query_xyz = np.dot(target_pose, query_xyz.T).T[:, :3]
 
     ax.scatter(
         query_xyz[:, 0],
@@ -212,10 +214,10 @@ def test_model(log_pth, angle, model, dof, idx=1, C_POINTS=True):
 
 def collect_point_cloud(dof: int = 3, model_pth: str = ""):
     model, optimizer = init_models(d_input=dof + 3,
-                                   n_layers=6,
-                                   d_filter=256,
+                                   n_layers=8,
+                                   d_filter=128,
                                    output_size=1,
-                                   skip=(3,))
+                                   skip=(4,))
 
     # April 14, 6*256, ...
     model.load_state_dict(torch.load(model_pth + "/best_model/nerf.pt", map_location=torch.device(device)))
@@ -224,7 +226,7 @@ def collect_point_cloud(dof: int = 3, model_pth: str = ""):
 
     model.eval()
 
-    sep = 20
+    sep = 40
     theta_0_loop = np.linspace(-90., 90, sep, endpoint=False)
     theta_1_loop = np.linspace(-90., 90., sep, endpoint=False)
     theta_2_loop = np.linspace(-90., 90., sep, endpoint=False)
@@ -238,10 +240,15 @@ def collect_point_cloud(dof: int = 3, model_pth: str = ""):
     """
     collect images and point clouds and indexes
     """
-    for i in range(sep ** 3):
-        angle = list([theta_0_loop[i // (sep ** 2)],
-                      theta_1_loop[(i // sep) % sep],
-                      theta_2_loop[i % sep]])
+    for i in range(sep ** dof):
+        if dof == 2:
+            angle = list([theta_0_loop[i // sep],
+                          theta_1_loop[i % sep]])
+
+        if dof == 3:
+            angle = list([theta_0_loop[i // (sep ** 2)],
+                          theta_1_loop[(i // sep) % sep],
+                          theta_2_loop[i % sep]])
         # dof=4:
         # angle = list([theta_0_loop[i // (sep ** 3)],
         #               theta_1_loop[(i // sep ** 2) % sep],
@@ -255,8 +262,6 @@ def collect_point_cloud(dof: int = 3, model_pth: str = ""):
 
 
 if __name__ == "__main__":
+    # collect_point_cloud(dof=2, model_pth=test_model_pth)
 
-    # collect_point_cloud(dof=3, model_pth=test_model_pth)
-
-    # data_pth = PATH + 'best_model/pc_record/'
     interact_env(logger_pth=test_model_pth+"visual/")
