@@ -97,7 +97,7 @@ def interact_env(
         # 3 dof
         m0 = p.addUserDebugParameter("motor0: Yaw", -1, 1, 0)
         m1 = p.addUserDebugParameter("motor1: pitch", -1, 1, 0)
-        m2 = p.addUserDebugParameter("motor2: m2", -1, 1, 0)
+        # m2 = p.addUserDebugParameter("motor2: m2", -1, 1, 0)
 
         # m3 = p.addUserDebugParameter("motor3: m3", -1, 1, 0)  # 4dof
 
@@ -127,8 +127,8 @@ def test_model(log_pth, angle, model, dof, idx=1, C_POINTS=True):
 
     pose_matrix = w2c_matrix(theta, phi, HYPER_radius_scaler)
     pose_matrix = torch.from_numpy(pose_matrix.astype('float32')).to(device)
-    rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)  # apr 14
-    # rays_o, rays_d = get_fixed_camera_rays(height, width, focal)
+    # rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)  # apr 14
+    rays_o, rays_d = get_fixed_camera_rays(height, width, focal)
     rays_o = rays_o.reshape([-1, 3])
     rays_d = rays_d.reshape([-1, 3])
 
@@ -176,8 +176,8 @@ def test_model(log_pth, angle, model, dof, idx=1, C_POINTS=True):
     # plt.suptitle('M1: %0.2f,  M2: %0.2f,  M3: %0.2f' % (angle[0], angle[1], angle[2]), fontsize=14)
     target_pose = c2w_matrix(theta, phi, 0.)
 
-    # query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
-    # query_xyz = np.dot(target_pose, query_xyz.T).T[:, :3]
+    query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
+    query_xyz = np.dot(target_pose, query_xyz.T).T[:, :3]
 
     ax.scatter(
         query_xyz[:, 0],
@@ -262,6 +262,6 @@ def collect_point_cloud(dof: int = 3, model_pth: str = ""):
 
 
 if __name__ == "__main__":
-    # collect_point_cloud(dof=2, model_pth=test_model_pth)
+    collect_point_cloud(dof=2, model_pth=test_model_pth)
 
-    interact_env(logger_pth=test_model_pth+"visual/")
+    # interact_env(logger_pth=test_model_pth+"visual/")
