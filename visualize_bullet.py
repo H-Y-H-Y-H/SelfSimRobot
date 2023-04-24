@@ -49,7 +49,7 @@ def interact_env(
     p.connect(p.GUI) if render else p.connect(p.DIRECT)
     # logger = np.loadtxt(PATH + "logger.csv")
 
-    logger = np.loadtxt(PATH + "/visual/logger.csv")
+    logger = np.loadtxt(PATH + "/best_model/logger.csv")
 
     env = FBVSM_Env(
         show_moving_cam=False,
@@ -90,6 +90,6 @@ def interact_env(
 
 
 if __name__ == "__main__":
-    # data_pth = PATH + 'best_model/pc_record/'
-    data_pth = PATH + 'visual/pc_record/'
+    data_pth = PATH + 'best_model/pc_record/'
+    # data_pth = PATH + 'visual/pc_record/'
     interact_env()
