@@ -262,6 +262,6 @@ def collect_point_cloud(dof: int = 3, model_pth: str = ""):
 
 
 if __name__ == "__main__":
-    collect_point_cloud(dof=2, model_pth=test_model_pth)
+    # collect_point_cloud(dof=2, model_pth=test_model_pth)
 
-    # interact_env(logger_pth=test_model_pth+"visual/")
+    interact_env(logger_pth=test_model_pth+"visual/")
