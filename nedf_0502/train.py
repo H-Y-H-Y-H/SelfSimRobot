@@ -4,8 +4,8 @@ import matplotlib.image
 import os
 
 import numpy as np
-from tqdm import trange, tqdm
-from model import FBV_SM
+from tqdm import trange
+from model import FBV_SM, PositionalEncoder
 from func import *
 
 
@@ -37,7 +37,7 @@ def init_models(d_input, n_layers, d_filter, skip, pretrained_model_pth=None, lr
     return model, optimizer
 
 
-def train(model, optimizer):
+def train(model, encoder_fn, optimizer):
     r"""
     Launch training session for NeRF.
     """
@@ -71,7 +71,7 @@ def train(model, optimizer):
 
             # Run one iteration of TinyNeRF and get the rendered RGB image.
             outputs = nerf_forward(rays_o, rays_d,
-                                   near, far, model,
+                                   near, far, model, encoder_fn,
                                    kwargs_sample_stratified=kwargs_sample_stratified,
                                    n_samples_hierarchical=n_samples_hierarchical,
                                    kwargs_sample_hierarchical=kwargs_sample_hierarchical,
@@ -108,7 +108,7 @@ def train(model, optimizer):
                 target_img = target_img.reshape([-1])
 
                 outputs = nerf_forward(rays_o, rays_d,
-                                       near, far, model,
+                                       near, far, model, encoder_fn,
                                        kwargs_sample_stratified=kwargs_sample_stratified,
                                        n_samples_hierarchical=n_samples_hierarchical,
                                        kwargs_sample_hierarchical=kwargs_sample_hierarchical,
@@ -147,7 +147,7 @@ def train(model, optimizer):
                     rays_o = rays_o.reshape([-1, 3])
                     rays_d = rays_d.reshape([-1, 3])
                     outputs = nerf_forward(rays_o, rays_d,
-                                           near, far, model,
+                                           near, far, model, encoder_fn,
                                            kwargs_sample_stratified=kwargs_sample_stratified,
                                            n_samples_hierarchical=n_samples_hierarchical,
                                            kwargs_sample_hierarchical=kwargs_sample_hierarchical,
@@ -219,8 +219,8 @@ class NerfDataset(torch.utils.data.Dataset):
         """Generates one sample of data"""
         # Select sample
         ID = self.list_ids[index]
-        image = np.loadtxt(DATA_PATH+"images/%04d.txt" % ID, dtype=np.float32)  # check 04d
-        matrix = np.loadtxt(DATA_PATH+"w2c/%04d.txt" % ID, dtype=np.float32)
+        image = np.loadtxt(DATA_PATH + "images/%04d.txt" % ID, dtype=np.float32)  # check 04d
+        matrix = np.loadtxt(DATA_PATH + "w2c/%04d.txt" % ID, dtype=np.float32)
         angle = self.angles[index]
 
         sample = {
@@ -247,19 +247,21 @@ if __name__ == "__main__":
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = True
     DOF = 2  # the number of motors  # dof4 apr03
-    num_data = 400
+    num_data = 1600
     tr = 0.9  # training ratio
     train_length = int(num_data * tr)
     valid_length = num_data - train_length
     pxs = 100  # collected data pixels
     # data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
 
-    center_crop = True  # Crop the center of image (one_image_per_)   # debug
+    center_crop = False  # Crop the center of image (one_image_per_)   # debug
     center_crop_iters = 10  # Stop cropping center after this many epochs
+
+    n_freqs = 10  # Number of encoding functions for samples  # May 02
 
     Overfitting_test = False
     sample_id = random.sample(range(num_data), num_data)
-    angle_data = np.loadtxt(DATA_PATH+"angle.txt", dtype=np.float32)
+    angle_data = np.loadtxt(DATA_PATH + "angle.txt", dtype=np.float32)
     train_data = NerfDataset(list_ids=sample_id[:train_length], angles=angle_data)
     valid_data = NerfDataset(list_ids=sample_id[train_length:], angles=angle_data)
 
@@ -297,7 +299,7 @@ if __name__ == "__main__":
     perturb_hierarchical = False  # If set, applies noise to sample positions
 
     # Training
-    n_iters = 1000
+    n_iters = 5000
     batch_size = 2 ** 14  # Number of rays per gradient step (power of 2)
     one_image_per_step = True  # One image per gradient step (disables batching)
     chunksize = 2 ** 14  # Modify as needed to fit in GPU memory
@@ -335,13 +337,20 @@ if __name__ == "__main__":
 
     # DOF = DOF-1
     for _ in range(n_restarts):
-        model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
+
+        encoder = PositionalEncoder(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
+                                    n_freqs=n_freqs,
+                                    log_space=True)  # If set, frequencies scale in log space
+        encode = lambda x: encoder(x)
+
+        model, optimizer = init_models(encoder.d_output,
                                        n_layers=8,
                                        d_filter=128,
                                        skip=(4,),
-                                       output_size=1,)
+                                       output_size=1, )
+
         print("training started")
-        success, train_psnrs, val_psnrs = train(model, optimizer)
+        success, train_psnrs, val_psnrs = train(model, encode, optimizer)
         if success and val_psnrs[-1] >= warmup_min_fitness:
             print('Training successful!')
             break

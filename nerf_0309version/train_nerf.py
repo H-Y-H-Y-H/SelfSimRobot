@@ -163,7 +163,7 @@ class EarlyStopping:
         return stop
 
 
-def init_models(pretrained_model_pth = None):
+def init_models(pretrained_model_pth=None):
     r"""
   Initialize models, encoders, and optimizer for NeRF training.
   """
@@ -354,7 +354,7 @@ def train(model, fine_model, encode, encode_viewdirs, optimizer, warmup_stopper)
             torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
             torch.save(fine_model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf-fine.pt' % i)
 
-            if psnr_v < 16.4 and i>=300:
+            if psnr_v < 16.4 and i >= 300:
                 print("restart")
                 return False, train_psnrs, psnr_v
 

@@ -136,7 +136,7 @@ if __name__ == "__main__":
     np.random.seed(2023)
     torch.manual_seed(2023)
 
-    DATA_PATH = "./data/data04_4dof_100px/"
+    DATA_PATH = "./data/data04_3dof_100px/"
     os.makedirs(DATA_PATH + "images/", exist_ok=True)
     os.makedirs(DATA_PATH + "w2c/", exist_ok=True)
 
