@@ -214,6 +214,10 @@ def train(model, optimizer):
 
                         rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
                         # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
+
+                        rays_o = rays_o.reshape([-1, 3])
+                        rays_d = rays_d.reshape([-1, 3])
+                        target_img = target_img.reshape([-1])
                         # Run one iteration of TinyNeRF and get the rendered RGB image.
                         outputs = nerf_forward(rays_o, rays_d,
                                                near, far, model,
@@ -400,7 +404,7 @@ if __name__ == "__main__":
         model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
                                        n_layers=8,
                                        d_filter=128,
-                                       skip=(),
+                                       skip=(4,),
                                        output_size=1)
 
         # mar30, 2dof, 3input 10 * 128 skip=5 log_1600data_in3_out1_img100
