@@ -21,7 +21,7 @@ def crop_center(
     return img[h_offset:-h_offset, w_offset:-w_offset]
 
 
-def init_models(d_input, n_layers, d_filter, skip, pretrained_model_pth=None, lr=5e-5, output_size=2):
+def init_models(d_input, n_layers, d_filter, skip, pretrained_model_pth=None, lr=1e-5, output_size=2):
     # Models
     model = FBV_SM(d_input=d_input,
                    n_layers=n_layers,
