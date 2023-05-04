@@ -60,24 +60,25 @@ def random_data(DOF, num_data):
 
 
 def uniform_data(uniform_samples=10):
-    theta_0_linspace = np.linspace(-1., 1., uniform_samples, endpoint=True)
-    theta_1_linspace = np.linspace(-1., 1., uniform_samples, endpoint=True)
-    theta_2_linspace = np.linspace(-1., 1., uniform_samples, endpoint=True)
-    theta_3_linspace = np.linspace(-1., 1., uniform_samples, endpoint=True)
+    theta_0_linspace = np.linspace(-1., 1., uniform_samples, endpoint=False)
+    theta_1_linspace = np.linspace(-1., 1., uniform_samples, endpoint=False)
+    theta_2_linspace = np.linspace(-1., 1., uniform_samples, endpoint=False)
+    theta_3_linspace = np.linspace(-1., 1., uniform_samples, endpoint=False)
 
     log_angle_list = []
     if DOF == 2:
         for i in range(uniform_samples ** DOF):
             theta0 = theta_0_linspace[i // uniform_samples]
             theta1 = theta_1_linspace[i % uniform_samples]
-            log_angle_list.append([theta0, theta1])
+            log_angle_list.append([theta0, theta1, 0., 0.])
+
     if DOF == 3:
         for i in range(uniform_samples):
             theta0 = theta_0_linspace[i]
             for j in range(uniform_samples ** (DOF - 1)):
                 theta1 = theta_1_linspace[j // uniform_samples]
                 theta2 = theta_2_linspace[j % uniform_samples]
-                log_angle_list.append([theta0, theta1, theta2])
+                log_angle_list.append([theta0, theta1, theta2, 0.])
 
     if DOF == 4:
         for i in range(uniform_samples ** 2):
@@ -189,6 +190,7 @@ if __name__ == "__main__":
     MOV_CAM = False
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 4.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
+    robot_dof = 4
     DOF = 2  # the number of motors
     sample_num = 40  # separate the action space
 
@@ -203,7 +205,7 @@ if __name__ == "__main__":
         width=WIDTH,
         height=HEIGHT,
         render_flag=RENDER,
-        num_motor=DOF)
+        num_motor=robot_dof)
 
     np.random.seed(2023)
     torch.manual_seed(2023)

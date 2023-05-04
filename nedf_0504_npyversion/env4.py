@@ -183,7 +183,7 @@ class FBVSM_Env(gym.Env):
         p.setGravity(0, 0, -10)
         p.setAdditionalSearchPath(pd.getDataPath())
         planeId = p.loadURDF("plane.urdf")
-        textureId = p.loadTexture("./green.png")
+        textureId = p.loadTexture("../green.png")
         WallId_front = p.loadURDF("plane.urdf", [-1, 0, 0], p.getQuaternionFromEuler([0, 1.57, 0]))
         p.changeVisualShape(WallId_front, -1, textureUniqueId=textureId)
         p.changeVisualShape(planeId, -1, textureUniqueId=textureId)
