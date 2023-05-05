@@ -113,7 +113,7 @@ def init_models(d_input, n_layers, d_filter, skip, pretrained_model_pth=None, lr
 #     return o_s, d_s, img_s
 
 
-def train(model, optimizer):
+def train(model, encoder_fn, optimizer):
     r"""
     Launch training session for NeRF.
     """
@@ -149,7 +149,7 @@ def train(model, optimizer):
 
         # Run one iteration of TinyNeRF and get the rendered RGB image.
         outputs = nerf_forward(rays_o, rays_d,
-                               near, far, model,
+                               near, far, model, encoder_fn, add_encoder,
                                kwargs_sample_stratified=kwargs_sample_stratified,
                                n_samples_hierarchical=n_samples_hierarchical,
                                kwargs_sample_hierarchical=kwargs_sample_hierarchical,
@@ -184,7 +184,7 @@ def train(model, optimizer):
                     target_img = target_img.reshape([-1])
                     # Run one iteration of TinyNeRF and get the rendered RGB image.
                     outputs = nerf_forward(rays_o, rays_d,
-                                           near, far, model,
+                                           near, far, model, encoder_fn, add_encoder,
                                            kwargs_sample_stratified=kwargs_sample_stratified,
                                            n_samples_hierarchical=n_samples_hierarchical,
                                            kwargs_sample_hierarchical=kwargs_sample_hierarchical,
@@ -200,7 +200,8 @@ def train(model, optimizer):
                     np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
                     np_image = np.clip(0, 1, np_image)
                     np_image_combine = np.dstack((np_image, np_image, np_image))
-                    matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % target_img_idx, np_image_combine)
+                    matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % target_img_idx,
+                                            np_image_combine)
 
                     psnr_v = val_psnr
                     val_psnrs.append(psnr_v)
@@ -220,7 +221,7 @@ def train(model, optimizer):
                         target_img = target_img.reshape([-1])
                         # Run one iteration of TinyNeRF and get the rendered RGB image.
                         outputs = nerf_forward(rays_o, rays_d,
-                                               near, far, model,
+                                               near, far, model, encoder_fn, add_encoder,
                                                kwargs_sample_stratified=kwargs_sample_stratified,
                                                n_samples_hierarchical=n_samples_hierarchical,
                                                kwargs_sample_hierarchical=kwargs_sample_hierarchical,
@@ -394,6 +395,9 @@ if __name__ == "__main__":
     record_file_val = open(LOG_PATH + "log_val.txt", "w")
     Patience_threshold = 40  # 20 mar 30
 
+    n_freqs = 10
+    add_encoder = True  # whether add encoder
+
     # Save testing gt image for visualization
     matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', valid_img_visual)
 
@@ -401,11 +405,24 @@ if __name__ == "__main__":
 
     # DOF = DOF-1
     for _ in range(n_restarts):
-        model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
-                                       n_layers=8,
-                                       d_filter=256,
-                                       skip=(4,),
-                                       output_size=1)
+
+        encoder = PositionalEncoder(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
+                                    n_freqs=n_freqs,
+                                    log_space=True)  # If set, frequencies scale in log space
+        encode = lambda x: encoder(x)
+
+        if add_encoder:
+            model, optimizer = init_models(d_input=encoder.d_output,
+                                           n_layers=8,
+                                           d_filter=256,
+                                           skip=(4,),
+                                           output_size=1)
+        else:
+            model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
+                                           n_layers=8,
+                                           d_filter=256,
+                                           skip=(4,),
+                                           output_size=1)
 
         # mar30, 2dof, 3input 10 * 128 skip=5 log_1600data_in3_out1_img100
         # mar30, 2dof, 3input 8 * 128 skip=4 log_1600data_in3_out1_img100(2)  psnr 20
@@ -417,7 +434,7 @@ if __name__ == "__main__":
         # 4x64 log_100data; log_100data(1)
         # 8x128 log_100data(2)
         # 6x64
-        success, train_psnrs, val_psnrs = train(model, optimizer)
+        success, train_psnrs, val_psnrs = train(model, encode, optimizer)
         if success and val_psnrs[-1] >= warmup_min_fitness:
             print('Training successful!')
             break

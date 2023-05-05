@@ -564,14 +564,16 @@ def get_chunks(
 
 def prepare_chunks(
         points: torch.Tensor,
-        # encoding_function: Callable[[torch.Tensor], torch.Tensor],
+        encoding_function: Callable[[torch.Tensor], torch.Tensor],
+        add_encode: bool,
         chunksize: int = 2 ** 14
 ) -> List[torch.Tensor]:
     r"""
   Encode and chunkify points to prepare for NeRF model.
   """
     points = points.reshape((-1, points.shape[-1]))
-    # points = encoding_function(points)
+    if add_encode:
+        points = encoding_function(points)
     points = get_chunks(points, chunksize=chunksize)
     return points
 
@@ -599,6 +601,8 @@ def nerf_forward(
         near: float,
         far: float,
         model: nn.Module,
+        encoding_fn: Callable[[torch.Tensor], torch.Tensor],
+        add_encode: bool,
         arm_angle: torch.Tensor,
         DOF: int,
         kwargs_sample_stratified: dict = None,
@@ -628,7 +632,7 @@ def nerf_forward(
     model_input = torch.cat((query_points, arm_angle[:DOF].repeat(list(query_points.shape[:2]) + [1])), dim=-1)
     # arm_angle[:DOF] -> use one angle
     # model_input = query_points  # orig version 3 input 2dof, Mar30
-    batches = prepare_chunks(model_input, chunksize=chunksize)
+    batches = prepare_chunks(model_input, encoding_fn, add_encode, chunksize=chunksize)
     predictions = []
     for batch in batches:
         # print(batch.dtype)
