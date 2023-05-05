@@ -386,7 +386,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/in6_out1_dof%d_data%d_px%d_(1)/" % (DOF, num_data, pxs)
+    LOG_PATH = "train_log/in6_out1_dof%d_data%d_px%d_encoder(1)/" % (DOF, num_data, pxs)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
