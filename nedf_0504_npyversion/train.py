@@ -310,8 +310,8 @@ if __name__ == "__main__":
     nf_size = 2.
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = True
-    DOF = 2  # the number of motors  # dof4 apr03
-    num_data = 1600
+    DOF = 3  # the number of motors  # dof4 apr03
+    num_data = 8000
     tr = 0.99  # training ratio
     pxs = 100  # collected data pixels
     # data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
@@ -385,14 +385,14 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/in5_out1_dof%d_data%d_px%d_(1)/" % (DOF, num_data, pxs)
+    LOG_PATH = "train_log/in6_out1_dof%d_data%d_px%d_(1)/" % (DOF, num_data, pxs)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
 
     record_file_train = open(LOG_PATH + "log_train.txt", "w")
     record_file_val = open(LOG_PATH + "log_val.txt", "w")
-    Patience_threshold = 30  # 20 mar 30
+    Patience_threshold = 40  # 20 mar 30
 
     # Save testing gt image for visualization
     matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', valid_img_visual)
@@ -403,7 +403,7 @@ if __name__ == "__main__":
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
                                        n_layers=8,
-                                       d_filter=128,
+                                       d_filter=256,
                                        skip=(4,),
                                        output_size=1)
 
