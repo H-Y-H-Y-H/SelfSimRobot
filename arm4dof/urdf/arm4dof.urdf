@@ -69,9 +69,9 @@
           filename="package://arm4dof/meshes/l1.STL" />
       </geometry>
       <material
-        name="">
+        name="clear">
         <color
-          rgba="0 0 0 0.6" />
+          rgba="0 0 0 0." />
       </material>
     </visual>
     <collision>
@@ -89,7 +89,7 @@
     type="continuous">
     <origin
       xyz="0 0 0.068"
-      rpy="1.5707963267949 0 1.5707963267949" />
+      rpy="1.5707963267949 0 0" />
     <parent
       link="base_link" />
     <child
@@ -142,7 +142,7 @@
     type="continuous">
     <origin
       xyz="0 0.04 -0.00129999999999999"
-      rpy="1.5707963267949 1.5707963267949 0" />
+      rpy="-1.5707963267949 -1.5707963267949 0" />
     <parent
       link="l1" />
     <child

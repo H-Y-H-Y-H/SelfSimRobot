@@ -8,7 +8,7 @@ import torch
 from torch import nn
 from typing import Optional, Tuple, List, Union, Callable
 
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
 
 
@@ -431,23 +431,24 @@ def raw2dense_out1(
     # z_vals: size: 2500x64, cropped image 50x50 pixel 64 depth.
     # dists: size 2500x63, the dists between two corresponding points.
     # Difference between consecutive elements of `z_vals`. [n_rays, n_samples]
+    z_vals = z_vals.to(device)
     dists = z_vals[..., 1:] - z_vals[..., :-1]
     dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1)
     # add one elements for each ray to compensate the size to 64
 
     # Multiply each distance by the norm of its corresponding direction ray
     # to convert to real world distance (accounts for non-unit directions).
-    dists = dists * torch.norm(rays_d[..., None, :], dim=-1)
+    dists = dists * torch.norm(rays_d[..., None, :], dim=-1).to(device)
 
     # Add noise to model's predictions for density. Can be used to
     # regularize network during training (prevents floater artifacts).
-    noise = 0.
+    noise = torch.tensor(0).to(device)
     if raw_noise_std > 0.:
         noise = torch.randn(raw[..., 0].shape) * raw_noise_std
 
     # Predict density of each sample along each ray. Higher values imply
     # higher likelihood of being absorbed at this point. [n_rays, n_samples]
-    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[:, :, 0] + noise) * dists)
+    alpha = torch.tensor(1).to(device) - torch.exp(-nn.functional.relu(raw[:, :, 0] + noise) * dists)
     # The larger the dists or the output(density), the closer alpha is to 1.
 
     # Compute weight for RGB of each sample along each ray. [n_rays, n_samples]
@@ -632,6 +633,7 @@ def nerf_forward(
     predictions = []
     for batch in batches:
         # print(batch.dtype)
+        batch = batch.to(device)
         predictions.append(model(batch))
 
     raw = torch.cat(predictions, dim=0)

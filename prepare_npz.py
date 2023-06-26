@@ -3,7 +3,7 @@ import os
 import numpy as np
 import torch
 
-from env4 import FBVSM_Env  # if dof=4, env4
+from env4 import *  # if dof=4, env4
 import pybullet as p
 import time
 import matplotlib.pyplot as plt
@@ -43,10 +43,14 @@ def c2w_matrix(theta, phi, radius):
 
 
 def w2c_matrix(theta, phi, radius):
-    w2c = transition_matrix("tran_z", radius)
-    w2c = np.dot(transition_matrix("rot_y", -theta / 180. * np.pi), w2c)
-    w2c = np.dot(transition_matrix("rot_x", -phi / 180. * np.pi), w2c)
-    return w2c
+    # w2c = transition_matrix("tran_z", radius)
+    # w2c = np.dot(transition_matrix("rot_y", -theta / 180. * np.pi), w2c)
+    # w2c = np.dot(transition_matrix("rot_x", -phi / 180. * np.pi), w2c)
+    # return w2c
+    full_matrix = np.dot(rot_Z(theta / 180 * np.pi),
+                         rot_Y(phi / 180 * np.pi))
+    full_matrix = np.linalg.inv(full_matrix)
+    return full_matrix
 
 
 def random_data(DOF, num_data):
@@ -130,7 +134,6 @@ def prepare_data(my_env, path, action_lists):
 #         theta_1_list = np.ones_like(theta_0_list) * 0.3
 #         theta_2_list = np.ones_like(theta_0_list) * 0.3
 #         return np.stack((theta_0_list, theta_1_list, theta_2_list), -1)
-#
 #     elif dof == 3:
 #         theta_0_list = np.linspace(-1., 1., data_num, endpoint=False)  # no repeated angles
 #         theta_1_list = np.linspace(-1., 1., data_num, endpoint=False)
@@ -187,10 +190,10 @@ if __name__ == "__main__":
     """data collection"""
     RENDER = False
     MOV_CAM = False
-    WIDTH, HEIGHT = 200, 200
-    HYPER_radius_scaler = 4.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
-    DOF = 2  # the number of motors
-    sample_num = 100  # separate the action space
+    WIDTH, HEIGHT = 100, 100
+    HYPER_radius_scaler = 1.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
+    DOF = 4  # the number of motors
+    sample_num = 20  # separate the action space
 
     # Camera config: focal
     Camera_FOV = 42.

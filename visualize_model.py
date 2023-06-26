@@ -2,7 +2,7 @@ import os
 
 import matplotlib.pyplot as plt
 import torch
-from train import nerf_forward, get_fixed_camera_rays, init_models
+from train import nerf_forward, init_models
 from func import w2c_matrix, c2w_matrix, get_rays
 import numpy as np
 from torch import nn

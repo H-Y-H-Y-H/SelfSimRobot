@@ -1,7 +1,3 @@
-import os
-import torch
-from train import nerf_forward, get_fixed_camera_rays, init_models
-from func import w2c_matrix, c2w_matrix
 import numpy as np
 # from env import FBVSM_Env
 # 4dof
@@ -13,8 +9,8 @@ import pybullet as p
 # PATH = "train_log/log_1000data_out1_img100/"
 # PATH = "train_log/log_1600data_in5_out1_img100(3)"
 # PATH = "train_log/log_64000data_in6_out1_img100(3)/"
-PATH = "train_log/log_10000data_in7_out1_img100(1)/"
-
+# PATH = "train_log/log_10000data_in7_out1_img100(1)/"
+PATH = '../FBVSM_DATA/10000in7out1/'
 
 def scale_points(predict_points):
     scaled_points = predict_points / 4.  # scale /5  0.8

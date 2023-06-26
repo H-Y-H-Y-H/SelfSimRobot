@@ -1,14 +1,11 @@
 #  from notebook: https://towardsdatascience.com/its-nerf-from-nothing-build-a-vanilla-nerf-with-pytorch-7846e4c45666
 import random
-
-import numpy as np
-import torch
 from model import FBV_SM, PositionalEncoder
 from func import *
 
 
-# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-# print("train,", device)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print("train,", device)
 
 def plot_samples(
         z_vals: torch.Tensor,
@@ -122,6 +119,7 @@ def train(model, optimizer):
     iternums = []
     best_psnr = 0.
     psnr_v_last = 0
+
     patience = 0
     for i in trange(n_iters):
         model.train()
@@ -143,33 +141,30 @@ def train(model, optimizer):
         rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
         # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
 
-        # split to save memory
-        o_s, d_s, img_s = img_spliter(o=rays_o, d=rays_d, img=target_img)
-        one_img_loss = []
-        for id_train in range(len(img_s)):
-            # print("cc")
-            # Run one iteration of TinyNeRF and get the rendered RGB image.
-            outputs = nerf_forward(o_s[id_train], d_s[id_train],
-                                   near, far, model,
-                                   kwargs_sample_stratified=kwargs_sample_stratified,
-                                   n_samples_hierarchical=n_samples_hierarchical,
-                                   kwargs_sample_hierarchical=kwargs_sample_hierarchical,
-                                   chunksize=chunksize,
-                                   arm_angle=angle,
-                                   DOF=DOF)
+        rays_o = rays_o.reshape([-1, 3])
+        rays_d = rays_d.reshape([-1, 3])
+        target_img = target_img.reshape([-1])
 
-            # Backprop!
-            rgb_predicted = outputs['rgb_map']
-            optimizer.zero_grad()
-            loss = torch.nn.functional.mse_loss(rgb_predicted.cpu(), img_s[id_train])
-            loss.backward()
-            optimizer.step()
-            torch.cuda.empty_cache()  # to save memory
-            one_img_loss.append(loss.item())
-        # torch.cuda.empty_cache()
-        # Compute mean-squared error between predicted and target images.
-        psnr = -10. * np.log10(np.mean(one_img_loss))
+        # Run one iteration of TinyNeRF and get the rendered RGB image.
+        outputs = nerf_forward(rays_o, rays_d,
+                               near, far, model,
+                               kwargs_sample_stratified=kwargs_sample_stratified,
+                               n_samples_hierarchical=n_samples_hierarchical,
+                               kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+                               chunksize=chunksize,
+                               arm_angle=angle,
+                               DOF=DOF)
+
+        # Backprop!
+        rgb_predicted = outputs['rgb_map']
+        optimizer.zero_grad()
+        target_img = target_img.to(device)
+        loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
+        loss.backward()
+        optimizer.step()
+        psnr = -10. * torch.log10(loss)
         train_psnrs.append(psnr)
+
 
         torch.cuda.empty_cache()
 
@@ -187,37 +182,31 @@ def train(model, optimizer):
                 angle = training_angles[target_img_idx]
                 rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
 
-                # split
-                o_s, d_s, img_s = img_spliter(o=rays_o, d=rays_d, img=target_img, shuffle=False)  # no shuffle combine
-                one_img_loss = []
-                rgb_combine = []
-                for id_test in range(len(img_s)):
-                    # print("of")
-                    # Run one iteration of TinyNeRF and get the rendered RGB image.
-                    outputs = nerf_forward(o_s[id_test], d_s[id_test],
-                                           near, far, model,
-                                           kwargs_sample_stratified=kwargs_sample_stratified,
-                                           n_samples_hierarchical=n_samples_hierarchical,
-                                           kwargs_sample_hierarchical=kwargs_sample_hierarchical,
-                                           chunksize=chunksize,
-                                           arm_angle=angle,
-                                           DOF=DOF)
+                rays_o = rays_o.reshape([-1, 3])
+                rays_d = rays_d.reshape([-1, 3])
+                target_img = target_img.reshape([-1])
+                # Run one iteration of TinyNeRF and get the rendered RGB image.
+                outputs = nerf_forward(rays_o, rays_d,
+                                       near, far, model,
+                                       kwargs_sample_stratified=kwargs_sample_stratified,
+                                       n_samples_hierarchical=n_samples_hierarchical,
+                                       kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+                                       chunksize=chunksize,
+                                       arm_angle=angle,
+                                       DOF=DOF)
 
-                    # Backprop!
-                    rgb_predicted = outputs['rgb_map']
-                    rgb_combine.append(rgb_predicted)
-                    optimizer.zero_grad()
-                    loss = torch.nn.functional.mse_loss(rgb_predicted, img_s[id_test])
-                    torch.cuda.empty_cache()  # to save memory
-                    one_img_loss.append(loss.item())
-                val_psnr = -10. * np.log10(np.mean(one_img_loss))
-                valid_epoch_loss = np.mean(one_img_loss)
 
-                rgb_out = torch.cat(rgb_combine, dim=0)  # combine split images
-                np_image = rgb_out.reshape([height, width, 1]).detach().cpu().numpy()
+                rgb_predicted = outputs['rgb_map']
+                optimizer.zero_grad()
+                target_img = target_img.to(device)
+                loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
+                val_psnr = (-10. * torch.log10(loss)).item()
+                valid_epoch_loss = loss.item()
+                np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
                 np_image = np.clip(0, 1, np_image)
                 np_image_combine = np.dstack((np_image, np_image, np_image))
-                matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % target_img_idx, np_image_combine)
+                matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % target_img_idx,
+                                        np_image_combine)
 
                 psnr_v = val_psnr
                 val_psnrs.append(psnr_v)
@@ -232,37 +221,28 @@ def train(model, optimizer):
                     rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
                     # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
 
-                    # split
-                    o_s, d_s, img_s = img_spliter(o=rays_o, d=rays_d, img=img_label,
-                                                  shuffle=False)  # no shuffle combine
-                    one_img_loss = []
-                    rgb_combine = []
-                    for id_test in range(len(img_s)):
-                        # print("of")
-                        # Run one iteration of TinyNeRF and get the rendered RGB image.
-                        outputs = nerf_forward(o_s[id_test], d_s[id_test],
-                                               near, far, model,
-                                               kwargs_sample_stratified=kwargs_sample_stratified,
-                                               n_samples_hierarchical=n_samples_hierarchical,
-                                               kwargs_sample_hierarchical=kwargs_sample_hierarchical,
-                                               chunksize=chunksize,
-                                               arm_angle=angle,
-                                               DOF=DOF)
+                    rays_o = rays_o.reshape([-1, 3])
+                    rays_d = rays_d.reshape([-1, 3])
+                    target_img = target_img.reshape([-1])
+                    # Run one iteration of TinyNeRF and get the rendered RGB image.
+                    outputs = nerf_forward(rays_o, rays_d,
+                                           near, far, model,
+                                           kwargs_sample_stratified=kwargs_sample_stratified,
+                                           n_samples_hierarchical=n_samples_hierarchical,
+                                           kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+                                           chunksize=chunksize,
+                                           arm_angle=angle,
+                                           DOF=DOF)
 
-                        # Backprop!
-                        rgb_predicted = outputs['rgb_map']
-                        rgb_combine.append(rgb_predicted)
-                        optimizer.zero_grad()
-                        loss = torch.nn.functional.mse_loss(rgb_predicted, img_s[id_test])
-                        torch.cuda.empty_cache()  # to save memory
-                        one_img_loss.append(loss.item())
-                    val_psnr = -10. * np.log10(np.mean(one_img_loss))
+                    rgb_predicted = outputs['rgb_map']
 
-                    valid_epoch_loss.append(np.mean(one_img_loss))
+                    img_label_tensor = img_label.reshape(-1).to(device)
+
+                    loss = torch.nn.functional.mse_loss(rgb_predicted, img_label_tensor)
+                    val_psnr = (-10. * torch.log10(loss)).item()
+                    valid_epoch_loss.append(loss.item())
                     valid_psnr.append(val_psnr)
-
-                    rgb_out = torch.cat(rgb_combine, dim=0)  # combine split images
-                    np_image = rgb_out.reshape([height, width, 1]).detach().cpu().numpy()
+                    np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
                     np_image = np.clip(0, 1, np_image)
                     if v_i < max_pic_save:
                         valid_image.append(np_image)
@@ -287,14 +267,14 @@ def train(model, optimizer):
                     matplotlib.image.imsave(LOG_PATH + 'image/' + 'best.png', np_image_combine)
                     torch.save(model.state_dict(), LOG_PATH + 'best_model/nerf.pt')
                     patience = 0
-                else:
-                    patience += 1
-                # os.makedirs(LOG_PATH + "epoch_%d_model" % i, exist_ok=True)
-                # torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
-
-                if psnr_v < 16.2 and i >= 2000:  # TBD
+                elif psnr_v == psnr_v_last:
                     print("restart")
                     return False, train_psnrs, psnr_v
+                else:
+                    patience += 1
+                psnr_v_last = psnr_v
+                # os.makedirs(LOG_PATH + "epoch_%d_model" % i, exist_ok=True)
+                # torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
 
         if patience > Patience_threshold:
             break
@@ -328,7 +308,7 @@ class Dataset(torch.utils.data.Dataset):
 
 if __name__ == "__main__":
 
-    seed_num = 5
+    seed_num = 2
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
@@ -336,20 +316,19 @@ if __name__ == "__main__":
     """
     prepare data and parameters
     """
-    cam_dist = 4.
-    nf_size = 2.
+    cam_dist = 1#1 #4.
+    nf_size = 0.36#0.36 #2.
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
-    Flag_save_image_during_training = True
-    DOF = 3  # the number of motors  # dof4 apr03
-    num_data = 8000
-    tr = 0.99  # training ratio
-    pxs = 200  # collected data pixels
-    # data = np.load('data/uniform_data/dof%d_data%d.npz' % (DOF, num_data))
-    # data = np.load('data/data_May29/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
+    Flag_save_image_during_training = False
+    DOF = 2  # the number of motors  # dof4 apr03
+    num_data = 400 # 20**DOF
+    tr = 0.9  # training ratio
+    pxs = 100  # collected data pixels
     data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
-    Overfitting_test = False
+    print("Raw Data Loaded!")
 
     sample_id = random.sample(range(num_data), num_data)
+    Overfitting_test = False
     OVERFITTING_ID = 55
     if Overfitting_test:
         valid_img_visual = data['images'][sample_id[OVERFITTING_ID]]
@@ -359,9 +338,12 @@ if __name__ == "__main__":
         max_pic_save = 10
         valid_img_visual = []
         for vimg in range(max_pic_save):
-            valid_img_visual.append(data['images'][sample_id[int(num_data * tr) + vimg]])
+            print(vimg)
+            vaild_img = np.copy(data['images'][sample_id[int(num_data * tr) + vimg]])
+            valid_img_visual.append(vaild_img)
         valid_img_visual = np.hstack(valid_img_visual)
         valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
+    print("Valid Data Loaded!")
 
     # Gather as torch tensors
     focal = torch.from_numpy(data['focal'].astype('float32'))
@@ -402,7 +384,7 @@ if __name__ == "__main__":
     # Early Stopping
     warmup_iters = 400  # Number of iterations during warmup phase
     warmup_min_fitness = 10.0  # Min val PSNR to continue training at warmup_iters
-    n_restarts = 10  # Number of times to restart if training stalls
+    n_restarts = 1000  # Number of times to restart if training stalls
 
     # We bundle the kwargs for various functions to pass all at once.
     kwargs_sample_stratified = {
@@ -415,14 +397,15 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata_in6_out1_img%d(1)/" % (num_data, pxs)
+    LOG_PATH = "train_log/log_%ddata_in6_out1_img%d(%d)/" % (num_data, pxs,seed_num)
+    print('log_path: ',LOG_PATH)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
 
     record_file_train = open(LOG_PATH + "log_train.txt", "w")
     record_file_val = open(LOG_PATH + "log_val.txt", "w")
-    Patience_threshold = 30  # 20 mar 30
+    Patience_threshold = 50  # 20 mar 30
 
     # Save testing gt image for visualization
     matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', valid_img_visual)
