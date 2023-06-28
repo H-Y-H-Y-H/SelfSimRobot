@@ -212,6 +212,13 @@ def train(model, optimizer):
                 val_psnrs.append(psnr_v)
                 print("Loss:", valid_epoch_loss, "PSNR: ", psnr_v)
 
+                if psnr_v == psnr_v_last:
+                    print("restart")
+                    return False, train_psnrs, psnr_v
+                else:
+                    patience += 1
+                psnr_v_last = psnr_v
+
             else:
                 for v_i in range(valid_amount):
                     angle = testing_angles[v_i]
@@ -320,12 +327,13 @@ if __name__ == "__main__":
     nf_size = 0.36#0.36 #2.
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
-    DOF = 2  # the number of motors  # dof4 apr03
-    num_data = 400 # 20**DOF
-    tr = 0.9  # training ratio
+    DOF = 4  # the number of motors  # dof4 apr03
+    num_data = 20**DOF
+    tr = 0.99  # training ratio
     pxs = 100  # collected data pixels
     data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
     print("Raw Data Loaded!")
+    # pre_trained = ''
 
     sample_id = random.sample(range(num_data), num_data)
     Overfitting_test = False
