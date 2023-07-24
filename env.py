@@ -1,14 +1,18 @@
 import os
+
 import pybullet as p
 import time
 import pybullet_data as pd
 import gym
+import random
+import numpy as np
 from func import *
+from PIL import Image
 import cv2
 
 
 class FBVSM_Env(gym.Env):
-    def __init__(self, show_moving_cam, width=400, height=400, render_flag=False, num_motor=2, max_num_motor=3):
+    def __init__(self, show_moving_cam, width=400, height=400, render_flag=False, num_motor=2):
 
         self.show_moving_cam = show_moving_cam
         self.camera_pos_inverse = None
@@ -17,14 +21,13 @@ class FBVSM_Env(gym.Env):
         self.height = height
         self.force = 1.8
         self.maxVelocity = 1.5
-        self.action_space = 90
+        self.action_space = 50
         self.num_motor = num_motor
-        self.max_num_motor = max_num_motor
         #  camera z offset
         self.z_offset = 1.106
-        self.action_shift = np.asarray([90, 90, 0, 0])[:num_motor]
+        self.action_shift = np.asarray([90, 90, 0])[:num_motor]
         self.render_flag = render_flag
-        self.camera_pos = [0.8, 0, self.z_offset]  # previous 0.8 ! May 28
+        self.camera_pos = [0.8, 0, self.z_offset]
         self.camera_line = None
         self.camera_line_m = None
         self.step_id = 0
@@ -64,6 +67,14 @@ class FBVSM_Env(gym.Env):
         img = img[2][:, :, :3]
         img = green_black(img)
         cv2.imshow('Windows', img)
+
+        if self.show_moving_cam:
+            os.makedirs('data/moving_camera/',exist_ok=True)
+            cv2.imwrite('data/moving_camera/img%d.png' % self.step_id, img)
+        else:
+            os.makedirs('data/fixed_camera/',exist_ok=True)
+            cv2.imwrite('data/fixed_camera/img%d.png' % self.step_id, img)
+
         self.step_id += 1
         cv2.waitKey(1)
 
@@ -78,44 +89,38 @@ class FBVSM_Env(gym.Env):
         return obs_data
 
     def act(self, action_norm):
-        action_norm = action_norm * self.action_space + self.action_shift
-        action = (action_norm / 180) * np.pi
 
-        if not self.show_moving_cam:
+        action_degree = action_norm * self.action_space + self.action_shift
+        action = (action_degree / 180) * np.pi
+
+        if not show_moving_cam:
             for moving_times in range(100):
                 joint_pos = []
-                for i_m in range(self.num_motor):
-                    p.setJointMotorControl2(self.robot_id, i_m, controlMode=p.POSITION_CONTROL,
-                                            targetPosition=action[i_m],
+                for i in range(self.num_motor):
+                    p.setJointMotorControl2(self.robot_id, i, controlMode=p.POSITION_CONTROL, targetPosition=action[i],
                                             force=self.force,
                                             maxVelocity=self.maxVelocity)
-                    joint_state = p.getJointState(self.robot_id, i_m)[0]
+
+                    joint_state = p.getJointState(self.robot_id, i)[0]
                     joint_pos.append(joint_state)
-
-                if self.num_motor < self.max_num_motor:
-                    for i_m in range(self.num_motor, self.max_num_motor):
-                        p.setJointMotorControl2(self.robot_id, i_m, controlMode=p.POSITION_CONTROL, targetPosition=0,
-                                                force=self.force, maxVelocity=self.maxVelocity)
-
                 joint_pos = np.asarray(joint_pos)
 
-                for _ in range(50):
+                for _ in range(5):
                     p.stepSimulation()
 
                 # compute dist between target and current:
-                joint_error = np.mean((joint_pos - action[:len(joint_pos)]) ** 2)
+                joint_error = np.mean((joint_pos - action) ** 2)
 
                 if joint_error < 0.0001:
                     break
-                # elif moving_times == 99:
-                #     print("MOVING TIME OUT, Please check the act function in the env class")
-                #     quit()
+                elif moving_times == 99:
+                    print("MOVING TIME OUT, Please check the act function in the env class")
+                    quit()
 
                 if self.render_flag:
                     time.sleep(1. / 960.)
 
-        full_matrix = np.dot(rot_Z(action_norm[0] * self.action_space / 180 * np.pi),
-                             rot_Y(action_norm[1] * self.action_space / 180 * np.pi))
+        full_matrix = np.dot(rot_Z(action_norm[0] * 50 / 180 * np.pi), rot_Y(action_norm[1] * 50 / 180 * np.pi))
 
         """ inverse of full matrix as the camera view matrix """
         self.camera_pos_inverse = np.dot(np.linalg.inv(full_matrix), np.asarray([0.8, 0, 0, 1]))[:3]
@@ -130,7 +135,7 @@ class FBVSM_Env(gym.Env):
             [0.8, 0, 0]
         ])
 
-        new_view_square = np.dot(np.linalg.inv(full_matrix), np.hstack((orig_view_square, np.ones((5, 1)))).T)[:3]
+        new_view_square = np.dot(np.linalg.inv(full_matrix),np.hstack((orig_view_square, np.ones((5, 1)))).T)[:3]
 
         new_view_square[2] += self.z_offset
         new_view_square = new_view_square.T
@@ -138,7 +143,8 @@ class FBVSM_Env(gym.Env):
         if self.show_moving_cam:
             ##### Move camera with the robot arm ########
             self.camera_pos = np.dot(np.linalg.inv(full_matrix), np.asarray([0.8, 0, 0, 1]))[:3]
-            camera_up_vector = np.dot(np.linalg.inv(full_matrix), np.asarray([0, 0, 1, 1]))[:3]
+            camera_up_vector =  np.dot(np.linalg.inv(full_matrix), np.asarray([0, 0, 1, 1]))[:3]
+
 
             self.camera_pos[2] += self.z_offset
             self.view_matrix = p.computeViewMatrix(
@@ -237,10 +243,27 @@ class FBVSM_Env(gym.Env):
         # visualize sphere
         self.colSphereId_1 = p.createCollisionShape(p.GEOM_SPHERE, radius=0.01)
 
+        cube_size = 0.3
+
+        # self.circle = []
+        # for i in range(8):
+        #     self.pos_sphere[i][2] += self.z_offset
+        #     self.circle.append(p.createMultiBody(0, self.colSphereId_1, -1, self.pos_sphere[i], [0, 0, 0, 1]))
+
         pos_sphere_ = np.copy(self.pos_sphere)
         pos_sphere_[:, 2] += self.z_offset
         self.cube_line = []
         self.cube_line_copy = []
+        # for i in range(12):
+        #     if i in [0, 1, 2, 4, 5, 6]:
+        #         self.cube_line.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i + 1], [0, 0, 1]))
+        #         self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i + 1], [0, 0, 1]))
+        #     elif i in [3, 7]:
+        #         self.cube_line.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i - 3], [0, 0, 1]))
+        #         self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i], pos_sphere_[i - 3], [0, 0, 1]))
+        #     else:
+        #         self.cube_line.append(p.addUserDebugLine(pos_sphere_[i - 8], pos_sphere_[i - 4], [0, 0, 1]))
+        #         self.cube_line_copy.append(p.addUserDebugLine(pos_sphere_[i - 8], pos_sphere_[i - 4], [0, 0, 1]))
 
         return self.get_obs()
 
@@ -281,28 +304,27 @@ def green_black(img):
     img = np.array(img)
     t = 60
     # print(img)
-
-    # Mask image to only select browns
-    mask = cv2.inRange(img[...,1], 100, 255)
-
-    # Change image to red where we found brown
-    img[mask > 0] = (255, 255, 255)
-
-
-    # for x in range(img.shape[0]):
-    #     for y in range(img.shape[1]):
-    #         if img[x, y, 1] > 100:
-    #             img[x, y] = np.array([255., 255., 255.])
-
+    for x in range(img.shape[0]):
+        for y in range(img.shape[1]):
+            if img[x, y, 1] > 100:
+                img[x, y] = np.array([255., 255., 255.])
     return img
+
+
+# def data_collection_with_env(data_env: FBVSM_Env):
+#     d_obs = data_env.reset()
+#
+#     # todo: two angles and images collection
 
 
 def generate_action_list():
     # line_array = np.linspace(-1.0, 1.0, num=21)
     # t_angle = np.random.choice(line_array, NUM_MOTOR)
+
     # set target angle:
     t_angle = [1, -1]
     act_list = []
+
     for act_i in range(NUM_MOTOR):
         act_list.append(np.linspace(c_angle[act_i], t_angle[act_i],
                                     round(abs((t_angle[act_i] - c_angle[act_i]) / step_size) + 1)))
@@ -332,7 +354,7 @@ if __name__ == '__main__':
     obs = env.reset()
     c_angle = obs[0]
 
-    mode = 'm'  # manual or automatic
+    mode = 'auto'  # manual or automatic
 
     if mode == 'm':
         m0 = p.addUserDebugParameter("motor0: Yaw", -1, 1, 0)
@@ -343,7 +365,6 @@ if __name__ == '__main__':
             c_angle[0] = p.readUserDebugParameter(m0)
             c_angle[1] = p.readUserDebugParameter(m1)
             obs, _, _, _ = env.step(c_angle)
-            print(obs[0])
 
     else:
         # control the robot to  target angles and observe current angles

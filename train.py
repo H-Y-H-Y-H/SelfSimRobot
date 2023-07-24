@@ -327,16 +327,16 @@ if __name__ == "__main__":
     nf_size = 0.36#0.36 #2.
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
-    DOF = 4  # the number of motors  # dof4 apr03
+    DOF = 2  # the number of motors  # dof4 apr03
     num_data = 20**DOF
-    tr = 0.99  # training ratio
+    tr = 0.8  # training ratio
     pxs = 100  # collected data pixels
     data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
     print("Raw Data Loaded!")
     # pre_trained = ''
 
     sample_id = random.sample(range(num_data), num_data)
-    Overfitting_test = False
+    Overfitting_test = True
     OVERFITTING_ID = 55
     if Overfitting_test:
         valid_img_visual = data['images'][sample_id[OVERFITTING_ID]]
@@ -423,7 +423,7 @@ if __name__ == "__main__":
     # DOF = DOF-1
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
-                                       n_layers=4,
+                                       n_layers=8,
                                        d_filter=128,
                                        skip=(),
                                        output_size=1)

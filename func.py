@@ -657,18 +657,18 @@ def nerf_forward(
 """make pose"""
 
 
-def w2c_matrix(theta, phi, radius):
-    w2c = transition_matrix("tran_z", radius)
-    w2c = np.dot(transition_matrix("rot_y", -theta / 180. * np.pi), w2c)
-    w2c = np.dot(transition_matrix("rot_x", -phi / 180. * np.pi), w2c)
-    return w2c
-
-
-def c2w_matrix(theta, phi, radius):
-    c2w = transition_matrix("tran_z", radius)
-    c2w = np.dot(transition_matrix("rot_x", phi / 180. * np.pi), c2w)
-    c2w = np.dot(transition_matrix("rot_y", theta / 180. * np.pi), c2w)
-    return c2w
+# def w2c_matrix(theta, phi, radius):
+#     w2c = transition_matrix("tran_z", radius)
+#     w2c = np.dot(transition_matrix("rot_y", -theta / 180. * np.pi), w2c)
+#     w2c = np.dot(transition_matrix("rot_x", -phi / 180. * np.pi), w2c)
+#     return w2c
+#
+#
+# def c2w_matrix(theta, phi, radius):
+#     c2w = transition_matrix("tran_z", radius)
+#     c2w = np.dot(transition_matrix("rot_x", phi / 180. * np.pi), c2w)
+#     c2w = np.dot(transition_matrix("rot_y", theta / 180. * np.pi), c2w)
+#     return c2w
 
 
 def transition_matrix(label, value):

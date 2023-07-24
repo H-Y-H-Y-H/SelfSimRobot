@@ -42,7 +42,7 @@ def c2w_matrix(theta, phi, radius):
     return c2w
 
 
-def w2c_matrix(theta, phi, radius):
+def w2c_matrix(theta, phi):
     # w2c = transition_matrix("tran_z", radius)
     # w2c = np.dot(transition_matrix("rot_y", -theta / 180. * np.pi), w2c)
     # w2c = np.dot(transition_matrix("rot_x", -phi / 180. * np.pi), w2c)
@@ -181,7 +181,7 @@ def plot_new_cam(ax, orig_cam):
     for i in range(100):
         theta = np.random.rand() * 2. - 1.
         phi = np.random.rand() * 2. - 1.
-        w2c = w2c_matrix(theta=theta * 90., phi=phi * 90., radius=10.)
+        w2c = w2c_matrix(theta=theta * 90., phi=phi * 90.)
         new_cam = np.dot(w2c, orig_cam)
         ax.plot(new_cam[0], new_cam[1], new_cam[2], c="r")
 
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     MOV_CAM = False
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 1.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
-    DOF = 4  # the number of motors
+    DOF = 2  # the number of motors
     sample_num = 20  # separate the action space
 
     # Camera config: focal

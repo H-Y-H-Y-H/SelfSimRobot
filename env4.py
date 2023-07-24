@@ -8,7 +8,7 @@ import cv2
 
 
 class FBVSM_Env(gym.Env):
-    def __init__(self, show_moving_cam, width=400, height=400, render_flag=False, num_motor=2, max_num_motor=3):
+    def __init__(self, show_moving_cam, width=400, height=400, render_flag=False, num_motor=2, max_num_motor=4):
 
 
         self.show_moving_cam = show_moving_cam
@@ -21,6 +21,7 @@ class FBVSM_Env(gym.Env):
         self.action_space = 90
         self.num_motor = num_motor
         self.max_num_motor = max_num_motor
+        self.camera_fov = 42
         #  camera z offset
         self.z_offset = -0.108
         self.render_flag = render_flag
@@ -50,12 +51,19 @@ class FBVSM_Env(gym.Env):
 
         #  fov, camera view angle
         self.projection_matrix = p.computeProjectionMatrixFOV(
-            fov=42.0,
+            fov=self.camera_fov,
             aspect=1.0,
             nearVal=0.1,
             farVal=200)
 
         self.reset()
+
+    def forward_matrix(self, theta, phi):
+        full_matrix = np.dot(rot_Z(theta / 180 * np.pi),
+                             rot_Y(phi / 180 * np.pi))
+        return full_matrix
+
+
 
     def get_obs(self):
         """ self.view_matrix is updating with action"""
@@ -74,7 +82,8 @@ class FBVSM_Env(gym.Env):
             joint_state = p.getJointState(self.robot_id, j)[0]
             joint_list.append(joint_state)
 
-        joint_list = ((np.array(joint_list) / np.pi * 180) ) / self.action_space
+        joint_list = np.array(joint_list) / np.pi * 180
+        joint_list /= self.action_space
 
         obs_data = [np.array(joint_list), img]
         return obs_data
@@ -116,11 +125,10 @@ class FBVSM_Env(gym.Env):
                 if self.render_flag:
                     time.sleep(1. / 960.)
 
-        full_matrix = np.dot(rot_Z(action_norm[0] * self.action_space / 180 * np.pi),
-                             rot_Y(action_norm[1] * self.action_space / 180 * np.pi))
-
+        full_matrix = self.forward_matrix(action_degree[0],action_degree[1])
+        full_matrix2 = np.linalg.inv(full_matrix)
         """ inverse of full matrix as the camera view matrix """
-        self.camera_pos_inverse = np.dot(np.linalg.inv(full_matrix), np.asarray([self.CAM_POS_X, 0, 0, 1]))[:3]
+        self.camera_pos_inverse = np.dot(full_matrix2, np.asarray([self.CAM_POS_X, 0, 0, 1]))[:3]
         self.camera_pos_inverse[2] += 0
 
         """ update view frame """
@@ -132,15 +140,15 @@ class FBVSM_Env(gym.Env):
             [self.CAM_POS_X, 0, 0]
         ])
 
-        new_view_square = np.dot(np.linalg.inv(full_matrix), np.hstack((orig_view_square, np.ones((5, 1)))).T)[:3]
+        new_view_square = np.dot(full_matrix2, np.hstack((orig_view_square, np.ones((5, 1)))).T)[:3]
 
         new_view_square[2] += 0
         new_view_square = new_view_square.T
 
         if self.show_moving_cam:
             ##### Move camera with the robot arm ########
-            self.camera_pos = np.dot(np.linalg.inv(full_matrix), np.asarray([self.CAM_POS_X, 0, 0, 1]))[:3]
-            camera_up_vector = np.dot(np.linalg.inv(full_matrix), np.asarray([0, 0, 1, 1]))[:3]
+            self.camera_pos = np.dot(full_matrix2, np.asarray([self.CAM_POS_X, 0, 0, 1]))[:3]
+            camera_up_vector = np.dot(full_matrix2, np.asarray([0, 0, 1, 1]))[:3]
 
             self.camera_pos[2] += 0
             self.view_matrix = p.computeViewMatrix(
@@ -212,14 +220,13 @@ class FBVSM_Env(gym.Env):
         self.camera_line = p.addUserDebugLine(self.camera_pos, [0, 0, 0], [1, 1, 0])
 
         # visual frame edges
-        self.view_edge_len = 0.38386
+        self.view_edge_len = np.tan(self.camera_fov * np.pi/180) * self.CAM_POS_X # 0.3839
         self.view_square = np.array([
             [0, self.view_edge_len, self.view_edge_len],
             [0, self.view_edge_len, -self.view_edge_len],
             [0, -self.view_edge_len, -self.view_edge_len],
             [0, -self.view_edge_len, self.view_edge_len]
         ])
-
 
         self.frame_edges = []
         self.move_frame_edges = []
@@ -232,8 +239,6 @@ class FBVSM_Env(gym.Env):
         for eid in range(4):
             self.frame_edges.append(p.addUserDebugLine(self.camera_pos, self.view_square[eid], [1, 1, 0]))
             self.move_frame_edges.append(p.addUserDebugLine(self.camera_pos, self.view_square[eid], [0, 0, 1]))
-
-
 
         # inverse camera line for updating
         self.camera_line_inverse = p.addUserDebugLine(self.camera_pos, [0, 0, 0], [0.0, 0.0, 1.0])
@@ -300,7 +305,7 @@ def generate_action_list():
 
 if __name__ == '__main__':
     RENDER = True
-    NUM_MOTOR = 4
+    NUM_MOTOR = 2
     step_size = 0.1
 
     p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
@@ -309,7 +314,7 @@ if __name__ == '__main__':
     # show_moving_cam = True
 
     # FIXED  CAMERA MODE:  FIXED CAMERA - MOVING ROBOT ARM
-    show_moving_cam = False
+    show_moving_cam = True
 
     env = FBVSM_Env(show_moving_cam,
                     width=300,
