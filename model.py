@@ -81,6 +81,7 @@ class FBV_SM(nn.Module):
 
         return x
 
+
 if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print(device)
@@ -91,13 +92,11 @@ if __name__ == "__main__":
 
     n_layers = 2
     d_filter = 128
-    skip = []
     d_viewdirs = None
 
     encoder = PositionalEncoder(d_input, n_freqs, log_space=log_space)
 
-    model = FBV_SM(encoder.d_output, n_layers=n_layers, d_filter=d_filter, skip=skip,
-                 d_viewdirs=d_viewdirs)
+    model = FBV_SM(encoder.d_output, n_layers=n_layers, d_filter=d_filter)
     model.to(device)
 
 
