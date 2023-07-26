@@ -138,8 +138,7 @@ def train(model, optimizer):
         height, width = target_img.shape[:2]
         # print(training_angles[target_img_idx])
 
-        rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
-        # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
+        rays_o, rays_d = get_rays(height, width, focal)
 
         rays_o = rays_o.reshape([-1, 3])
         rays_d = rays_d.reshape([-1, 3])
@@ -165,8 +164,7 @@ def train(model, optimizer):
         psnr = -10. * torch.log10(loss)
         train_psnrs.append(psnr)
 
-
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
 
         # Evaluate testimg at given display rate.
         if i % display_rate == 0:
@@ -180,7 +178,7 @@ def train(model, optimizer):
             if Overfitting_test:
                 target_img = training_img[target_img_idx]
                 angle = training_angles[target_img_idx]
-                rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+                rays_o, rays_d = get_rays(height, width, focal)
 
                 rays_o = rays_o.reshape([-1, 3])
                 rays_d = rays_d.reshape([-1, 3])
@@ -195,7 +193,6 @@ def train(model, optimizer):
                                        arm_angle=angle,
                                        DOF=DOF)
 
-
                 rgb_predicted = outputs['rgb_map']
                 optimizer.zero_grad()
                 target_img = target_img.to(device)
@@ -207,7 +204,6 @@ def train(model, optimizer):
                 np_image_combine = np.dstack((np_image, np_image, np_image))
                 matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % target_img_idx,
                                         np_image_combine)
-
                 psnr_v = val_psnr
                 val_psnrs.append(psnr_v)
                 print("Loss:", valid_epoch_loss, "PSNR: ", psnr_v)
@@ -215,8 +211,6 @@ def train(model, optimizer):
                 if psnr_v == psnr_v_last:
                     print("restart")
                     return False, train_psnrs, psnr_v
-                else:
-                    patience += 1
                 psnr_v_last = psnr_v
 
             else:
@@ -225,8 +219,7 @@ def train(model, optimizer):
                     img_label = testing_img[v_i]
                     pose_matrix = testing_pose_matrix[v_i]
 
-                    rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
-                    # rays_o, rays_d = get_fixed_camera_rays(height, width, focal, distance2camera=4)
+                    rays_o, rays_d = get_rays(height, width, focal)
 
                     rays_o = rays_o.reshape([-1, 3])
                     rays_d = rays_d.reshape([-1, 3])
@@ -289,33 +282,97 @@ def train(model, optimizer):
         # torch.cuda.empty_cache()    # to save memory
     return True, train_psnrs, val_psnrs
 
+def train_overfit(model,optimizer):
+    train_psnrs = []
+    val_psnrs = []
+    psnr_v_last = 0
+    patience = 0
+    for i in trange(n_iters):
+        model.train()
+        target_img_idx = OVERFITTING_ID
+        target_img = training_img[target_img_idx]
+        angle = training_angles[target_img_idx]
+        pose_matrix = training_pose_matrix[target_img_idx]
 
-class Dataset(torch.utils.data.Dataset):
-    """Characterizes a dataset for PyTorch"""
+        if center_crop and i < center_crop_iters:
+            target_img = crop_center(target_img)
+        height, width = target_img.shape[:2]
 
-    def __init__(self, images, angles, matrices):
-        """Initialization"""
-        self.images = images
-        self.angles = angles
-        self.matrices = matrices
+        rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+        rays_o = rays_o.reshape([-1, 3])
+        rays_d = rays_d.reshape([-1, 3])
+        target_img = target_img.reshape([-1])
+        outputs = nerf_forward(rays_o, rays_d, pose_matrix,
+                               near, far, model,
+                               kwargs_sample_stratified=kwargs_sample_stratified,
+                               n_samples_hierarchical=n_samples_hierarchical,
+                               kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+                               chunksize=chunksize,
+                               arm_angle=angle,
+                               DOF=DOF)
 
-    def __len__(self):
-        """Denotes the total number of samples"""
-        return len(self.angles)
+        # Backprop!
+        rgb_predicted = outputs['rgb_map']
+        optimizer.zero_grad()
+        target_img = target_img.to(device)
+        loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
+        loss.backward()
+        optimizer.step()
+        psnr = -10. * torch.log10(loss)
+        train_psnrs.append(psnr)
+        # torch.cuda.empty_cache()
 
-    def __getitem__(self, index):
-        """Generates one sample of data"""
-        # Select sample
-        image = self.images[index]
-        angle = self.angles[index]
-        matrix = self.angles[index]
+        # Evaluate testimg at given display rate.
+        if i % display_rate == 0:
+            model.eval()
+            torch.no_grad()
 
-        return image, angle, matrix
+            height, width = testing_img[0].shape[:2]
+            target_img = training_img[target_img_idx]
+            angle = training_angles[target_img_idx]
+            rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+
+            rays_o = rays_o.reshape([-1, 3])
+            rays_d = rays_d.reshape([-1, 3])
+            target_img = target_img.reshape([-1])
+            # Run one iteration of TinyNeRF and get the rendered RGB image.
+            outputs = nerf_forward(rays_o, rays_d, pose_matrix,
+                                   near, far, model,
+                                   kwargs_sample_stratified=kwargs_sample_stratified,
+                                   n_samples_hierarchical=n_samples_hierarchical,
+                                   kwargs_sample_hierarchical=kwargs_sample_hierarchical,
+                                   chunksize=chunksize,
+                                   arm_angle=angle,
+                                   DOF=DOF)
+
+            rgb_predicted = outputs['rgb_map']
+            optimizer.zero_grad()
+            target_img = target_img.to(device)
+            loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
+            val_psnr = (-10. * torch.log10(loss)).item()
+            valid_epoch_loss = loss.item()
+            np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
+            np_image = np.clip(0, 1, np_image)
+            np_image_combine = np.dstack((np_image, np_image, np_image))
+            matplotlib.image.imsave(LOG_PATH + 'image/' + 'overfitting%d.png' % target_img_idx,
+                                    np_image_combine)
+            psnr_v = val_psnr
+            val_psnrs.append(psnr_v)
+            print("Loss:", valid_epoch_loss, "PSNR: ", psnr_v)
+
+            if psnr_v == psnr_v_last:
+                print("restart")
+                return False, train_psnrs, psnr_v
+            psnr_v_last = psnr_v
+        if patience > Patience_threshold:
+            break
+        # torch.cuda.empty_cache()    # to save memory
+    return True, train_psnrs, val_psnrs
 
 
 if __name__ == "__main__":
 
-    seed_num = 2
+    seed_num = 1
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
@@ -323,8 +380,8 @@ if __name__ == "__main__":
     """
     prepare data and parameters
     """
-    cam_dist = 1#1 #4.
-    nf_size = 0.36#0.36 #2.
+    cam_dist = 1
+    nf_size = 0.4
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
     DOF = 2  # the number of motors  # dof4 apr03
@@ -336,7 +393,7 @@ if __name__ == "__main__":
     # pre_trained = ''
 
     sample_id = random.sample(range(num_data), num_data)
-    Overfitting_test = True
+    Overfitting_test = False
     OVERFITTING_ID = 55
     if Overfitting_test:
         valid_img_visual = data['images'][sample_id[OVERFITTING_ID]]
@@ -413,24 +470,23 @@ if __name__ == "__main__":
 
     record_file_train = open(LOG_PATH + "log_train.txt", "w")
     record_file_val = open(LOG_PATH + "log_val.txt", "w")
-    Patience_threshold = 50  # 20 mar 30
+    Patience_threshold = 100
 
     # Save testing gt image for visualization
     matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', valid_img_visual)
 
-    # pretrained_model_pth = 'train_log/log_1000data/best_model/'
+    pretrained_model_pth = 'train_log/log_1000data/best_model/'
 
     # DOF = DOF-1
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
-                                       n_layers=8,
+                                       n_layers=4,
                                        d_filter=128,
-                                       skip=(),
-                                       output_size=1)
+                                       skip=(0,1,2),
+                                       output_size=1,
+                                       #pretrained_model_pth=pretrained_model_pth
+                                       )
 
-        # mar30, 2dof, 3input 10 * 128 skip=5 log_1600data_in3_out1_img100
-        # mar30, 2dof, 3input 8 * 128 skip=4 log_1600data_in3_out1_img100(2)  psnr 20
-        # mar30, 2dof, 5input 8 * 128 skip=4 log_1600data_in5_out1_img100(3)  0.002044 PSNR:  27.65, record this one!
 
         # mar29, 3dof, 6input 8*200, log_1000data_out1_img100  # PSNR 24.06
         # mar29, 3dof, 4input 10*128  # psnr 20

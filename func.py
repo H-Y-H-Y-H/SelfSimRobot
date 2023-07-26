@@ -46,6 +46,14 @@ def rot_Z(th):
 
     return matrix
 
+def pts_trans_matrix(theta,phi):
+    # the coordinates in pybullet, camera is along X axis, but in the pts coordinates, the camera is along z axis
+
+    w2c = transition_matrix("rot_y", -theta / 180. * np.pi)
+    w2c = np.dot(transition_matrix("rot_x", phi / 180. * np.pi), w2c)
+    w2c = np.linalg.inv(w2c)
+    return w2c
+
 
 def rays_np(H, W, D, c_h=1.106):
     """numpy version my_ray"""
@@ -112,102 +120,55 @@ def transfer_box(vbox, norm_angles, c_h=1.106, forward_flag=False):
 def get_rays(
         height: int,
         width: int,
-        focal_length: float,
-        c2w: torch.Tensor
+        focal_length: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     # Find origin and direction of rays through every pixel and camera origin.
 
     # Apply pinhole camera model to gather directions at each pixel
     i, j = torch.meshgrid(
-        torch.arange(width, dtype=torch.float32).to(c2w),
-        torch.arange(height, dtype=torch.float32).to(c2w),
+        torch.arange(width, dtype=torch.float32).to(focal_length),
+        torch.arange(height, dtype=torch.float32).to(focal_length),
         indexing='ij')
     i, j = i.transpose(-1, -2), j.transpose(-1, -2)
     directions = torch.stack([(i - width * .5) / focal_length,
                               -(j - height * .5) / focal_length,
                               -torch.ones_like(i)
                               ], dim=-1)
+    # directions: tan_i, tan_j, -1
 
     # Apply camera pose to directions
-    rays_d = torch.sum(directions[..., None, :] * c2w[:3, :3], dim=-1)
+    rays_d = directions
+    # rays_d = directions * (nf_size+cam_dist)/cam_dist
+    # rays_d = torch.sum(directions[..., None, :] * c2w[:3, :3], dim=-1)
+    # rays_d = torch.sum(directions[..., None, :] * torch.eye(3), dim=-1)
 
     # Origin is same for all directions (the optical center)
-    rays_o = c2w[:3, -1].expand(rays_d.shape)
+    rays_o = torch.from_numpy(np.asarray([0,0,1],dtype=np.float32)).expand(directions.shape)
 
-    # rays_o = rays_o.detach().cpu().numpy().reshape(-1,3)
+    # Visualization
     # ax = plt.figure().add_subplot(projection='3d')
-    # directions = directions.detach().cpu().numpy()
-    # rays_d = rays_d.detach().cpu().numpy()
-    # rays_d = rays_d.reshape(-1,3)
-    # directions = directions.reshape(-1, 3)
-    # for plt_i in [0,49,2450,2499]:
-    #     ax.plot3D([directions[plt_i, 0], 0],
-    #               [directions[plt_i, 2], 0],
-    #               [directions[plt_i, 1], 0])
-    #
-    #     ax.plot3D([rays_d[plt_i, 0], 0],
-    #               [rays_d[plt_i, 2], 0],
-    #               [rays_d[plt_i, 1], 0])
-    # print(rays_o)
-    # # ax.scatter(rays_o[0][0],rays_o[0][2],rays_o[0][1])
+    # rays_o = rays_o.detach().cpu().numpy().reshape(-1,3)
+    # rays_d = rays_d.detach().cpu().numpy().reshape(-1,3)
+    # directions = directions.detach().cpu().numpy().reshape(-1, 3)
+    # for plt_i in range(len(directions)):
+    #     # ax.plot3D([directions[plt_i, 0], 0],
+    #     #           [directions[plt_i, 2], 0],
+    #     #           [directions[plt_i, 1], 0],c='b')
+    #     ax.plot3D([rays_d[plt_i, 0],rays_o[0,0]],
+    #               [rays_d[plt_i, 2],rays_o[0,2]],
+    #               [rays_d[plt_i, 1],rays_o[0,1]])
+    # ax.set_xlabel('X')
+    # ax.set_ylabel('z')
+    # ax.set_zlabel('y')
+    # ax.scatter(rays_o[0][0],rays_o[0][2],rays_o[0][1])
     # plt.show()
     # quit()
-
     return rays_o, rays_d
-
-
-def get_fixed_camera_rays(
-        height: int,
-        width: int,
-        focal_length: float,
-        distance2camera=4,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    c2w = w2c_matrix(0, 0, distance2camera)
-    c2w = torch.from_numpy(c2w).type(torch.float32).to(device)
-    # Find origin and direction of rays through every pixel and camera origin.
-
-    # Apply pinhole camera model to gather directions at each pixel
-    i, j = torch.meshgrid(
-        torch.arange(width, dtype=torch.float32).to(device),
-        torch.arange(height, dtype=torch.float32).to(device),
-        indexing='ij')
-    i, j = i.transpose(-1, -2), j.transpose(-1, -2)
-    directions = torch.stack([(i - width * .5) / focal_length,
-                              -(j - height * .5) / focal_length,
-                              -torch.ones_like(i)
-                              ], dim=-1)
-
-    # Apply camera pose to directions
-    rays_d = torch.sum(directions[..., None, :] * c2w[:3, :3], dim=-1)
-
-    # Origin is same for all directions (the optical center)
-    rays_o = c2w[:3, -1].expand(rays_d.shape)
-
-    # rays_o = rays_o.detach().cpu().numpy().reshape(-1,3)
-    # ax = plt.figure().add_subplot(projection='3d')
-    # directions = directions.detach().cpu().numpy()
-    # rays_d = rays_d.detach().cpu().numpy()
-    # rays_d = rays_d.reshape(-1,3)
-    # directions = directions.reshape(-1, 3)
-    # for plt_i in [0,49,2450,2499]:
-    #     ax.plot3D([directions[plt_i, 0], 0],
-    #               [directions[plt_i, 2], 0],
-    #               [directions[plt_i, 1], 0])
-    #
-    #     ax.plot3D([rays_d[plt_i, 0], 0],
-    #               [rays_d[plt_i, 2], 0],
-    #               [rays_d[plt_i, 1], 0])
-    # print(rays_o)
-    # # ax.scatter(rays_o[0][0],rays_o[0][2],rays_o[0][1])
-    # plt.show()
-    # quit()
-
-    return rays_o, rays_d
-
 
 def sample_stratified(
         rays_o: torch.Tensor,
         rays_d: torch.Tensor,
+        arm_angle: torch.Tensor,
         near: float,
         far: float,
         n_samples: int,
@@ -222,26 +183,43 @@ def sample_stratified(
     t_vals = torch.linspace(0., 1., n_samples, device=rays_o.device)
     if not inverse_depth:
         # Sample linearly between `near` and `far`
-        z_vals = near * (1. - t_vals) + far * (t_vals)
+        x_vals = near * (1. - t_vals) + far * (t_vals)
     else:
         # Sample linearly in inverse depth (disparity)
-        z_vals = 1. / (1. / near * (1. - t_vals) + 1. / far * (t_vals))
+        x_vals = 1. / (1. / near * (1. - t_vals) + 1. / far * (t_vals))
 
     # Draw uniform samples from bins along ray
     if perturb:
-        mids = .5 * (z_vals[1:] + z_vals[:-1])
-        upper = torch.concat([mids, z_vals[-1:]], dim=-1)
-        lower = torch.concat([z_vals[:1], mids], dim=-1)
-        t_rand = torch.rand([n_samples], device=z_vals.device)
-        z_vals = lower + (upper - lower) * t_rand
-    z_vals = z_vals.expand(list(rays_o.shape[:-1]) + [n_samples])
+        mids = .5 * (x_vals[1:] + x_vals[:-1])
+        upper = torch.concat([mids, x_vals[-1:]], dim=-1)
+        lower = torch.concat([x_vals[:1], mids], dim=-1)
+        t_rand = torch.rand([n_samples], device=x_vals.device)
+        x_vals = lower + (upper - lower) * t_rand
+    x_vals = x_vals.expand(list(rays_o.shape[:-1]) + [n_samples])
 
     # Apply scale from `rays_d` and offset from `rays_o` to samples
     # pts: (width, height, n_samples, 3)
-    pts = rays_o[..., None, :] + rays_d[..., None, :] * z_vals[..., :, None]
+    pts = rays_o[..., None, :] + rays_d[..., None, :] * x_vals[..., :, None]
+    pts = pts.view(-1,3)
 
+    pose_matrix = pts_trans_matrix(arm_angle[0].item(),arm_angle[1].item())
+    pose_matrix = torch.from_numpy(pose_matrix)
+
+    pose_matrix = pose_matrix.to(pts)
+    # Transpose your transformation matrix for correct matrix multiplication
+    transformation_matrix = pose_matrix[:3,:3]
+    # transformation_matrix = torch.eye(3).to(pts)
+
+    # Apply the transformation
+    output_tensor = torch.matmul(pts,transformation_matrix)
+    pts = output_tensor.view(x_vals.shape[0], 64, 3)
+
+    # Visualization
     # pts = pts.detach().cpu().numpy().reshape(-1,3)
     # ax = plt.figure().add_subplot(projection='3d')
+    # ax.set_xlabel('X')
+    # ax.set_ylabel('z')
+    # ax.set_zlabel('y')
     # ax.scatter(pts[:,0],
     #            pts[:,2],
     #            pts[:,1],
@@ -249,7 +227,7 @@ def sample_stratified(
     # plt.show()
     # quit()
 
-    return pts, z_vals
+    return pts, x_vals
 
 
 def cumprod_exclusive(
@@ -621,7 +599,7 @@ def nerf_forward(
 
     # Sample query points along each ray.
     query_points, z_vals = sample_stratified(
-        rays_o, rays_d, near, far, **kwargs_sample_stratified)
+        rays_o, rays_d, arm_angle, near, far, **kwargs_sample_stratified)
     # Prepare batches.
 
     arm_angle = arm_angle / 180 * np.pi
@@ -712,40 +690,92 @@ def plot_3d_visual(x, y, z, if_transform=True):
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
 
-    # from rays_check import my_rays
 
-    _, _, _, ff, my_box = rays_np(H=6, W=6, D=6)
+    DOF = 2  # the number of motors  # dof4 apr03
+    num_data = 20**DOF
+    pxs = 100  # collected data pixels
 
-    box_shape = my_box.shape
-    # my_box[:, :, :, 2] -= 1.106
-    print(box_shape)
-    # print(my_box)
-    print(ff.shape)
-    print(my_box[:, :, 0, :].shape)
-    new_box, f_new_box = transfer_box(vbox=my_box, norm_angles=[0.75, 0.5], forward_flag=True)
-    print(new_box.shape)
-    print(f_new_box.shape)
+    HEIGHT = pxs
+    WIDTH = pxs
+    nf_size = 0.4
+    cam_dist = 1
+    camera_angle_x = 42 * np.pi / 180.
+    focal = .5 * WIDTH / np.tan(.5 * camera_angle_x)
+    rays_o, rays_d = get_rays(HEIGHT, WIDTH, focal)
 
-    fig = plt.figure()
-    ax = plt.axes(projection='3d')
-    ax.scatter3D(
-        my_box[:, :, :, 0],
-        my_box[:, :, :, 1],
-        my_box[:, :, :, 2]
-    )
-    ax.scatter3D(
-        new_box[:, :, :, 0],
-        new_box[:, :, :, 1],
-        new_box[:, :, :, 2]
-    )
+    # Visualization
+    # ax = plt.figure().add_subplot(projection='3d')
+    # rays_o = rays_o.detach().cpu().numpy().reshape(-1,3)
+    # rays_d = rays_d.detach().cpu().numpy().reshape(-1,3)
+    # directions = directions.detach().cpu().numpy().reshape(-1, 3)
+    # for plt_i in range(len(directions)):
+    #     ax.plot3D([rays_d[plt_i, 0],rays_o[0,0]],
+    #               [rays_d[plt_i, 2],rays_o[0,2]],
+    #               [rays_d[plt_i, 1],rays_o[0,1]])
+    # print(rays_o)
+    # ax.set_xlabel('X')
+    # ax.set_ylabel('z')
+    # ax.set_zlabel('y')
+    # ax.scatter(rays_o[0][0],rays_o[0][2],rays_o[0][1])
+    # plt.show()
+    # quit()
+
+    data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
+
+    training_angles = torch.from_numpy(data['angles'].astype('float32'))
+    training_pose_matrix = torch.from_numpy(data['poses'].astype('float32'))
+
+    idxx = 250
+    angle = training_angles[idxx]
+    print(angle/90)
+    matrix = pts_trans_matrix(angle[0],angle[1])
+
+    pose_matrix = torch.from_numpy(matrix)
+    # print(matrix - pose_matrix)
+    near, far = cam_dist - nf_size, cam_dist + nf_size
+    kwargs_sample_stratified = {
+        'n_samples': 64,
+        'perturb': True,
+        'inverse_depth': False
+    }
+
+    rays_o = rays_o.reshape([-1, 3])
+    rays_d = rays_d.reshape([-1, 3])
+    query_points, z_vals = sample_stratified(
+        rays_o, rays_d, angle, near, far, **kwargs_sample_stratified)
+
+
+    # _, _, _, ff, my_box = rays_np(H=6, W=6, D=6)
+    #
+    # box_shape = my_box.shape
+    # # my_box[:, :, :, 2] -= 1.106
+    # print(box_shape)
+    # # print(my_box)
+    # print(ff.shape)
+    # print(my_box[:, :, 0, :].shape)
+    # new_box, f_new_box = transfer_box(vbox=my_box, norm_angles=[0.75, 0.5], forward_flag=True)
+    # print(new_box.shape)
+    # print(f_new_box.shape)
+    #
+    # fig = plt.figure()
+    # ax = plt.axes(projection='3d')
     # ax.scatter3D(
-    #     ff[:, :, 0],
-    #     ff[:, :, 1],
-    #     ff[:, :, 2]
+    #     my_box[:, :, :, 0],
+    #     my_box[:, :, :, 1],
+    #     my_box[:, :, :, 2]
     # )
-    ax.set_xlim([-0.5, 0.5])
-    ax.set_ylim([-0.5, 0.5])
-    ax.set_zlim([1. - 0.5, 1. + 0.5])
-    plt.show()
+    # ax.scatter3D(
+    #     new_box[:, :, :, 0],
+    #     new_box[:, :, :, 1],
+    #     new_box[:, :, :, 2]
+    # )
+    # # ax.scatter3D(
+    # #     ff[:, :, 0],
+    # #     ff[:, :, 1],
+    # #     ff[:, :, 2]
+    # # )
+    # ax.set_xlim([-0.5, 0.5])
+    # ax.set_ylim([-0.5, 0.5])
+    # ax.set_zlim([1. - 0.5, 1. + 0.5])
+    # plt.show()

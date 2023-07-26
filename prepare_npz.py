@@ -8,6 +8,37 @@ import pybullet as p
 import time
 import matplotlib.pyplot as plt
 
+def rot_X(th):
+    matrix = ([
+        [1, 0, 0, 0],
+        [0, np.cos(th), -np.sin(th), 0],
+        [0, np.sin(th), np.cos(th), 0],
+        [0, 0, 0, 1]])
+    np.asarray(matrix)
+
+    return matrix
+
+
+def rot_Y(th):
+    matrix = ([
+        [np.cos(th), 0, -np.sin(th), 0],
+        [0, 1, 0, 0],
+        [np.sin(th), 0, np.cos(th), 0],
+        [0, 0, 0, 1]])
+    np.asarray(matrix)
+
+    return matrix
+
+
+def rot_Z(th):
+    matrix = ([
+        [np.cos(th), -np.sin(th), 0, 0],
+        [np.sin(th), np.cos(th), 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]])
+    np.asarray(matrix)
+
+    return matrix
 
 def transition_matrix(label, value):
     if label == "rot_x":
@@ -35,22 +66,20 @@ def transition_matrix(label, value):
         return "wrong label"
 
 
-def c2w_matrix(theta, phi, radius):
-    c2w = transition_matrix("tran_z", radius)
-    c2w = np.dot(transition_matrix("rot_x", phi / 180. * np.pi), c2w)
-    c2w = np.dot(transition_matrix("rot_y", theta / 180. * np.pi), c2w)
-    return c2w
+# def c2w_matrix(theta, phi, radius):
+#     c2w = transition_matrix("tran_z", radius)
+#     c2w = np.dot(transition_matrix("rot_x", phi / 180. * np.pi), c2w)
+#     c2w = np.dot(transition_matrix("rot_y", theta / 180. * np.pi), c2w)
+#     return c2w
 
 
 def w2c_matrix(theta, phi):
-    # w2c = transition_matrix("tran_z", radius)
-    # w2c = np.dot(transition_matrix("rot_y", -theta / 180. * np.pi), w2c)
-    # w2c = np.dot(transition_matrix("rot_x", -phi / 180. * np.pi), w2c)
-    # return w2c
+    # the coordinates in pybullet, camera is along X axis, but in the pts coordinates, the camera is along z axis
     full_matrix = np.dot(rot_Z(theta / 180 * np.pi),
                          rot_Y(phi / 180 * np.pi))
     full_matrix = np.linalg.inv(full_matrix)
     return full_matrix
+
 
 
 def random_data(DOF, num_data):
@@ -106,11 +135,13 @@ def prepare_data(my_env, path, action_lists):
         print(action_l)
         obs, _, _, _ = my_env.step(action_l)
         angles = obs[0] * 90.  # obs[0] -> angles of motors, size = motor num
-        w2c_m = w2c_matrix(angles[0], angles[1], HYPER_radius_scaler)
+        # trans_m = pts_trans_matrix(angles[0], angles[1])
+        # inverse_matrix = my_env.full_matrix_inv
+
         img = 1. - obs[1] / 255.
         # img = obs[1] / 255.
         image_record.append(img[..., 0])
-        pose_record.append(w2c_m)
+        # pose_record.append(trans_m)
         angle_record.append(angles)
 
     np.savez(path + 'dof%d_data%d_px%d.npz' % (DOF, len(action_lists), WIDTH),

@@ -12,7 +12,6 @@ import cv2
 class FBVSM_Env(gym.Env):
     def __init__(self, show_moving_cam, width=400, height=400, render_flag=False, num_motor=2, max_num_motor=4):
 
-
         self.show_moving_cam = show_moving_cam
         self.camera_pos_inverse = None
         self.expect_angles = np.array([.0, .0, .0])
@@ -32,8 +31,9 @@ class FBVSM_Env(gym.Env):
         self.camera_line_m = None
         self.step_id = 0
         self.CAM_POS_X = 1
-        self.front_POS_X = 0.4
-        self.back_POS_X = -0.4
+        self.nf = 0.4 # near and far
+        self.full_matrix_inv = 0
+
 
         # cube_size = 0.2
         # self.pos_sphere = np.asarray([
@@ -130,36 +130,23 @@ class FBVSM_Env(gym.Env):
                     time.sleep(1. / 960.)
 
         full_matrix = self.forward_matrix(action_degree[0],action_degree[1])
-        full_matrix2 = np.linalg.inv(full_matrix)
+        self.full_matrix_inv = np.linalg.inv(full_matrix)
         """ inverse of full matrix as the camera view matrix """
-        self.camera_pos_inverse = np.dot(full_matrix2, np.asarray([self.CAM_POS_X, 0, 0, 1]))[:3]
+        self.camera_pos_inverse = np.dot( self.full_matrix_inv, np.asarray([self.CAM_POS_X, 0, 0, 1]))[:3]
         self.camera_pos_inverse[2] += 0
 
         """ update view frame """
-        # orig_view_square = np.array([
-        #     [0, self.view_edge_len, self.view_edge_len],
-        #     [0, self.view_edge_len, -self.view_edge_len],
-        #     [0, -self.view_edge_len, -self.view_edge_len],
-        #     [0, -self.view_edge_len, self.view_edge_len],
-        #     [self.CAM_POS_X, 0, 0]
-        # ])
-        #
-        # orig_view_small_square = np.array([
-        #
-        # ])
 
-        new_view_square = np.dot(full_matrix2, np.hstack((self.mid_view_square, np.ones((5, 1)))).T)[:3]
-        new_view_back_square = np.dot(full_matrix2, np.hstack((self.back_view_square, np.ones((4, 1)))).T)[:3]
+        move_frame_front = np.dot( self.full_matrix_inv, np.hstack((self.front_view_square, np.ones((4, 1)))).T)[:3]
+        move_frame_back = np.dot( self.full_matrix_inv, np.hstack((self.back_view_square, np.ones((5, 1)))).T)[:3]
 
-
-        new_view_square[2] += 0
-        new_view_square = new_view_square.T
-        new_view_back_square = new_view_back_square.T
+        move_frame_front = move_frame_front.T
+        move_frame_back = move_frame_back.T
 
         if self.show_moving_cam:
             ##### Move camera with the robot arm ########
-            self.camera_pos = np.dot(full_matrix2, np.asarray([self.CAM_POS_X, 0, 0, 1]))[:3]
-            camera_up_vector = np.dot(full_matrix2, np.asarray([0, 0, 1, 1]))[:3]
+            self.camera_pos = np.dot( self.full_matrix_inv, np.asarray([self.CAM_POS_X, 0, 0, 1]))[:3]
+            camera_up_vector = np.dot( self.full_matrix_inv, np.asarray([0, 0, 1, 1]))[:3]
 
             self.camera_pos[2] += 0
             self.view_matrix = p.computeViewMatrix(
@@ -175,16 +162,16 @@ class FBVSM_Env(gym.Env):
             self.camera_line_inverse = p.addUserDebugLine(self.camera_pos_inverse, [0, 0, 0], [1, 1, 1])
 
             for i in range(8):
-                p.removeUserDebugItem(self.move_frame_edges[i])
-                if i in [0, 1, 2, 3]:
-                    self.move_frame_edges[i] = p.addUserDebugLine(new_view_square[i],
-                                                                  new_view_square[(i + 1) % 4], [1, 1, 1])
-                else:
-                    self.move_frame_edges[i] = p.addUserDebugLine(new_view_square[4], new_view_square[i - 4], [1, 1, 1])
-
-            for i in range(4):
                 p.removeUserDebugItem(self.move_frame_edges_back[i])
-                self.move_frame_edges_back[i] = p.addUserDebugLine(new_view_back_square[i], new_view_back_square[(i + 1) % 4], [1, 1, 1])
+                if i in [0, 1, 2, 3]:
+                    p.removeUserDebugItem(self.move_frame_edges_front[i])
+                    self.move_frame_edges_front[i] = p.addUserDebugLine(move_frame_front[i],
+                                                                  move_frame_front[(i + 1) % 4], [1, 1, 1])
+                    self.move_frame_edges_back[i] = p.addUserDebugLine(move_frame_back[i], move_frame_back[(i + 1) % 4], [1, 1, 1])
+
+                else:
+                    self.move_frame_edges_back[i] = p.addUserDebugLine(move_frame_back[4], move_frame_back[i - 4], [1, 1, 1])
+
 
     def reset(self):
         p.resetSimulation()
@@ -219,54 +206,52 @@ class FBVSM_Env(gym.Env):
 
         # visual frame edges
         self.view_edge_mid_len = np.tan(self.camera_fov * np.pi/180 /2) * self.CAM_POS_X # 0.3839
-        self.view_edge_front_len = np.tan(self.camera_fov * np.pi/180 /2) * (self.CAM_POS_X - self.front_POS_X)
-        self.view_edge_back_len = np.tan(self.camera_fov * np.pi/180 /2) * (self.CAM_POS_X - self.back_POS_X)
+        self.view_edge_front_len = np.tan(self.camera_fov * np.pi/180 /2) * (self.CAM_POS_X - self.nf)
+        self.view_edge_back_len = np.tan(self.camera_fov * np.pi/180 /2) * (self.CAM_POS_X+ self.nf)
 
-        self.mid_view_square = np.array([
-            [0, self.view_edge_mid_len, self.view_edge_mid_len],
-            [0, self.view_edge_mid_len, -self.view_edge_mid_len],
-            [0, -self.view_edge_mid_len, -self.view_edge_mid_len],
-            [0, -self.view_edge_mid_len, self.view_edge_mid_len],
-            [self.CAM_POS_X, 0, 0]
-        ])
+        # self.mid_view_square = np.array([
+        #     [0, self.view_edge_mid_len, self.view_edge_mid_len],
+        #     [0, self.view_edge_mid_len, -self.view_edge_mid_len],
+        #     [0, -self.view_edge_mid_len, -self.view_edge_mid_len],
+        #     [0, -self.view_edge_mid_len, self.view_edge_mid_len],
+        # ])
 
         self.front_view_square = np.array([
-            [self.front_POS_X, self.view_edge_front_len,  self.view_edge_front_len],
-            [self.front_POS_X, self.view_edge_front_len, -self.view_edge_front_len],
-            [self.front_POS_X, -self.view_edge_front_len, -self.view_edge_front_len],
-            [self.front_POS_X, -self.view_edge_front_len, self.view_edge_front_len],
+            [self.nf, self.view_edge_front_len,  self.view_edge_front_len],
+            [self.nf, self.view_edge_front_len, -self.view_edge_front_len],
+            [self.nf, -self.view_edge_front_len, -self.view_edge_front_len],
+            [self.nf, -self.view_edge_front_len, self.view_edge_front_len],
         ])
 
         self.back_view_square = np.array([
-            [self.back_POS_X, self.view_edge_back_len,  self.view_edge_back_len],
-            [self.back_POS_X, self.view_edge_back_len, -self.view_edge_back_len],
-            [self.back_POS_X, -self.view_edge_back_len, -self.view_edge_back_len],
-            [self.back_POS_X, -self.view_edge_back_len, self.view_edge_back_len],
+            [-self.nf, self.view_edge_back_len,  self.view_edge_back_len],
+            [-self.nf, self.view_edge_back_len, -self.view_edge_back_len],
+            [-self.nf, -self.view_edge_back_len, -self.view_edge_back_len],
+            [-self.nf, -self.view_edge_back_len, self.view_edge_back_len],
+            [self.CAM_POS_X, 0, 0]
         ])
 
-        self.frame_edges = []
-        self.move_frame_edges = []
+        self.fixed_frame_edges_back = []
+        self.fixed_frame_edges_front=[]
         self.move_frame_edges_back = []
-
+        self.move_frame_edges_front=[]
         # box
         for eid in range(4):
 
-            self.move_frame_edges.append(
-                p.addUserDebugLine(self.mid_view_square[eid], self.mid_view_square[(eid + 1) % 4], [0, 0, 1]))
+            self.move_frame_edges_front.append(
+                p.addUserDebugLine(self.front_view_square[eid], self.front_view_square[(eid + 1) % 4], [1, 1, 1]))
             self.move_frame_edges_back.append(
-                p.addUserDebugLine(self.back_view_square[eid], self.back_view_square[(eid + 1) % 4], [0, 0, 1]))
+                p.addUserDebugLine(self.back_view_square[eid], self.back_view_square[(eid + 1) % 4], [1, 1, 1]))
 
-            self.frame_edges.append(
-                p.addUserDebugLine(self.front_view_square[eid], self.front_view_square[(eid + 1) % 4], [1, 1, 0]))
-            self.frame_edges.append(
-                p.addUserDebugLine(self.mid_view_square[eid], self.mid_view_square[(eid + 1) % 4], [1, 1, 0]))
-            self.frame_edges.append(
-                p.addUserDebugLine(self.back_view_square[eid], self.back_view_square[(eid + 1) % 4], [1, 1, 0]))
+            self.fixed_frame_edges_front.append(
+                p.addUserDebugLine(self.front_view_square[eid], self.front_view_square[(eid + 1) % 4], [0, 0, 1]))
+            self.fixed_frame_edges_back.append(
+                p.addUserDebugLine(self.back_view_square[eid], self.back_view_square[(eid + 1) % 4], [0, 0, 1]))
 
         # camera to edges
         for eid in range(4):
-            self.frame_edges.append(p.addUserDebugLine(self.camera_pos, self.mid_view_square[eid], [1, 1, 0]))
-            self.move_frame_edges.append(p.addUserDebugLine(self.camera_pos, self.mid_view_square[eid], [0, 0, 1]))
+            self.move_frame_edges_back.append(p.addUserDebugLine(self.camera_pos, self.back_view_square[eid], [1, 1, 0]))
+            self.fixed_frame_edges_back.append(p.addUserDebugLine(self.camera_pos, self.back_view_square[eid], [0, 0, 1]))
 
         # inverse camera line for updating
         self.camera_line_inverse = p.addUserDebugLine(self.camera_pos, [0, 0, 0], [0.0, 0.0, 1.0])
