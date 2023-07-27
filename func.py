@@ -691,6 +691,9 @@ def plot_3d_visual(x, y, z, if_transform=True):
 
 if __name__ == "__main__":
 
+    #              -0.4    0      0.4        0.6
+    #         far -----  object ----- near ----- camera
+    #
 
     DOF = 2  # the number of motors  # dof4 apr03
     num_data = 20**DOF

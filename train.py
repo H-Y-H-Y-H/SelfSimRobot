@@ -298,11 +298,11 @@ def train_overfit(model,optimizer):
             target_img = crop_center(target_img)
         height, width = target_img.shape[:2]
 
-        rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+        rays_o, rays_d = get_rays(height, width, focal)
         rays_o = rays_o.reshape([-1, 3])
         rays_d = rays_d.reshape([-1, 3])
         target_img = target_img.reshape([-1])
-        outputs = nerf_forward(rays_o, rays_d, pose_matrix,
+        outputs = nerf_forward(rays_o, rays_d,
                                near, far, model,
                                kwargs_sample_stratified=kwargs_sample_stratified,
                                n_samples_hierarchical=n_samples_hierarchical,
@@ -330,13 +330,13 @@ def train_overfit(model,optimizer):
             height, width = testing_img[0].shape[:2]
             target_img = training_img[target_img_idx]
             angle = training_angles[target_img_idx]
-            rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)
+            rays_o, rays_d = get_rays(height, width, focal)
 
             rays_o = rays_o.reshape([-1, 3])
             rays_d = rays_d.reshape([-1, 3])
             target_img = target_img.reshape([-1])
             # Run one iteration of TinyNeRF and get the rendered RGB image.
-            outputs = nerf_forward(rays_o, rays_d, pose_matrix,
+            outputs = nerf_forward(rays_o, rays_d,
                                    near, far, model,
                                    kwargs_sample_stratified=kwargs_sample_stratified,
                                    n_samples_hierarchical=n_samples_hierarchical,
@@ -372,7 +372,7 @@ def train_overfit(model,optimizer):
 
 if __name__ == "__main__":
 
-    seed_num = 1
+    seed_num = 0
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
@@ -384,7 +384,7 @@ if __name__ == "__main__":
     nf_size = 0.4
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
-    DOF = 2  # the number of motors  # dof4 apr03
+    DOF = 4  # the number of motors  # dof4 apr03
     num_data = 20**DOF
     tr = 0.8  # training ratio
     pxs = 100  # collected data pixels

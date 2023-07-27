@@ -1,13 +1,13 @@
 import os
-
+import cv2
 import matplotlib.pyplot as plt
 import torch
 from train import nerf_forward, init_models
-from func import w2c_matrix, c2w_matrix, get_rays
+from func import *
 import numpy as np
 from torch import nn
 
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 # def pos2img(new_pose, ArmAngle, more_dof=False):
@@ -116,18 +116,10 @@ device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 
 def test_model(log_pth, angle, idx=1):
-    theta, phi, third_angle = angle
-    # DOF=4:
-    # theta, phi, third_angle, fourth_angle = angle
-    HYPER_radius_scaler = 4.
 
-    # target_pose = c2w_matrix(theta, phi, 0.)
-    # target_pose_tensor = torch.from_numpy(target_pose.astype('float32')).to(device)
-    # rays_o, rays_d = get_fixed_camera_rays(height, width, focal)  # find bug apr 14
-
-    pose_matrix = w2c_matrix(theta, phi, HYPER_radius_scaler)
-    pose_matrix = torch.from_numpy(pose_matrix.astype('float32')).to(device)
-    rays_o, rays_d = get_rays(height, width, focal, c2w=pose_matrix)  # apr 14
+    # pose_matrix = pts_trans_matrix(theta, phi)
+    # pose_matrix = torch.from_numpy(pose_matrix.astype('float32')).to(device)
+    rays_o, rays_d = get_rays(height, width, focal)
 
     rays_o = rays_o.reshape([-1, 3])
     rays_d = rays_d.reshape([-1, 3])
@@ -245,24 +237,30 @@ def interaction(data_pth, angle_list):
 
 
 if __name__ == "__main__":
-    # test_model_pth = 'train_log/log_1600data/best_model/'
-    test_model_pth = 'train_log/log_64000data_in6_out1_img100(3)/best_model/'
-    # test_model_pth = 'train_log/log_10000data_in7_out1_img100(1)/best_model/'
-    visual_pth = 'train_log/log_64000data_in6_out1_img100(3)/' + 'visual_test01/'
-    os.makedirs(visual_pth, exist_ok=True)
-    DOF = 3
-    # num_data = 1000
-    n_samples_hierarchical = 64
-    height = 100
-    width = 100
-    near = 2.
-    far = 6.
 
-    # data = np.load('data/data_May29/dof%d_data%d_px%d.npz' % (DOF, num_data, width))
-    data = np.load('data/uniform_data/dof3_data8000.npz')
+    test_name = 'log_400data_in6_out1_img100(1)'
+
+    DOF = 2
+    test_model_pth = 'train_log/%s/best_model/'%test_name
+
+    visual_pth = 'train_log/%s/'%test_name + 'visual_test01/'
+    os.makedirs(visual_pth, exist_ok=True)
+
+    num_data = 20**DOF
+    n_samples_hierarchical = 64
+    cam_dist = 1
+    nf_size = 0.4
+    near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
+
+    pxs = 100
+    height = pxs
+    width = pxs
+
+    data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
 
     focal = torch.from_numpy(data['focal'].astype('float32')).to(device)
     print(focal)
+
     kwargs_sample_stratified = {
         'n_samples': 64,
         'perturb': True,
@@ -273,9 +271,13 @@ if __name__ == "__main__":
     }
     chunksize = 2 ** 14
 
-    model, optimizer = init_models(d_input=DOF + 3,
-                                   n_layers=8,
-                                   d_filter=160, output_size=1, skip=(4,))
+    model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
+                                   n_layers=4,
+                                   d_filter=128,
+                                   skip=(0, 1, 2),
+                                   output_size=1,
+                                   # pretrained_model_pth=pretrained_model_pth
+                                   )
 
     # mar29, 8*200, log_1000data_out1_img100
     # 3dof 8*200, 4dof 8*160  apr 14, 64000 160?
