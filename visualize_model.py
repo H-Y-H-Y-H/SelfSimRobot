@@ -166,10 +166,12 @@ def test_model(log_pth, angle, idx=1):
 
     ax = plt.figure().add_subplot(projection='3d')
     plt.suptitle('M1: %0.2f,  M2: %0.2f,  M3: %0.2f' % (angle[0], angle[1], angle[2]), fontsize=14)
-    target_pose = c2w_matrix(theta, phi, 0.)
 
-    # query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
-    # query_xyz = np.dot(target_pose, query_xyz.T).T[:, :3]
+    pose_matrix = pts_trans_matrix(angle_tensor[0].item(),angle_tensor[1].item(),no_inverse=True)
+
+
+    query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
+    query_xyz = np.dot(pose_matrix, query_xyz.T).T[:, :3]
 
     ax.scatter(
         query_xyz[:, 0],
@@ -179,12 +181,12 @@ def test_model(log_pth, angle, idx=1):
         # alpha=query_rgb
     )
 
-    ax.scatter(
-        empty_xyz[:, 0],
-        -empty_xyz[:, 2],
-        empty_xyz[:, 1],
-        alpha=0.1,
-    )
+    # ax.scatter(
+    #     empty_xyz[:, 0],
+    #     -empty_xyz[:, 2],
+    #     empty_xyz[:, 1],
+    #     alpha=0.1,
+    # )
     plt.xlabel('x-axis', fontsize=20)
     plt.ylabel('y-axis', fontsize=20)
 
@@ -289,6 +291,7 @@ if __name__ == "__main__":
     theta_0_loop = np.linspace(-90., 90, sep, endpoint=False)
     theta_1_loop = np.linspace(-90., 90., sep, endpoint=False)
     theta_2_loop = np.linspace(-90., 90., sep, endpoint=False)
+    theta_3_loop = np.linspace(-90., 90., sep, endpoint=False)
 
     # dof=4:
     # theta_3_loop = np.linspace(-90., 90., sep, endpoint=False)
@@ -299,13 +302,20 @@ if __name__ == "__main__":
     """
     collect images and point clouds and indexes
     """
-    for i in range(sep ** 3):  # here 3 or 4
-        angle = list([theta_0_loop[i // (sep ** 2)], theta_1_loop[(i // sep) % sep], theta_2_loop[i % sep]])
-        # dof=4:
-        # angle = list([theta_0_loop[i // (sep ** 3)],
-        #               theta_1_loop[(i // sep ** 2) % sep],
-        #               theta_2_loop[(i // sep) % sep],
-        #               theta_3_loop[i % sep]])
+    for i in range(num_data):  # here 3 or 4
+
+        if DOF == 3:
+            angle = list([theta_0_loop[i // (sep ** 2)], theta_1_loop[(i // sep) % sep], theta_2_loop[i % sep]])
+        elif DOF == 4:
+            angle = list([theta_0_loop[i // (sep ** 3)],
+                          theta_1_loop[(i // sep ** 2) % sep],
+                          theta_2_loop[(i // sep) % sep],
+                          theta_3_loop[i % sep]])
+        else:
+            # DOF == 2
+            angle = list([theta_0_loop[i//sep],
+                          theta_1_loop[i%sep]])
+
         idx_list.append(angle)
 
         p_dense, p_empty = test_model(angle=angle, log_pth=visual_pth, idx=i)

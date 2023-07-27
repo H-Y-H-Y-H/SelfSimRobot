@@ -46,12 +46,13 @@ def rot_Z(th):
 
     return matrix
 
-def pts_trans_matrix(theta,phi):
+def pts_trans_matrix(theta,phi,no_inverse=False):
     # the coordinates in pybullet, camera is along X axis, but in the pts coordinates, the camera is along z axis
 
     w2c = transition_matrix("rot_y", -theta / 180. * np.pi)
     w2c = np.dot(transition_matrix("rot_x", phi / 180. * np.pi), w2c)
-    w2c = np.linalg.inv(w2c)
+    if no_inverse == False:
+        w2c = np.linalg.inv(w2c)
     return w2c
 
 
@@ -434,16 +435,17 @@ def raw2dense_out1(
     weights = alpha * cumprod_exclusive(1. - alpha + 1e-10)
 
     # Compute weighted RGB map.
-    # rgb = torch.sigmoid(raw[..., 0])  # [n_rays, n_samples, 3]
+    rgb = torch.sigmoid(raw[..., 0])  # [n_rays, n_samples, 3]
     rgb_each_point = weights * torch.sigmoid(raw[..., 0])
 
     # rgb = raw[..., :2]  # [n_rays, n_samples, 3]
-    # rgb_each_point = weights * raw[..., 0]
 
-    render_img = torch.sum(rgb_each_point, dim=1)
+    render_img = torch.mean(alpha, dim=1)
 
-    return render_img, rgb_each_point
+    return render_img, alpha
 
+    # render_img = torch.sum(rgb_each_point, dim=1)
+    # return render_img, rgb_each_point
 
 def sample_pdf(
         bins: torch.Tensor,
@@ -603,8 +605,9 @@ def nerf_forward(
     # Prepare batches.
 
     arm_angle = arm_angle / 180 * np.pi
-    # model_input = torch.cat((query_points, arm_angle[2].repeat(list(query_points.shape[:2]) + [1])), dim=-1)
     model_input = torch.cat((query_points, arm_angle[:DOF].repeat(list(query_points.shape[:2]) + [1])), dim=-1)
+    # model_input = query_points
+
     # arm_angle[:DOF] -> use one angle
     # model_input = query_points  # orig version 3 input 2dof, Mar30
     batches = prepare_chunks(model_input, chunksize=chunksize)

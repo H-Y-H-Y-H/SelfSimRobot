@@ -372,7 +372,7 @@ def train_overfit(model,optimizer):
 
 if __name__ == "__main__":
 
-    seed_num = 0
+    seed_num = 1
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
@@ -384,7 +384,7 @@ if __name__ == "__main__":
     nf_size = 0.4
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
-    DOF = 4  # the number of motors  # dof4 apr03
+    DOF = 2  # the number of motors  # dof4 apr03
     num_data = 20**DOF
     tr = 0.8  # training ratio
     pxs = 100  # collected data pixels
@@ -477,18 +477,21 @@ if __name__ == "__main__":
 
     pretrained_model_pth = 'train_log/log_1000data/best_model/'
 
-    # DOF = DOF-1
     for _ in range(n_restarts):
-        model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
+        model, optimizer = init_models(d_input=(DOF) + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
                                        n_layers=4,
                                        d_filter=128,
-                                       skip=(0,1,2),
+                                       skip=(),
                                        output_size=1,
                                        #pretrained_model_pth=pretrained_model_pth
                                        )
 
 
-        # mar29, 3dof, 6input 8*200, log_1000data_out1_img100  # PSNR 24.06
+        # July 27, 2 dof, d_input=DOF + 3, 4 n_layers,
+        #                  d_filter=128,
+        #                  skip=(0,1,2),
+        #                  output_size=1,
+
         # mar29, 3dof, 4input 10*128  # psnr 20
 
         # 4x64 log_100data; log_100data(1)
