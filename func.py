@@ -412,7 +412,9 @@ def raw2dense_out1(
     # Difference between consecutive elements of `z_vals`. [n_rays, n_samples]
     z_vals = z_vals.to(device)
     dists = z_vals[..., 1:] - z_vals[..., :-1]
-    dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1)
+    # dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1)
+    dists = torch.cat([dists, dists.max()* torch.ones_like(dists[..., :1])], dim=-1)
+
     # add one elements for each ray to compensate the size to 64
 
     # Multiply each distance by the norm of its corresponding direction ray
@@ -428,7 +430,7 @@ def raw2dense_out1(
     # Predict density of each sample along each ray. Higher values imply
     # higher likelihood of being absorbed at this point. [n_rays, n_samples]
     alpha = torch.tensor(1).to(device) - torch.exp(-nn.functional.relu(raw[:, :, 0] + noise) * dists)
-    # The larger the dists or the output(density), the closer alpha is to 1.
+    # The smaller the dists or the output(density), the closer alpha is to 1.
 
     # Compute weight for RGB of each sample along each ray. [n_rays, n_samples]
     # The higher the alpha, the lower subsequent weights are driven.

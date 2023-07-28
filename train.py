@@ -131,7 +131,7 @@ def train(model, optimizer):
 
         target_img = training_img[target_img_idx]
         angle = training_angles[target_img_idx]
-        pose_matrix = training_pose_matrix[target_img_idx]
+        # pose_matrix = training_pose_matrix[target_img_idx]
 
         if center_crop and i < center_crop_iters:
             target_img = crop_center(target_img)
@@ -217,7 +217,7 @@ def train(model, optimizer):
                 for v_i in range(valid_amount):
                     angle = testing_angles[v_i]
                     img_label = testing_img[v_i]
-                    pose_matrix = testing_pose_matrix[v_i]
+                    # pose_matrix = testing_pose_matrix[v_i]
 
                     rays_o, rays_d = get_rays(height, width, focal)
 
@@ -372,7 +372,7 @@ def train_overfit(model,optimizer):
 
 if __name__ == "__main__":
 
-    seed_num = 1
+    seed_num = 3
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
@@ -384,7 +384,7 @@ if __name__ == "__main__":
     nf_size = 0.4
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
-    DOF = 2  # the number of motors  # dof4 apr03
+    DOF = 4  # the number of motors  # dof4 apr03
     num_data = 20**DOF
     tr = 0.8  # training ratio
     pxs = 100  # collected data pixels
@@ -393,7 +393,7 @@ if __name__ == "__main__":
     # pre_trained = ''
 
     sample_id = random.sample(range(num_data), num_data)
-    Overfitting_test = False
+    Overfitting_test = True
     OVERFITTING_ID = 55
     if Overfitting_test:
         valid_img_visual = data['images'][sample_id[OVERFITTING_ID]]
@@ -415,11 +415,11 @@ if __name__ == "__main__":
 
     training_img = torch.from_numpy(data['images'][sample_id[:int(num_data * tr)]].astype('float32'))
     training_angles = torch.from_numpy(data['angles'][sample_id[:int(num_data * tr)]].astype('float32'))
-    training_pose_matrix = torch.from_numpy(data['poses'][sample_id[:int(num_data * tr)]].astype('float32'))
+    # training_pose_matrix = torch.from_numpy(data['poses'][sample_id[:int(num_data * tr)]].astype('float32'))
 
     testing_img = torch.from_numpy(data['images'][sample_id[int(num_data * tr):]].astype('float32'))
     testing_angles = torch.from_numpy(data['angles'][sample_id[int(num_data * tr):]].astype('float32'))
-    testing_pose_matrix = torch.from_numpy(data['poses'][sample_id[int(num_data * tr):]].astype('float32'))
+    # testing_pose_matrix = torch.from_numpy(data['poses'][sample_id[int(num_data * tr):]].astype('float32'))
 
     # Grab rays from sample image
     height, width = training_img.shape[1:3]
@@ -438,13 +438,13 @@ if __name__ == "__main__":
     perturb_hierarchical = False  # If set, applies noise to sample positions
 
     # Training
-    n_iters = 100000
-    batch_size = 2 ** 14  # Number of rays per gradient step (power of 2)
+    n_iters = 1000000
+    # batch_size = 2 ** 14  # Number of rays per gradient step (power of 2)
     one_image_per_step = True  # One image per gradient step (disables batching)
-    chunksize = 2 ** 14  # Modify as needed to fit in GPU memory
+    chunksize = 2 ** 20  # Modify as needed to fit in GPU memory
     center_crop = False  # Crop the center of image (one_image_per_)   # debug
     center_crop_iters = 50  # Stop cropping center after this many epochs
-    display_rate = 100  # Display test output every X epochs
+    display_rate = 200  # Display test output every X epochs
 
     # Early Stopping
     warmup_iters = 400  # Number of iterations during warmup phase
@@ -479,9 +479,9 @@ if __name__ == "__main__":
 
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=(DOF) + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
-                                       n_layers=4,
+                                       n_layers=3,
                                        d_filter=128,
-                                       skip=(),
+                                       skip=(0,1,),
                                        output_size=1,
                                        #pretrained_model_pth=pretrained_model_pth
                                        )
