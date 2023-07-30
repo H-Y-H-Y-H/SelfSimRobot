@@ -224,7 +224,7 @@ if __name__ == "__main__":
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 1.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
     DOF = 2  # the number of motors
-    sample_num = 10  # separate the action space
+    sample_num = 20  # separate the action space
 
     # Camera config: focal
     Camera_FOV = 42.

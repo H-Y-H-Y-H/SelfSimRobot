@@ -116,13 +116,14 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def test_model(log_pth, angle, idx=1):
+    print('angle: ', angle)
 
     # pose_matrix = pts_trans_matrix(theta, phi)
     # pose_matrix = torch.from_numpy(pose_matrix.astype('float32')).to(device)
     rays_o, rays_d = get_rays(height, width, focal)
 
-    rays_o = rays_o.reshape([-1, 3])
-    rays_d = rays_d.reshape([-1, 3])
+    rays_o = rays_o.reshape([-1, 3]).to(device)
+    rays_d = rays_d.reshape([-1, 3]).to(device)
 
     count, count_empty = 0, 0
 
@@ -152,10 +153,11 @@ def test_model(log_pth, angle, idx=1):
 
     plt.imshow(np_image_combine)
 
-    binary_out = torch.relu(rgb_each_point)
+    # binary_out = torch.relu(rgb_predicted)
+    rgb_each_point = rgb_each_point.where(rgb_each_point>0.,torch.tensor(0).to(device))
+    nonempty_idx = torch.nonzero(rgb_each_point).cpu().detach().numpy().reshape(-1)
 
-    nonempty_idx = torch.nonzero(binary_out).cpu().detach().numpy().reshape(-1)
-    empty_idx = torch.nonzero(torch.logical_not(binary_out)).cpu().detach().numpy().reshape(-1)
+    empty_idx = torch.nonzero(torch.logical_not(rgb_each_point)).cpu().detach().numpy().reshape(-1)
     select_empty_idx = np.random.choice(empty_idx, size=1000)
 
     query_xyz = all_points[nonempty_idx]
@@ -165,36 +167,40 @@ def test_model(log_pth, angle, idx=1):
     empty_xyz = all_points[select_empty_idx]
 
     ax = plt.figure().add_subplot(projection='3d')
-    plt.suptitle('M1: %0.2f,  M2: %0.2f,  M3: %0.2f' % (angle[0], angle[1], angle[2]), fontsize=14)
 
-    pose_matrix = pts_trans_matrix(angle_tensor[0].item(),angle_tensor[1].item(),no_inverse=True)
+    title_name = ''
+    for i in range(len(angle)):
+        title_name+='M%d: %0.2f  '%(i, angle[i])
+    plt.suptitle(title_name, fontsize=14)
 
-
+    pose_matrix = pts_trans_matrix(angle_tensor[0].item(),angle_tensor[1].item(),no_inverse=False)
     query_xyz = np.concatenate((query_xyz, np.ones((len(query_xyz), 1))), 1)
     query_xyz = np.dot(pose_matrix, query_xyz.T).T[:, :3]
 
+    # empty_xyz =  np.concatenate((empty_xyz, np.ones((len(empty_xyz), 1))), 1)
+    # empty_xyz = np.dot(pose_matrix, empty_xyz.T).T[:, :3]
+
+
+    ax = plt.figure().add_subplot(projection='3d')
+    ax.set_xlabel('X')
+    ax.set_ylabel('y')
+    ax.set_zlabel('z')
     ax.scatter(
         query_xyz[:, 0],
-        -query_xyz[:, 2],
         query_xyz[:, 1],
+        query_xyz[:, 2],
         # s=1
-        # alpha=query_rgb
+        # alpha=
     )
 
-    # ax.scatter(
-    #     empty_xyz[:, 0],
-    #     -empty_xyz[:, 2],
-    #     empty_xyz[:, 1],
-    #     alpha=0.1,
-    # )
-    plt.xlabel('x-axis', fontsize=20)
-    plt.ylabel('y-axis', fontsize=20)
+    ax.scatter(
+        empty_xyz[:, 0],
+        empty_xyz[:, 1],
+        empty_xyz[:, 2],
+        alpha=0.1,
+    )
 
-    ax.set_xlim(-2, 2)
-    ax.set_ylim(-2, 2)
-    ax.set_zlim(-2, 2)
-
-    plt.show()
+    # plt.show()
     os.makedirs(log_pth + '/visual_test', exist_ok=True)
     plt.savefig(log_pth + '/visual_test/%04d.jpg' % idx)
     if C_POINTS:
@@ -273,12 +279,11 @@ if __name__ == "__main__":
     }
     chunksize = 2 ** 14
 
-    model, optimizer = init_models(d_input=DOF + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
+    model, optimizer = init_models(d_input=(DOF-2) + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
                                    n_layers=4,
                                    d_filter=128,
-                                   skip=(0, 1, 2),
-                                   output_size=1,
-                                   # pretrained_model_pth=pretrained_model_pth
+                                   skip=(1,2 ),
+                                   output_size=2,
                                    )
 
     # mar29, 8*200, log_1000data_out1_img100
