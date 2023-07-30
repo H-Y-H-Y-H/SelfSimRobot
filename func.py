@@ -619,13 +619,12 @@ def nerf_forward(
     # Prepare batches.
 
     arm_angle = arm_angle / 180 * np.pi
-    # model_input = torch.cat((query_points, arm_angle[:DOF].repeat(list(query_points.shape[:2]) + [1])), dim=-1)
-
-    model_input = query_points
+    if DOF > 2:
+        query_points = torch.cat((query_points, arm_angle[2:DOF].repeat(list(query_points.shape[:2]) + [1])), dim=-1)
 
     # arm_angle[:DOF] -> use one angle
     # model_input = query_points  # orig version 3 input 2dof, Mar30
-    batches = prepare_chunks(model_input, chunksize=chunksize)
+    batches = prepare_chunks(query_points, chunksize=chunksize)
     predictions = []
     for batch in batches:
         # print(batch.dtype)

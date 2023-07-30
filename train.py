@@ -285,7 +285,7 @@ if __name__ == "__main__":
     nf_size = 0.4
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
-    DOF = 2  # the number of motors  # dof4 apr03
+    DOF = 3  # the number of motors  # dof4 apr03
     num_data = 20**DOF
     tr = 0.9  # training ratio
     pxs = 100  # collected data pixels
