@@ -5,35 +5,6 @@ from train import *
 from test_model import *
 # changed Transparency in urdf, line181, Mar31
 
-def scale_points(predict_points):
-    scaled_points = predict_points / 4.  # scale /5  0.8
-    scaled_points[:, [1, 2]] = scaled_points[:, [2, 1]]
-    scaled_points[:, [1, 0]] = scaled_points[:, [0, 1]]
-    scaled_points[:, 0] = -scaled_points[:, 0]
-    scaled_points[:, 2] += 1.106
-
-    new_points = scaled_points
-    return new_points
-
-
-# def load_offline_point_cloud(angle_list: list, debug_points, logger):
-#     angle_lists = np.asarray([angle_list] * len(logger)) * 90  # -90 to 90
-#     diff = np.sum(abs(logger - angle_lists), axis=1)
-#     idx = np.argmin(diff)
-#     predict_points = np.load(data_pth + '%04d.npy' % idx)
-#     # scaled points
-#
-#     trans_points = scale_points(predict_points)
-#     # test_points = np.random.rand(100, 3)
-#     p_rgb = np.ones_like(predict_points)
-#     p.removeUserDebugItem(debug_points)  # update points every step
-#     debug_points = p.addUserDebugPoints(predict_points, p_rgb, pointSize=2)
-#
-#     return debug_points
-#
-
-
-
 def interact_env():
     DOF = 4
     test_name = 'log_160000data_in6_out1_img100(1)'
@@ -80,51 +51,5 @@ def interact_env():
 
 
 
-#
-# def interact_env_offline(
-#         pic_size: int = 100,
-#         render: bool = True,
-#         interact: bool = True,
-#         dof: int = 2,
-#         runTimes = 10000):  # 4dof
-#
-#     PATH = 'train_log/log_400data_in6_out1_img100(1)/visual_test01/'
-#     data_pth = PATH + 'pc_record/'
-#     # data_pth = PATH + 'visual/pc_record/'
-#
-#
-#     p.connect(p.GUI) if render else p.connect(p.DIRECT)
-#     logger = np.loadtxt(PATH + "logger.csv")
-#     env = FBVSM_Env(
-#         show_moving_cam=False,
-#         width=pic_size,
-#         height=pic_size,
-#         render_flag=render,
-#         num_motor=dof)
-#
-#     obs = env.reset()
-#     c_angle = obs[0]
-#     debug_points = 0
-#
-#     if interact:
-#         # input para
-#         motor_input = []
-#         for m in range(DOF):
-#             motor_input.append(p.addUserDebugParameter("motor%d:" % m, -1, 1, 0))
-#
-#         for i in range(runTimes):
-#             for dof_i in range(dof):
-#                 c_angle[dof_i] = p.readUserDebugParameter(motor_input[dof_i])
-#             debug_points = load_offline_point_cloud(c_angle,
-#                                             debug_points,
-#                                             logger)
-#
-#             obs, _, _, _ = env.step(c_angle)
-#             # print(obs[0])
-
-
 if __name__ == "__main__":
-
-
-
     interact_env()

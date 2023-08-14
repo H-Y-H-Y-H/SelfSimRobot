@@ -204,14 +204,3 @@ if __name__ == "__main__":
         p_dense = test_model(angle,model, save_offline_data = False)
 
     np.savetxt(visual_pth + "logger.csv", np.asarray(idx_list), fmt='%i')
-
-    """
-    gui matplotlib
-    """
-
-    # import cv2
-    #
-    # data_pth = 'train_log/log_10000data_in7_out1_img100(1)/best_model/visual_test/'
-    #
-    # angle_list = np.loadtxt("train_log/log_10000data_in7_out1_img100(1)/logger.csv")
-    # interaction(data_pth, angle_list)

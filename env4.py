@@ -184,9 +184,9 @@ class FBVSM_Env(gym.Env):
         p.changeVisualShape(planeId, -1, textureUniqueId=textureId)
 
         startPos = [0, 0, self.z_offset]
-        startOrientation = p.getQuaternionFromEuler([0, 0, 0])
+        startOrientation = p.getQuaternionFromEuler([0, 0, -np.pi/2])
 
-        self.robot_id = p.loadURDF('arm4dof/urdf/arm4dof.urdf', startPos, startOrientation, useFixedBase=1)
+        self.robot_id = p.loadURDF('DOF4ARM0/urdf/DOF4ARM0.urdf', startPos, startOrientation, useFixedBase=1)
 
         basePos, baseOrn = p.getBasePositionAndOrientation(self.robot_id)  # Get model position
         basePos_list = [basePos[0], basePos[1], 0]
@@ -318,7 +318,7 @@ def generate_action_list():
 
 if __name__ == '__main__':
     RENDER = True
-    NUM_MOTOR = 2
+    NUM_MOTOR = 4
     step_size = 0.1
 
     p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
