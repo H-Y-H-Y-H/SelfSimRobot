@@ -327,7 +327,7 @@ if __name__ == '__main__':
     # show_moving_cam = True
 
     # FIXED  CAMERA MODE:  FIXED CAMERA - MOVING ROBOT ARM
-    show_moving_cam = True
+    show_moving_cam = False
 
     env = FBVSM_Env(show_moving_cam,
                     width=300,

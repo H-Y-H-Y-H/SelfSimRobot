@@ -73,6 +73,7 @@ class FBV_SM(nn.Module):
     ) -> torch.Tensor:
         x_input = x
         for i, layer in enumerate(self.layers):
+
             x = self.act(layer(x))
             if i in self.skip:
                 x = torch.cat([x, x_input], dim=-1)
