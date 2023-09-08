@@ -7,6 +7,7 @@ import pybullet_data as pd
 import gym
 from func import *
 import cv2
+from tqdm import tqdm
 
 
 class FBVSM_Env(gym.Env):
@@ -330,6 +331,7 @@ def self_collision_check(sample_size:int, Env:FBVSM_Env) -> np.array:
     """
     line_array = np.linspace(-1.0, 1.0, num=sample_size+1)
     work_space = []
+    # tqdm(
     for m0 in line_array:
         for m1 in line_array:
             for m2 in line_array:
@@ -337,7 +339,13 @@ def self_collision_check(sample_size:int, Env:FBVSM_Env) -> np.array:
                     angle_norm = np.array([m0, m1, m2, m3])
                     obs, _, done, _ = Env.step(angle_norm)
                     if done:
+                        print(angle_norm, "recorded")
                         work_space.append(angle_norm)
+                    else:
+                        print(angle_norm, "no record")
+                        break # check this
+
+                    print("------------")
                     
     return np.array(work_space)
 
@@ -403,7 +411,7 @@ if __name__ == '__main__':
     elif mode == "s":
         # get workspace: np.array (nx4)
         WorkSpace = self_collision_check(
-            sample_size=2, 
+            sample_size=10, 
             Env=env)
         print(WorkSpace.shape)
-        np.savetxt("workspace.csv", WorkSpace, fmt="%.2f")
+        np.savetxt("workspace-10.csv", WorkSpace, fmt="%.2f")
