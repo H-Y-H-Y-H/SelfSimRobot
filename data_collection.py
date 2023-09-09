@@ -223,7 +223,7 @@ if __name__ == "__main__":
     MOV_CAM = False
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 1.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
-    NUM_MOTOR = 3  # the number of motors
+    NUM_MOTOR = 4  # the number of motors
     robot_ID = 0
     sample_size = 20
 
