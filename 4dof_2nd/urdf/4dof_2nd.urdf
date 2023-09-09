@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="4dof_2nd">
+  <link
+    name="base">
+    <inertial>
+      <origin
+        xyz="1.42929172621762E-17 0.0279238800911216 2.10503937914057E-17"
+        rpy="0 0 0" />
+      <mass
+        value="1.01233115660444" />
+      <inertia
+        ixx="0.00127851826321163"
+        ixy="-3.25593266727571E-20"
+        ixz="-2.05554382219427E-19"
+        iyy="0.00330201153266579"
+        iyz="-5.49569053241694E-20"
+        izz="0.00254994453490086" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4dof_2nd/meshes/base.STL" />
+      </geometry>
+      <material
+        name="clear">
+        <color
+          rgba="0 0 0 0" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4dof_2nd/meshes/base.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="L1">
+    <inertial>
+      <origin
+        xyz="6.98379577508529E-08 0.00839921203566613 -0.00011619558777941"
+        rpy="0 0 0" />
+      <mass
+        value="0.109719412381612" />
+      <inertia
+        ixx="4.04026836034197E-05"
+        ixy="-1.24783674052978E-10"
+        ixz="-1.4819993412198E-10"
+        iyy="5.74445778942386E-05"
+        iyz="-1.44657703020893E-07"
+        izz="3.7937379436841E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4dof_2nd/meshes/L1.STL" />
+      </geometry>
+      <material
+        name="clear">
+        <color
+          rgba="0 0 0 0" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4dof_2nd/meshes/L1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="base_L1"
+    type="continuous">
+    <origin
+      xyz="0 0 0.06806"
+      rpy="1.5707963267949 0 1.5707963267949" />
+    <parent
+      link="base" />
+    <child
+      link="L1" />
+    <axis
+      xyz="0 1 0" />
+  </joint>
+  <link
+    name="L2">
+    <inertial>
+      <origin
+        xyz="-0.00129647999078647 -0.00118465769340787 0.0566012443608822"
+        rpy="0 0 0" />
+      <mass
+        value="0.170654706462391" />
+      <inertia
+        ixx="0.000109933926735269"
+        ixy="-4.20384262034178E-09"
+        ixz="-1.33080338442296E-07"
+        iyy="0.000175937920346225"
+        iyz="-3.35596637163169E-07"
+        izz="8.88608038466973E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4dof_2nd/meshes/L2.STL" />
+      </geometry>
+      <material
+        name="black">
+        <color
+          rgba="0 0 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4dof_2nd/meshes/L2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="L1_L2"
+    type="continuous">
+    <origin
+      xyz="0 0.04 0"
+      rpy="-1.5707963267949 -1.5707963267949 0" />
+    <parent
+      link="L1" />
+    <child
+      link="L2" />
+    <axis
+      xyz="1 0 0" />
+  </joint>
+  <link
+    name="L3">
+    <inertial>
+      <origin
+        xyz="-0.00189647999078301 -0.00118488379204321 0.0566015314351151"
+        rpy="0 0 0" />
+      <mass
+        value="0.170654706462391" />
+      <inertia
+        ixx="0.000109933926735617"
+        ixy="-4.23764182070938E-09"
+        ixz="-1.33037424077722E-07"
+        iyy="0.000175937861381518"
+        iyz="-3.35582049385204E-07"
+        izz="8.88608628117516E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4dof_2nd/meshes/L3.STL" />
+      </geometry>
+      <material
+        name="black">
+        <color
+          rgba="0 0 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4dof_2nd/meshes/L3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="L2_L3"
+    type="continuous">
+    <origin
+      xyz="0 0 0.125"
+      rpy="0 0 0" />
+    <parent
+      link="L2" />
+    <child
+      link="L3" />
+    <axis
+      xyz="1 0 0" />
+  </joint>
+  <link
+    name="L4">
+    <inertial>
+      <origin
+        xyz="0.00116245884397085 2.34172468517022E-07 0.0277339006086252"
+        rpy="0 0 0" />
+      <mass
+        value="0.0325264957149247" />
+      <inertia
+        ixx="1.01555656643839E-05"
+        ixy="-8.10498518271107E-12"
+        ixz="8.02258623945075E-08"
+        iyy="1.80812385427838E-05"
+        iyz="1.35894772223515E-11"
+        izz="1.0414449972661E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4dof_2nd/meshes/L4.STL" />
+      </geometry>
+      <material
+        name="black">
+        <color
+          rgba="0 0 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4dof_2nd/meshes/L4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="L3_L4"
+    type="continuous">
+    <origin
+      xyz="0 0 0.125"
+      rpy="0 0 3.14159265358979" />
+    <parent
+      link="L3" />
+    <child
+      link="L4" />
+    <axis
+      xyz="-1 0 0" />
+  </joint>
+</robot>
