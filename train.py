@@ -116,7 +116,7 @@ def train(model, optimizer):
     iternums = []
     best_psnr = 0.
     psnr_v_last = 0
-
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=50, verbose=True)
     patience = 0
     for i in trange(n_iters):
         model.train()
@@ -236,7 +236,8 @@ def train(model, optimizer):
                         valid_image.append(np_image)
                 psnr_v = np.mean(valid_psnr)
                 val_psnrs.append(psnr_v)
-                print("Loss:", np.mean(valid_epoch_loss), "PSNR: ", psnr_v)
+                print("Loss:", np.mean(valid_epoch_loss), "PSNR: ", psnr_v, 'patience', patience)
+                scheduler.step(np.mean(valid_epoch_loss))
 
                 # save test image
                 np_image_combine = np.hstack(valid_image)
@@ -286,12 +287,14 @@ if __name__ == "__main__":
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
     DOF = 3  # the number of motors  # dof4 apr03
-    num_data = 20**DOF
+    num_data = 6143 # 20**DOF
+    robot_id = 0
+    print("DOF, num_data, robot_id",DOF,num_data,robot_id)
+
     tr = 0.9  # training ratio
     pxs = 100  # collected data pixels
-    data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
+    data = np.load('data/data_uniform_robo%d/dof%d_data%d_px%d.npz' % (robot_id, DOF, num_data, pxs))
     print("Raw Data Loaded!")
-    # pre_trained = ''
 
     sample_id = random.sample(range(num_data), num_data)
     Overfitting_test = False
@@ -363,7 +366,7 @@ if __name__ == "__main__":
 
     # Run training session(s)
     LOG_PATH = "train_log/log_%ddata_in6_out1_img%d(%d)/" % (num_data, pxs,seed_num)
-    print('log_path: ',LOG_PATH)
+    print('log_path: ', LOG_PATH)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -381,8 +384,9 @@ if __name__ == "__main__":
         model, optimizer = init_models(d_input=(DOF-2) + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
                                        n_layers=4,
                                        d_filter=128,
-                                       skip=(1,2),
+                                       skip=(1, 2),
                                        output_size=2,
+                                       lr = 5e-4
                                        # pretrained_model_pth=pretrained_model_pth
                                        )
 

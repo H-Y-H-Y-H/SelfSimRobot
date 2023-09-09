@@ -10,8 +10,15 @@ import cv2
 
 
 class FBVSM_Env(gym.Env):
-    def __init__(self, show_moving_cam, width=400, height=400, render_flag=False, num_motor=2, max_num_motor=4):
-
+    def __init__(self,
+                 show_moving_cam,
+                 robot_ID,
+                 width=400, height=400,
+                 render_flag=False,
+                 num_motor=2,
+                 max_num_motor=4,
+                 ):
+        self.robot_ID = robot_ID
         self.show_moving_cam = show_moving_cam
         self.camera_pos_inverse = None
         self.expect_angles = np.array([.0, .0, .0])
@@ -33,7 +40,7 @@ class FBVSM_Env(gym.Env):
         self.CAM_POS_X = 1
         self.nf = 0.4 # near and far
         self.full_matrix_inv = 0
-
+        self.PASS_OBS = False
 
         # cube_size = 0.2
         # self.pos_sphere = np.asarray([
@@ -96,6 +103,8 @@ class FBVSM_Env(gym.Env):
         action_degree = action_norm * self.action_space
         action_rad = action_degree / 180 * np.pi
 
+        reached = True
+
         if not self.show_moving_cam:
             for moving_times in range(time_out_step_num):
                 joint_pos = []
@@ -122,9 +131,19 @@ class FBVSM_Env(gym.Env):
 
                 if joint_error < 0.0001:
                     break
+
                 elif moving_times == (time_out_step_num-1):
-                    print("MOVING TIME OUT, Please check the act function in the env class")
-                    quit()
+                    reached = False
+                    cont_pts1 =p.getContactPoints(self.robot_id, self.robot_id)
+                    if cont_pts1 != 0:
+                        print("self collision")
+                        # self.reset()  # if timeout (means self-collision happened)
+                        break
+                    else:
+                        # unable to reach the target
+                        print("MOVING TIME OUT, Please check the act function in the env class")
+                        quit()
+
 
                 if self.render_flag:
                     time.sleep(1. / 960.)
@@ -172,21 +191,34 @@ class FBVSM_Env(gym.Env):
                 else:
                     self.move_frame_edges_back[i] = p.addUserDebugLine(move_frame_back[4], move_frame_back[i - 4], [1, 1, 1])
 
+        return reached
 
     def reset(self):
         p.resetSimulation()
         p.setGravity(0, 0, -10)
         p.setAdditionalSearchPath(pd.getDataPath())
-        planeId = p.loadURDF("plane.urdf",[-1, 0, -1])
+        # planeId = p.loadURDF("plane.urdf",[-1, 0, -1])
+        groundId = p.loadURDF("plane.urdf",[0, 0, -0.083])
+
         textureId = p.loadTexture("green.png")
         WallId_front = p.loadURDF("plane.urdf", [-1, 0, 0], p.getQuaternionFromEuler([0, 1.57, 0]))
         p.changeVisualShape(WallId_front, -1, textureUniqueId=textureId)
-        p.changeVisualShape(planeId, -1, textureUniqueId=textureId)
+        # p.changeVisualShape(planeId, -1, textureUniqueId=textureId)
+        p.changeVisualShape(groundId, -1, textureUniqueId=textureId)
 
         startPos = [0, 0, self.z_offset]
         startOrientation = p.getQuaternionFromEuler([0, 0, -np.pi/2])
+        if self.robot_ID == 0:
+            robo_urdf_path =  'DOF4ARM0/urdf/DOF4ARM0.urdf'
+        if self.robot_ID == 1:
+            robo_urdf_path = '4dof_2nd/urdf/4dof_2nd.urdf'
 
-        self.robot_id = p.loadURDF('DOF4ARM0/urdf/DOF4ARM0.urdf', startPos, startOrientation, useFixedBase=1)
+        self.robot_id = p.loadURDF(
+            robo_urdf_path,
+            startPos,
+            startOrientation,
+            flags=p.URDF_USE_SELF_COLLISION,  # no mold penetration
+            useFixedBase=1)
 
         basePos, baseOrn = p.getBasePositionAndOrientation(self.robot_id)  # Get model position
         basePos_list = [basePos[0], basePos[1], 0]
@@ -262,25 +294,17 @@ class FBVSM_Env(gym.Env):
         return self.get_obs()
 
     def step(self, a):
-        self.act(a)
-        obs = self.get_obs()
+
+        done = self.act(a)
+
+        if not self.PASS_OBS:
+            obs = self.get_obs()
+        else:
+            obs = None
 
         r = 0
-        done = False
-        return obs, r, done, {}
 
-    # def get_traj(self, l_array, step_size=0.1):
-    #     t_angle = np.random.choice(l_array, 3)
-    #     c_angle = self.expect_angles
-    #     act_list = []
-    #     for act_i in range(3):
-    #         act_list.append(np.linspace(c_angle[act_i], t_angle[act_i],
-    #                                     round(abs((t_angle[act_i] - c_angle[act_i]) / step_size) + 1)))
-    #
-    #     # print("-------")
-    #     # print(c_angle, t_angle)
-    #
-    #     return act_list
+        return obs, r, done, {}
 
 
 def green_black(img):
@@ -304,6 +328,7 @@ def green_black(img):
 
 
 def generate_action_list():
+    step_size = 0.1
     line_array = np.linspace(-1.0, 1.0, num=21)
     t_angle = np.random.choice(line_array, NUM_MOTOR)
     # set target angle:
@@ -316,10 +341,60 @@ def generate_action_list():
     return act_list
 
 
+from itertools import product
+def self_collision_check(sample_size: int, Env, num_dof: int) -> np.array:
+    """
+    Robot config sampling for variable DOF
+    sample_size: sampled number for each motor
+    Env: robot env
+    num_dof: number of degrees of freedom
+    """
+    line_array = np.linspace(-1.0, 1.0, num=sample_size + 1)
+
+    # Generate combinations for the given number of DOFs
+    all_combinations = product(line_array, repeat=num_dof)
+
+    work_space = []
+    count = 0
+    for comb in all_combinations:
+        print(count)
+        count += 1
+        angle_norm = np.array(comb)
+        obs, _, done, _ = Env.step(angle_norm)
+        if done:
+            work_space.append(angle_norm)
+
+    return np.array(work_space)
+
+
+
+# def self_collision_check(sample_size: int, Env: FBVSM_Env) -> np.array:
+#     """
+#     four dof robot config sampling
+#     sample_size: sampled number for each motor
+#     Env: robot env
+#     """
+#     line_array = np.linspace(-1.0, 1.0, num=sample_size+1)
+#     work_space = []
+#     count = 0
+#     for m0 in line_array:
+#         for m1 in line_array:
+#             for m2 in line_array:
+#                 for m3 in line_array:
+#                     print(count)
+#                     count +=1
+#                     angle_norm = np.array([m0, m1, m2, m3])
+#                     obs, _, done, _ = Env.step(angle_norm)
+#                     if done:
+#                         work_space.append(angle_norm)
+#
+#     return np.array(work_space)
+
+
 if __name__ == '__main__':
-    RENDER = True
+    RENDER = False
     NUM_MOTOR = 4
-    step_size = 0.1
+    robot_ID = 0
 
     p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
 
@@ -329,16 +404,19 @@ if __name__ == '__main__':
     # FIXED  CAMERA MODE:  FIXED CAMERA - MOVING ROBOT ARM
     show_moving_cam = False
 
-    env = FBVSM_Env(show_moving_cam,
-                    width=300,
-                    height=300,
+    env = FBVSM_Env(show_moving_cam,robot_ID,
+                    width=100,
+                    height=100,
                     render_flag=RENDER,
                     num_motor=NUM_MOTOR)
 
     obs = env.reset()
     c_angle = obs[0]
 
-    mode = 'm'  # manual or automatic
+    mode = 's'
+    # manual: m
+    # or automatic: a
+    # or self check: s
 
     if mode == 'm':
         m_list = []
@@ -354,7 +432,7 @@ if __name__ == '__main__':
             obs, _, _, _ = env.step(c_angle)
             print(obs[0])
 
-    else:
+    elif mode == "a":
         # control the robot to target angles and observe current angles
         act_list = generate_action_list()
         for m_id in range(NUM_MOTOR):
@@ -369,3 +447,19 @@ if __name__ == '__main__':
         for _ in range(1000000):
             p.stepSimulation()
             time.sleep(1 / 240)
+
+    elif mode == "s":
+
+        # Example usage
+        sample_size = 20  # example value
+        env.PASS_OBS = True
+
+        # get workspace: np.array (nx4)
+        WorkSpace = self_collision_check(
+            sample_size=sample_size,
+            Env=env,
+            num_dof = NUM_MOTOR)
+        print(WorkSpace.shape)
+        np.savetxt("workspace_robo%d_dof%d_size%d.csv"%(robot_ID,NUM_MOTOR,sample_size), WorkSpace)
+
+
