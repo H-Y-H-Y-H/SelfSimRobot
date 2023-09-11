@@ -7,7 +7,9 @@ from test_model import *
 
 def interact_env():
     DOF = 4
-    test_name = 'log_160000data_in6_out1_img100(1)'
+    test_name = 'log_131519data_in6_out1_img100(1)'
+    robot_id = 0
+
     test_model_pth = 'train_log/%s/best_model/'%test_name
 
     model, optimizer = init_models(d_input=(DOF-2) + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
@@ -23,7 +25,7 @@ def interact_env():
     p.connect(p.GUI)
 
     env = FBVSM_Env(
-        show_moving_cam=False,
+        show_moving_cam=False,robot_ID=robot_id,
         width=width,
         height=height,
         render_flag=True,

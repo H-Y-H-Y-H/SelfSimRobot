@@ -392,7 +392,7 @@ def self_collision_check(sample_size: int, Env, num_dof: int) -> np.array:
 
 
 if __name__ == '__main__':
-    RENDER = False
+    RENDER = True
     NUM_MOTOR = 4
     robot_ID = 0
 
@@ -413,7 +413,7 @@ if __name__ == '__main__':
     obs = env.reset()
     c_angle = obs[0]
 
-    mode = 's'
+    mode = 'm'
     # manual: m
     # or automatic: a
     # or self check: s
