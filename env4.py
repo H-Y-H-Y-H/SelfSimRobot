@@ -17,6 +17,7 @@ class FBVSM_Env(gym.Env):
                  render_flag=False,
                  num_motor=2,
                  max_num_motor=4,
+                 init_angle = [0]*4
                  ):
         self.robot_ID = robot_ID
         self.show_moving_cam = show_moving_cam
@@ -24,7 +25,7 @@ class FBVSM_Env(gym.Env):
         self.expect_angles = np.array([.0, .0, .0])
         self.width = width
         self.height = height
-        self.force = 1.8
+        self.force = 100
         self.maxVelocity = 1.5
         self.action_space = 90
         self.num_motor = num_motor
@@ -41,6 +42,7 @@ class FBVSM_Env(gym.Env):
         self.nf = 0.4 # near and far
         self.full_matrix_inv = 0
         self.PASS_OBS = False
+        self.init_angle = init_angle
 
         # cube_size = 0.2
         # self.pos_sphere = np.asarray([
@@ -99,7 +101,7 @@ class FBVSM_Env(gym.Env):
         obs_data = [np.array(joint_list), img]
         return obs_data
 
-    def act(self, action_norm, time_out_step_num=100):
+    def act(self, action_norm, time_out_step_num=20):
         action_degree = action_norm * self.action_space
         action_rad = action_degree / 180 * np.pi
 
@@ -123,7 +125,7 @@ class FBVSM_Env(gym.Env):
 
                 joint_pos = np.asarray(joint_pos)
 
-                for _ in range(50):
+                for _ in range(10):
                     p.stepSimulation()
 
                 # compute dist between target and current:
@@ -132,11 +134,13 @@ class FBVSM_Env(gym.Env):
                 if joint_error < 0.0001:
                     break
 
-                elif moving_times == (time_out_step_num-1):
+                # elif moving_times == (time_out_step_num-1):
+                if p.getContactPoints(self.robot_id, self.robot_id):
+
                     reached = False
                     cont_pts1 =p.getContactPoints(self.robot_id, self.robot_id)
                     if cont_pts1 != 0:
-                        print("self collision")
+                        print("self collision! Joint Error:", joint_error)
                         # self.reset()  # if timeout (means self-collision happened)
                         break
                     else:
@@ -144,9 +148,9 @@ class FBVSM_Env(gym.Env):
                         print("MOVING TIME OUT, Please check the act function in the env class")
                         quit()
 
-
-                if self.render_flag:
-                    time.sleep(1. / 960.)
+                #
+                # if self.render_flag:
+                #     time.sleep(1. / 960.)
 
         full_matrix = self.forward_matrix(action_degree[0],action_degree[1])
         self.full_matrix_inv = np.linalg.inv(full_matrix)
@@ -224,13 +228,12 @@ class FBVSM_Env(gym.Env):
         basePos_list = [basePos[0], basePos[1], 0]
         p.resetDebugVisualizerCamera(cameraDistance=self.CAM_POS_X, cameraYaw=75, cameraPitch=-20,
                                      cameraTargetPosition=basePos_list)  # fix camera onto model
-        angle_array = [0, 0, 0, 0]  # [np.pi / 2, np.pi / 2, 0, 0]
 
         for i in range(self.num_motor):
-            p.setJointMotorControl2(self.robot_id, i, controlMode=p.POSITION_CONTROL, targetPosition=angle_array[i],
+            p.setJointMotorControl2(self.robot_id, i, controlMode=p.POSITION_CONTROL, targetPosition=self.init_angle[i],
                                     force=self.force,
                                     maxVelocity=self.maxVelocity)
-        for _ in range(10):
+        for _ in range(1000):
             p.stepSimulation()
 
         # visualize camera
@@ -342,30 +345,70 @@ def generate_action_list():
 
 
 from itertools import product
-def self_collision_check(sample_size: int, Env, num_dof: int) -> np.array:
-    """
-    Robot config sampling for variable DOF
-    sample_size: sampled number for each motor
-    Env: robot env
-    num_dof: number of degrees of freedom
-    """
-    line_array = np.linspace(-1.0, 1.0, num=sample_size + 1)
+def self_collision_check1(sample_size: int, Env, num_dof: int) -> np.array:
+    # line_array = np.linspace(-1.0, 1.0, num=sample_size + 1)
+    # # Generate combinations for the given number of DOFs
+    # all_combinations = product(line_array, repeat=num_dof)
 
-    # Generate combinations for the given number of DOFs
-    all_combinations = product(line_array, repeat=num_dof)
+    action_list = []
 
-    work_space = []
     count = 0
+    j_flag, k_flag, l_flag = -1, -1, -1
+    for i in range(TASK,TASK+1):
+        cmd_0 = -10 + i
+
+        j_flag *= -1
+        for j in range(21):
+            cmd_1 = -10 + j
+            cmd_1 *= j_flag
+
+            k_flag *= -1
+            for k in range(21):
+                cmd_2 = -10 + k
+                cmd_2 *= k_flag
+
+                l_flag *= -1
+                for l in range(21):
+                    cmd_3 = -10 + l
+                    cmd_3 *= l_flag
+
+                    act_cmd = [cmd_0, cmd_1, cmd_2, cmd_3]
+                    # if cmd_0 == -10 or cmd_1 != -3 or cmd_1 >0:
+                    #     break
+                    # if act_cmd == [-9, -3,-8, 10]:
+                    #     print('abort')
+
+                    act_cmd = np.asarray(act_cmd)/10
+
+                    count += 1
+
+                    obs, _, done, _ = Env.step(act_cmd)
+                    if done:
+                        action_list.append(act_cmd)
+                    # else:
+                    #     break
+                    print(count, act_cmd, done)
+
+    return np.array(action_list)
+
+def self_collision_check_prerecord(sample_size: int, Env, num_dof: int) -> np.array:
+    # line_array = np.linspace(-1.0, 1.0, num=sample_size + 1)
+    # # Generate combinations for the given number of DOFs
+    # all_combinations = product(line_array, repeat=num_dof)
+    all_combinations = np.loadtxt('data/action/new_a.csv')
+
+    count = 0
+    work_space = []
     for comb in all_combinations:
-        print(count)
+        # print(count)
         count += 1
-        angle_norm = np.array(comb)
-        obs, _, done, _ = Env.step(angle_norm)
+        obs, _, done, _ = Env.step(comb)
         if done:
-            work_space.append(angle_norm)
+            work_space.append(comb)
+        else:
+            print('collision',count)
 
     return np.array(work_space)
-
 
 
 # def self_collision_check(sample_size: int, Env: FBVSM_Env) -> np.array:
@@ -392,9 +435,10 @@ def self_collision_check(sample_size: int, Env, num_dof: int) -> np.array:
 
 
 if __name__ == '__main__':
-    RENDER = True
+    RENDER = False
     NUM_MOTOR = 4
     robot_ID = 0
+    TASK = 0
 
     p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
 
@@ -408,12 +452,13 @@ if __name__ == '__main__':
                     width=100,
                     height=100,
                     render_flag=RENDER,
-                    num_motor=NUM_MOTOR)
+                    num_motor=NUM_MOTOR,
+                    init_angle = [-np.pi/2,0,0,-np.pi/2])
 
     obs = env.reset()
     c_angle = obs[0]
 
-    mode = 'm'
+    mode = 's'
     # manual: m
     # or automatic: a
     # or self check: s
@@ -452,14 +497,21 @@ if __name__ == '__main__':
 
         # Example usage
         sample_size = 20  # example value
-        env.PASS_OBS = True
+
 
         # get workspace: np.array (nx4)
-        WorkSpace = self_collision_check(
+        # WorkSpace = self_collision_check2(
+        #     sample_size=sample_size,
+        #     Env=env,
+        #     num_dof = NUM_MOTOR)
+        # print(WorkSpace.shape)
+        # np.savetxt("data/action/cleaned_con_action%d_robo%d_dof%d_size%d.csv"%(TASK,robot_ID,NUM_MOTOR,sample_size), WorkSpace)
+
+
+        # get workspace: np.array (nx4)
+        WorkSpace = self_collision_check_prerecord(
             sample_size=sample_size,
             Env=env,
             num_dof = NUM_MOTOR)
         print(WorkSpace.shape)
-        np.savetxt("workspace_robo%d_dof%d_size%d.csv"%(robot_ID,NUM_MOTOR,sample_size), WorkSpace)
-
-
+        np.savetxt("data/action/cleaned_con_action_robo%d_dof%d_size%d.csv"%(robot_ID,NUM_MOTOR,sample_size), WorkSpace)

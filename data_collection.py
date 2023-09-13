@@ -128,12 +128,14 @@ def uniform_data(uniform_samples=10):
 
 def collect_data(my_env, path, action_lists):
     my_env.reset()
-    image_record, pose_record, angle_record = [], [], []
+    clean_action_list, image_record, pose_record, angle_record = [], [], [], []
 
     for i in range(len(action_lists)):
         action_l = action_lists[i]
         print(action_l)
-        obs, _, _, _ = my_env.step(action_l)
+        obs, _, done, _ = my_env.step(action_l)
+        if not done:
+            continue
         angles = obs[0] * 90.  # obs[0] -> angles of motors, size = motor num
         # trans_m = pts_trans_matrix(angles[0], angles[1])
         # inverse_matrix = my_env.full_matrix_inv
@@ -143,8 +145,9 @@ def collect_data(my_env, path, action_lists):
         image_record.append(img[..., 0])
         # pose_record.append(trans_m)
         angle_record.append(angles)
+        clean_action_list.append(action_l)
 
-    np.savez(path + 'dof%d_data%d_px%d.npz' % (NUM_MOTOR, len(action_lists), WIDTH),
+    np.savez(path + 'con_dof%d_data%d_px%d.npz' % ( NUM_MOTOR, len(action_lists), WIDTH),
              images=np.array(image_record),
              poses=np.array(pose_record),
              angles=np.array(angle_record),
@@ -227,6 +230,7 @@ if __name__ == "__main__":
     robot_ID = 0
     sample_size = 20
 
+
     # Camera config: focal
     Camera_FOV = 42.
     camera_angle_x = Camera_FOV * np.pi / 180.
@@ -239,18 +243,17 @@ if __name__ == "__main__":
         width=WIDTH,
         height=HEIGHT,
         render_flag=RENDER,
-        num_motor=NUM_MOTOR)
+        num_motor=NUM_MOTOR,
+        init_angle = [-np.pi/2,0,0,-np.pi/2])
 
     np.random.seed(2023)
     torch.manual_seed(2023)
-    # prepare_data_4dof(full_env=MyEnv, path="data/arm_data/")
 
     # Data_collection
     log_pth = "data/data_uniform_robo%d/"%robot_ID
     os.makedirs(log_pth, exist_ok=True)
 
-    # action_lists = uniform_data(sample_num)
-    action_lists = np.loadtxt("workspace_robo%d_dof%d_size%d.csv"%(robot_ID,NUM_MOTOR,sample_size))
+    action_lists = np.loadtxt('data/action/new_a.csv')
     print(action_lists.shape)
 
     collect_data(my_env=MyEnv,
