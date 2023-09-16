@@ -6,8 +6,9 @@ from test_model import *
 # changed Transparency in urdf, line181, Mar31
 
 def interact_env():
+
     DOF = 4
-    test_name = 'log_131519data_in6_out1_img100(1)'
+    test_name = 'real_train_log_%ddof_%d(%d)/' % (138537, 100, 0)
     robot_id = 0
 
     test_model_pth = 'train_log/%s/best_model/'%test_name
@@ -15,7 +16,7 @@ def interact_env():
     model, optimizer = init_models(d_input=(DOF-2) + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
                                    n_layers=4,
                                    d_filter=128,
-                                   skip=(1,2 ),
+                                   skip=(1,2),
                                    output_size=2)
     model.load_state_dict(torch.load(test_model_pth + "nerf.pt", map_location=torch.device(device)))
     model = model.to(torch.float64)
@@ -29,7 +30,8 @@ def interact_env():
         width=width,
         height=height,
         render_flag=True,
-        num_motor=DOF)
+        num_motor=DOF,
+        dark_background = True)
 
     obs = env.reset()
     c_angle = obs[0]

@@ -17,7 +17,8 @@ class FBVSM_Env(gym.Env):
                  render_flag=False,
                  num_motor=2,
                  max_num_motor=4,
-                 init_angle = [0]*4
+                 init_angle = [0]*4,
+                 dark_background = False
                  ):
         self.robot_ID = robot_ID
         self.show_moving_cam = show_moving_cam
@@ -43,6 +44,7 @@ class FBVSM_Env(gym.Env):
         self.full_matrix_inv = 0
         self.PASS_OBS = False
         self.init_angle = init_angle
+        self.dark_background = dark_background
 
         # cube_size = 0.2
         # self.pos_sphere = np.asarray([
@@ -201,14 +203,31 @@ class FBVSM_Env(gym.Env):
         p.resetSimulation()
         p.setGravity(0, 0, -10)
         p.setAdditionalSearchPath(pd.getDataPath())
-        # planeId = p.loadURDF("plane.urdf",[-1, 0, -1])
-        groundId = p.loadURDF("plane.urdf",[0, 0, -0.083])
 
-        textureId = p.loadTexture("green.png")
-        WallId_front = p.loadURDF("plane.urdf", [-1, 0, 0], p.getQuaternionFromEuler([0, 1.57, 0]))
-        p.changeVisualShape(WallId_front, -1, textureUniqueId=textureId)
-        # p.changeVisualShape(planeId, -1, textureUniqueId=textureId)
-        p.changeVisualShape(groundId, -1, textureUniqueId=textureId)
+        if self.dark_background:
+            p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+
+            # Set the background color to gray (values between 0 and 1)
+            p.configureDebugVisualizer(p.COV_ENABLE_TINY_RENDERER, 0)
+            p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
+
+            # Set the background color to gray
+            gl_background_color = [0.5, 0.5, 0.5, 1]  # RGBA values between 0 and 1
+            p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 1)
+            p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 1)
+            p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 1)
+            p.changeVisualShape(-1, -1, rgbaColor=gl_background_color)
+
+        else:
+
+            # planeId = p.loadURDF("plane.urdf",[-1, 0, -1])
+            groundId = p.loadURDF("plane.urdf",[0, 0, -0.083])
+
+            textureId = p.loadTexture("green.png")
+            WallId_front = p.loadURDF("plane.urdf", [-1, 0, 0], p.getQuaternionFromEuler([0, 1.57, 0]))
+            p.changeVisualShape(WallId_front, -1, textureUniqueId=textureId)
+            # p.changeVisualShape(planeId, -1, textureUniqueId=textureId)
+            p.changeVisualShape(groundId, -1, textureUniqueId=textureId)
 
         startPos = [0, 0, self.z_offset]
         startOrientation = p.getQuaternionFromEuler([0, 0, -np.pi/2])
@@ -395,7 +414,7 @@ def self_collision_check_prerecord(sample_size: int, Env, num_dof: int) -> np.ar
     # line_array = np.linspace(-1.0, 1.0, num=sample_size + 1)
     # # Generate combinations for the given number of DOFs
     # all_combinations = product(line_array, repeat=num_dof)
-    all_combinations = np.loadtxt('data/action/new_a.csv')
+    all_combinations = np.loadtxt('data/action/cleaned_con_action_robo0_dof4_size20.csv')
 
     count = 0
     work_space = []
@@ -437,7 +456,7 @@ def self_collision_check_prerecord(sample_size: int, Env, num_dof: int) -> np.ar
 if __name__ == '__main__':
     RENDER = False
     NUM_MOTOR = 4
-    robot_ID = 0
+    robot_ID = 1
     TASK = 0
 
     p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
@@ -500,7 +519,7 @@ if __name__ == '__main__':
 
 
         # get workspace: np.array (nx4)
-        # WorkSpace = self_collision_check2(
+        # WorkSpace = self_collision_check1(
         #     sample_size=sample_size,
         #     Env=env,
         #     num_dof = NUM_MOTOR)
@@ -508,7 +527,7 @@ if __name__ == '__main__':
         # np.savetxt("data/action/cleaned_con_action%d_robo%d_dof%d_size%d.csv"%(TASK,robot_ID,NUM_MOTOR,sample_size), WorkSpace)
 
 
-        # get workspace: np.array (nx4)
+        # # get workspace: np.array (nx4)
         WorkSpace = self_collision_check_prerecord(
             sample_size=sample_size,
             Env=env,

@@ -274,7 +274,7 @@ def train(model, optimizer):
 
 if __name__ == "__main__":
 
-    seed_num = 1
+    seed_num = 0
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
@@ -287,14 +287,16 @@ if __name__ == "__main__":
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
     DOF = 4  # the number of motors  # dof4 apr03
-    num_data = 131519 # 20**DOF
+    num_data = 138537 # 20**DOF
     robot_id = 0
     print("DOF, num_data, robot_id",DOF,num_data,robot_id)
 
     tr = 0.9  # training ratio
     pxs = 100  # collected data pixels
-    data = np.load('data/data_uniform_robo%d/dof%d_data%d_px%d.npz' % (robot_id, DOF, num_data, pxs))
-    print("Raw Data Loaded!")
+    # data = np.load('data/data_uniform_robo%d/dof%d_data%d_px%d.npz' % (robot_id, DOF, num_data, pxs))
+    data = np.load('data/real_data/real_data%d.npz' % num_data)
+
+    print("Data Loaded!")
 
     sample_id = random.sample(range(num_data), num_data)
     Overfitting_test = False
@@ -365,7 +367,7 @@ if __name__ == "__main__":
     }
 
     # Run training session(s)
-    LOG_PATH = "train_log/log_%ddata_in6_out1_img%d(%d)/" % (num_data, pxs,seed_num)
+    LOG_PATH = "train_log/real_train_log_%ddof_%d(%d)/" % (num_data, pxs, seed_num)
     print('log_path: ', LOG_PATH)
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
