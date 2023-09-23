@@ -133,22 +133,22 @@ class FBVSM_Env(gym.Env):
                 # compute dist between target and current:
                 joint_error = np.mean((joint_pos - action_rad[:len(joint_pos)]) ** 2)
 
-                if joint_error < 0.0001:
+                if joint_error < 0.001:
                     break
 
-                # elif moving_times == (time_out_step_num-1):
-                if p.getContactPoints(self.robot_id, self.robot_id):
+                if not self.dark_background:
+                    if p.getContactPoints(self.robot_id, self.robot_id) or p.getContactPoints(self.robot_id,self.groundId):
 
-                    reached = False
-                    cont_pts1 =p.getContactPoints(self.robot_id, self.robot_id)
-                    if cont_pts1 != 0:
-                        print("self collision! Joint Error:", joint_error)
-                        # self.reset()  # if timeout (means self-collision happened)
-                        break
-                    else:
-                        # unable to reach the target
-                        print("MOVING TIME OUT, Please check the act function in the env class")
-                        quit()
+                        reached = False
+                        cont_pts1 =p.getContactPoints(self.robot_id, self.robot_id)
+                        if cont_pts1 != 0:
+                            print("self collision! Joint Error:", joint_error)
+                            # self.reset()  # if timeout (means self-collision happened)
+                            break
+                        else:
+                            # unable to reach the target
+                            print("MOVING TIME OUT, Please check the act function in the env class")
+                            quit()
 
                 #
                 # if self.render_flag:
@@ -221,13 +221,13 @@ class FBVSM_Env(gym.Env):
         else:
 
             # planeId = p.loadURDF("plane.urdf",[-1, 0, -1])
-            groundId = p.loadURDF("plane.urdf",[0, 0, -0.083])
+            self.groundId = p.loadURDF("plane.urdf",[0, 0, -0.083])
 
             textureId = p.loadTexture("green.png")
             WallId_front = p.loadURDF("plane.urdf", [-1, 0, 0], p.getQuaternionFromEuler([0, 1.57, 0]))
             p.changeVisualShape(WallId_front, -1, textureUniqueId=textureId)
             # p.changeVisualShape(planeId, -1, textureUniqueId=textureId)
-            p.changeVisualShape(groundId, -1, textureUniqueId=textureId)
+            p.changeVisualShape(self.groundId, -1, textureUniqueId=textureId)
 
         startPos = [0, 0, self.z_offset]
         startOrientation = p.getQuaternionFromEuler([0, 0, -np.pi/2])
@@ -414,7 +414,7 @@ def self_collision_check_prerecord(sample_size: int, Env, num_dof: int) -> np.ar
     # line_array = np.linspace(-1.0, 1.0, num=sample_size + 1)
     # # Generate combinations for the given number of DOFs
     # all_combinations = product(line_array, repeat=num_dof)
-    all_combinations = np.loadtxt('data/action/cleaned_con_action_robo0_dof4_size20.csv')
+    all_combinations = np.loadtxt('data/action/new_a_robo1.csv')
 
     count = 0
     work_space = []
@@ -454,7 +454,7 @@ def self_collision_check_prerecord(sample_size: int, Env, num_dof: int) -> np.ar
 
 
 if __name__ == '__main__':
-    RENDER = False
+    RENDER = True
     NUM_MOTOR = 4
     robot_ID = 1
     TASK = 0
@@ -527,7 +527,7 @@ if __name__ == '__main__':
         # np.savetxt("data/action/cleaned_con_action%d_robo%d_dof%d_size%d.csv"%(TASK,robot_ID,NUM_MOTOR,sample_size), WorkSpace)
 
 
-        # # get workspace: np.array (nx4)
+        # get workspace: np.array (nx4)
         WorkSpace = self_collision_check_prerecord(
             sample_size=sample_size,
             Env=env,

@@ -82,7 +82,7 @@ def init_models(d_input, n_layers, d_filter, skip, pretrained_model_pth=None, lr
     model.to(device)
     # Pretrained Model
     if pretrained_model_pth != None:
-        model.load_state_dict(torch.load(pretrained_model_pth + "nerf.pt", map_location=torch.device(device)))
+        model.load_state_dict(torch.load(pretrained_model_pth + "/nerf.pt", map_location=torch.device(device)))
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     return model, optimizer
@@ -114,10 +114,10 @@ def train(model, optimizer):
     train_psnrs = []
     val_psnrs = []
     iternums = []
-    best_psnr = 0.
-    psnr_v_last = 0
+    loss_v_last = np.inf
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=50, verbose=True)
     patience = 0
+    min_loss = np.inf
     for i in trange(n_iters):
         model.train()
         # Randomly pick an image as the target.
@@ -151,11 +151,12 @@ def train(model, optimizer):
         rgb_predicted = outputs['rgb_map']
         optimizer.zero_grad()
         target_img = target_img.to(device)
-        loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
+        loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)*loss_Factor
         loss.backward()
         optimizer.step()
-        psnr = - 10. * torch.log10(loss)
-        train_psnrs.append(psnr)
+        loss_train = loss.item()
+        # psnr = - 10. * torch.log10(loss)
+        # train_psnrs.append(psnr)
 
         # torch.cuda.empty_cache()
 
@@ -187,7 +188,7 @@ def train(model, optimizer):
                 rgb_predicted = outputs['rgb_map']
                 optimizer.zero_grad()
                 target_img = target_img.to(device)
-                loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)
+                loss = torch.nn.functional.mse_loss(rgb_predicted, target_img)*loss_Factor
                 val_psnr = (-10. * torch.log10(loss)).item()
                 valid_epoch_loss = loss.item()
                 np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
@@ -226,18 +227,18 @@ def train(model, optimizer):
 
                     img_label_tensor = img_label.reshape(-1).to(device)
 
-                    loss = torch.nn.functional.mse_loss(rgb_predicted, img_label_tensor)
-                    val_psnr = (-10. * torch.log10(loss)).item()
-                    valid_epoch_loss.append(loss.item())
+                    v_loss = torch.nn.functional.mse_loss(rgb_predicted, img_label_tensor)*loss_Factor
+                    val_psnr = (-10. * torch.log10(v_loss)).item()
+                    valid_epoch_loss.append(v_loss.item())
                     valid_psnr.append(val_psnr)
                     np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
                     np_image = np.clip(0, 1, np_image)
                     if v_i < max_pic_save:
                         valid_image.append(np_image)
-                psnr_v = np.mean(valid_psnr)
-                val_psnrs.append(psnr_v)
-                print("Loss:", np.mean(valid_epoch_loss), "PSNR: ", psnr_v, 'patience', patience)
-                scheduler.step(np.mean(valid_epoch_loss))
+                loss_valid = np.mean(valid_epoch_loss)
+
+                print("Loss:", loss_valid, 'patience', patience)
+                scheduler.step(loss_valid)
 
                 # save test image
                 np_image_combine = np.hstack(valid_image)
@@ -247,21 +248,21 @@ def train(model, optimizer):
                 if Flag_save_image_during_training:
                     matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png' % i, np_image_combine)
 
-                record_file_train.write(str(psnr) + "\n")
-                record_file_val.write(str(psnr_v) + "\n")
+                record_file_train.write(str(loss_train) + "\n")
+                record_file_val.write(str(loss_valid) + "\n")
 
-                if psnr_v > best_psnr:
+                if min_loss > loss_valid:
                     """record the best image and model"""
-                    best_psnr = psnr_v
+                    min_loss = loss_valid
                     matplotlib.image.imsave(LOG_PATH + 'image/' + 'best.png', np_image_combine)
                     torch.save(model.state_dict(), LOG_PATH + 'best_model/nerf.pt')
                     patience = 0
-                elif psnr_v == psnr_v_last:
+                elif loss_valid == loss_v_last:
                     print("restart")
-                    return False, train_psnrs, psnr_v
+                    return False, train_psnrs, loss_valid
                 else:
                     patience += 1
-                psnr_v_last = psnr_v
+                loss_v_last = loss_valid
                 # os.makedirs(LOG_PATH + "epoch_%d_model" % i, exist_ok=True)
                 # torch.save(model.state_dict(), LOG_PATH + 'epoch_%d_model/nerf.pt' % i)
 
@@ -269,7 +270,7 @@ def train(model, optimizer):
             break
 
         # torch.cuda.empty_cache()    # to save memory
-    return True, train_psnrs, val_psnrs
+    return True, train_psnrs, loss
 
 
 if __name__ == "__main__":
@@ -287,14 +288,18 @@ if __name__ == "__main__":
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
     DOF = 4  # the number of motors  # dof4 apr03
-    num_data = 138537 # 20**DOF
-    robot_id = 0
-    print("DOF, num_data, robot_id",DOF,num_data,robot_id)
+    num_data = 166855 # 20**DOF
+
+    print("DOF, num_data, robot_id",DOF,num_data)
 
     tr = 0.9  # training ratio
     pxs = 100  # collected data pixels
-    # data = np.load('data/data_uniform_robo%d/dof%d_data%d_px%d.npz' % (robot_id, DOF, num_data, pxs))
-    data = np.load('data/real_data/real_data%d.npz' % num_data)
+    data = np.load('data/real_data/real_data0920_robo1_%d.npz' % (num_data))
+    # data = np.load('data/real_data/real_data_robo1_%d(ee).npz' % num_data)
+    # LOG_PATH = "train_log/real_train_log_%ddof_%d(ee)(%d)/" % (num_data, pxs, seed_num)
+    LOG_PATH = "train_log/real_train_log_%ddof_%d(%d)/" % (num_data, pxs, seed_num)
+
+    print('log_path: ', LOG_PATH)
 
     print("Data Loaded!")
 
@@ -366,9 +371,7 @@ if __name__ == "__main__":
         'perturb': perturb
     }
 
-    # Run training session(s)
-    LOG_PATH = "train_log/real_train_log_%ddof_%d(%d)/" % (num_data, pxs, seed_num)
-    print('log_path: ', LOG_PATH)
+
 
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
@@ -376,20 +379,20 @@ if __name__ == "__main__":
     record_file_train = open(LOG_PATH + "log_train.txt", "w")
     record_file_val = open(LOG_PATH + "log_val.txt", "w")
     Patience_threshold = 100
+    loss_Factor = 15
 
     # Save testing gt image for visualization
     matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', valid_img_visual)
 
-    pretrained_model_pth = 'train_log/log_400data/best_model/'
-
+    pretrained_model_pth = 'train_log/real_train_log_166460dof_100(0)/best_model/'
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=(DOF-2) + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
                                        n_layers=4,
                                        d_filter=128,
                                        skip=(1, 2),
                                        output_size=2,
-                                       lr = 5e-4
-                                       # pretrained_model_pth=pretrained_model_pth
+                                       lr=5e-5,
+                                       pretrained_model_pth=pretrained_model_pth
                                        )
 
         # July 27, 2 dof, d_input=DOF + 3, 4 n_layers,

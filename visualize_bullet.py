@@ -5,11 +5,10 @@ from train import *
 from test_model import *
 # changed Transparency in urdf, line181, Mar31
 
-def interact_env():
+def interact_env(data_point, seed):
 
     DOF = 4
-    test_name = 'real_train_log_%ddof_%d(%d)/' % (138537, 100, 0)
-    robot_id = 0
+    test_name = 'real_train_log_%ddof_%d(%d)/' % (data_point, 100, seed)
 
     test_model_pth = 'train_log/%s/best_model/'%test_name
 
@@ -56,4 +55,11 @@ def interact_env():
 
 
 if __name__ == "__main__":
-    interact_env()
+    robot_id = 1
+
+    seed = 0
+    if robot_id == 0:
+        data_point = 138537
+    else:
+        data_point = 166855
+    interact_env(data_point, seed)
