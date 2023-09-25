@@ -79,7 +79,6 @@ class FBVSM_Env(gym.Env):
         return full_matrix
 
 
-
     def get_obs(self):
         """ self.view_matrix is updating with action"""
         img = p.getCameraImage(self.width, self.height,

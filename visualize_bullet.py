@@ -8,7 +8,10 @@ from test_model import *
 def interact_env(data_point, seed):
 
     DOF = 4
-    test_name = 'real_train_log_%ddof_%d(%d)/' % (data_point, 100, seed)
+    if EndeffectorOnly:
+        test_name = 'real_train_log_%ddof_%d(ee)(%d)/' % (data_point, 100, seed)
+    else:
+        test_name = 'real_train_log_%ddof_%d(%d)/' % (data_point, 100, seed)
 
     test_model_pth = 'train_log/%s/best_model/'%test_name
 
@@ -52,14 +55,16 @@ def interact_env(data_point, seed):
         debug_points = p.addUserDebugPoints(occu_pts, p_rgb, pointSize=2)
         obs, _, _, _ = env.step(c_angle)
 
-
+# def collision_free_planning():
 
 if __name__ == "__main__":
     robot_id = 1
-
+    EndeffectorOnly = True
     seed = 0
+
     if robot_id == 0:
         data_point = 138537
     else:
         data_point = 166855
+
     interact_env(data_point, seed)

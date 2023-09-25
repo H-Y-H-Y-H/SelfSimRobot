@@ -115,7 +115,7 @@ def train(model, optimizer):
     val_psnrs = []
     iternums = []
     loss_v_last = np.inf
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=50, verbose=True)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.1, patience=20, verbose=True)
     patience = 0
     min_loss = np.inf
     for i in trange(n_iters):
@@ -288,16 +288,16 @@ if __name__ == "__main__":
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
     DOF = 4  # the number of motors  # dof4 apr03
-    num_data = 166855 # 20**DOF
+    num_data = 138537 # 166855 # 20**DOF
 
     print("DOF, num_data, robot_id",DOF,num_data)
 
     tr = 0.9  # training ratio
     pxs = 100  # collected data pixels
-    data = np.load('data/real_data/real_data0920_robo1_%d.npz' % (num_data))
+    data = np.load('data/real_data/real_data0923_robo0_%d.npz' % (num_data))
     # data = np.load('data/real_data/real_data_robo1_%d(ee).npz' % num_data)
     # LOG_PATH = "train_log/real_train_log_%ddof_%d(ee)(%d)/" % (num_data, pxs, seed_num)
-    LOG_PATH = "train_log/real_train_log_%ddof_%d(%d)/" % (num_data, pxs, seed_num)
+    LOG_PATH = "train_log/real_train_log0923_%ddof_%d(%d)/" % (num_data, pxs, seed_num)
 
     print('log_path: ', LOG_PATH)
 
@@ -372,7 +372,6 @@ if __name__ == "__main__":
     }
 
 
-
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
 
@@ -384,7 +383,7 @@ if __name__ == "__main__":
     # Save testing gt image for visualization
     matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', valid_img_visual)
 
-    pretrained_model_pth = 'train_log/real_train_log_166460dof_100(0)/best_model/'
+    # pretrained_model_pth = 'train_log/real_train_log_166460dof_100(0)/best_model/'
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=(DOF-2) + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
                                        n_layers=4,
@@ -392,7 +391,7 @@ if __name__ == "__main__":
                                        skip=(1, 2),
                                        output_size=2,
                                        lr=5e-5,
-                                       pretrained_model_pth=pretrained_model_pth
+                                       # pretrained_model_pth=pretrained_model_pth
                                        )
 
         # July 27, 2 dof, d_input=DOF + 3, 4 n_layers,
