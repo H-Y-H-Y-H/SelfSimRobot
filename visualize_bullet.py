@@ -29,8 +29,13 @@ def interact_env():
 
 
 def collision_free_planning():
+    TASK = 0
 
-    env.add_obstacles()
+    if TASK == 0: # circle
+
+
+
+    # env.add_obstacles()
 
     obs = env.reset()
     c_angle = obs[0]
