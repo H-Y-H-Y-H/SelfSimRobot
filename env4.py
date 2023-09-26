@@ -198,6 +198,9 @@ class FBVSM_Env(gym.Env):
 
         return reached
 
+    def add_obstacles(self, obj_urdf_path,position):
+        self.obstacle_id = p.loadURDF(obj_urdf_path, position)
+
     def reset(self):
         p.resetSimulation()
         p.setGravity(0, 0, -10)
