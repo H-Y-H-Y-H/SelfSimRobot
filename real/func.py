@@ -172,7 +172,6 @@ def create_npz_data():
     # pre_data = np.load('../data/real_data/real_data0920_robo1_166855.npz')
 
     for i in range(num_img):
-
         print(i)
         all_real_img.append(plt.imread('../../FBVSM_DATA/real_bimg_robo0/%06d.png'%i)[...,0])
     np.savez('../data/real_data/real_data0920_robo0_%d.npz' % (num_img),
@@ -180,4 +179,7 @@ def create_npz_data():
              focal =focal,
              angles=cmds_angle)
 
-create_npz_data()
+# create_npz_data()
+
+
+
