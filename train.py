@@ -378,20 +378,20 @@ if __name__ == "__main__":
     record_file_train = open(LOG_PATH + "log_train.txt", "w")
     record_file_val = open(LOG_PATH + "log_val.txt", "w")
     Patience_threshold = 100
-    loss_Factor = 15
+    loss_Factor = 1
 
     # Save testing gt image for visualization
     matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', valid_img_visual)
 
-    # pretrained_model_pth = 'train_log/real_train_log_166460dof_100(0)/best_model/'
+    pretrained_model_pth = 'train_log/real_train_log_138537dof_100(2)/best_model/'
     for _ in range(n_restarts):
         model, optimizer = init_models(d_input=(DOF-2) + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
                                        n_layers=4,
                                        d_filter=128,
                                        skip=(1, 2),
                                        output_size=2,
-                                       lr=5e-5,
-                                       # pretrained_model_pth=pretrained_model_pth
+                                       lr=5e-4,
+                                       pretrained_model_pth=pretrained_model_pth
                                        )
 
         # July 27, 2 dof, d_input=DOF + 3, 4 n_layers,
