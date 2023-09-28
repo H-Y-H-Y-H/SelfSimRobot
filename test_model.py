@@ -89,6 +89,32 @@ def test_model( angle,model,  save_offline_data=False):
     #     np.save(log_pth + '/pc_record/%04d.npy' % idx, occup_points)
     return query_xyz
 
+def query_based_model(query_pos, angle,model, save_offline_data=False):
+    print('angle: ', angle)
+    DOF = len(angle)
+    # rays_o, rays_d = get_rays(height, width, focal)
+    # rays_o = rays_o.reshape([-1, 3]).to(device)
+    # rays_d = rays_d.reshape([-1, 3]).to(device)
+    angle_tensor = angle.to(device)
+
+    pose_matrix_array = pts_trans_matrix(angle_tensor[0].item(),angle_tensor[1].item(),no_inverse=False)
+    pose_matrix_tensor = torch.tensor(pose_matrix_array).to(device)
+
+    query_pos =torch.cat((query_pos, torch.ones(1).to(device)))
+    query_pos = torch.matmul(pose_matrix_tensor,query_pos.T).T[:3]
+
+    model_input = torch.cat([query_pos,angle_tensor[2:DOF]])
+
+    model_output = model(model_input)
+
+    alpha_0 = 1.- torch.exp(-nn.functional.relu(model_output[1]))
+    weights = alpha_0 * (1. - alpha_0 + 1e-10)+ 1e-10
+    rgb = torch.relu(model_output[0])
+    rgb_each_point = weights*rgb
+
+
+
+    return rgb_each_point
 
 def interaction(data_pth, angle_list):
     def call_back_func(x):

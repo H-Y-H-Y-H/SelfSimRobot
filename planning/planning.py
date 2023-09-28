@@ -12,9 +12,9 @@ def spiral_trj():
     # Generate a spiral trajectory
     t = np.linspace(0, 4 * np.pi, num_points)  # t parameter for the spiral
     for i in range(num_points):
-        z = t[i] * np.cos(t[i])*0.2  # x coordinate
-        x = t[i] * np.sin(t[i])*0.2  # y coordinate
-        y = t[i]*0.1  # z coordinate
+        z = t[i] * np.cos(t[i])*0.05 +0.1 # x coordinate
+        y = t[i] * np.sin(t[i])*0.05  # y coordinate
+        x = t[i]*0.02+0.1  # z coordinate
         trajectory[i] = [x, y, z]
 
     # Create a 3D plot
@@ -28,6 +28,6 @@ def spiral_trj():
     plt.show()
     np.savetxt('trajectory/spiral.csv',trajectory)
 
-# spiral_trj()
+spiral_trj()
 
 
