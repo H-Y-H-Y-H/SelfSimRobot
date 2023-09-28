@@ -31,8 +31,7 @@ def interact_env():
 def collision_free_planning():
     TASK = 0
 
-    if TASK == 0: # circle
-
+    # if TASK == 0: # circle
 
 
     # env.add_obstacles()
