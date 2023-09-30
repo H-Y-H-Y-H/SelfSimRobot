@@ -46,24 +46,13 @@ def rot_Z(th):
 
     return matrix
 
-# def pts_trans_matrix(theta,phi,no_inverse=False):
-#     # the coordinates in pybullet, camera is along X axis, but in the pts coordinates, the camera is along z axis
-#
-#     w2c = transition_matrix("rot_z", -theta / 180. * np.pi)
-#     w2c = np.dot(transition_matrix("rot_y", -phi / 180. * np.pi), w2c)
-#     if no_inverse == False:
-#         w2c = np.linalg.inv(w2c)
-#     return w2c
+def pts_trans_matrix(theta,phi,no_inverse=False):
+    # the coordinates in pybullet, camera is along X axis, but in the pts coordinates, the camera is along z axis
 
-
-def pts_trans_matrix(theta, phi, no_inverse=False):
-    # the coordinates in pybullet, camera is along X axis,
-    # but in the pts coordinates, the camera is along z axis
-
-    w2c = transition_matrix_torch("rot_z", -theta / 180. * torch.pi)
-    w2c = transition_matrix_torch("rot_y", -phi / 180. * torch.pi) @ w2c
-    if not no_inverse:
-        w2c = torch.inverse(w2c)
+    w2c = transition_matrix("rot_z", -theta / 180. * np.pi)
+    w2c = np.dot(transition_matrix("rot_y", -phi / 180. * np.pi), w2c)
+    if no_inverse == False:
+        w2c = np.linalg.inv(w2c)
     return w2c
 
 
@@ -201,10 +190,10 @@ def sample_stratified(
     pts = rays_o[..., None, :] + rays_d[..., None, :] * x_vals[..., :, None]
     # pts = pts.view(-1,3)
 
-    # pose_matrix = pts_trans_matrix(arm_angle[0].item(),arm_angle[1].item())
-    pose_matrix = pts_trans_matrix(arm_angle[0], arm_angle[1])
+    pose_matrix = pts_trans_matrix(arm_angle[0].item(),arm_angle[1].item())
+    # pose_matrix = pts_trans_matrix(0,0)
 
-    # pose_matrix = torch.from_numpy(pose_matrix)
+    pose_matrix = torch.from_numpy(pose_matrix)
 
     pose_matrix = pose_matrix.to(pts)
     # Transpose your transformation matrix for correct matrix multiplication
@@ -317,10 +306,10 @@ def raw2outputs(
 
 
     # Compute weighted RGB map.
-    # rgb = torch.relu(raw[..., 0])  # [n_rays, n_samples, 3]
+    rgb = torch.relu(raw[..., 0])  # [n_rays, n_samples, 3]
     # rgb_each_point = weights * torch.sigmoid(raw[..., 1])
     # rgb_each_point = weights*rgb
-    rgb_each_point = alpha*raw[..., 0]
+    rgb_each_point = alpha*rgb
     # rgb_each_point = torch.sigmoid(torch.relu(weights)) * raw[..., 3]
 
     render_img = torch.sum(rgb_each_point, dim=1)
@@ -414,6 +403,68 @@ def raw2dense(
     return render_img, rgb_each_point
 
 
+def raw2dense_out1(
+        raw: torch.Tensor,
+        z_vals: torch.Tensor,
+        rays_d: torch.Tensor,
+        raw_noise_std: float = 0.0,
+        white_bkgd: bool = False
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    r"""
+    Convert the raw NeRF output into RGB and other maps.
+    """
+    # raw = raw[...,0]
+    # multiplied_ray = torch.prod(raw,dim=1)*255
+    # return multiplied_ray
+
+    # z_vals: size: 2500x64, cropped image 50x50 pixel 64 depth.
+    # dists: size 2500x63, the dists between two corresponding points.
+    # Difference between consecutive elements of `z_vals`. [n_rays, n_samples]
+    # z_vals = z_vals.to(device)
+    # dists = z_vals[..., 1:] - z_vals[..., :-1]
+    # # dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1)
+    # dists = torch.cat([dists, dists.max() * torch.ones_like(dists[..., :1])], dim=-1)
+    #
+    # # add one elements for each ray to compensate the size to 64
+    #
+    # # Multiply each distance by the norm of its corresponding direction ray
+    # # to convert to real world distance (accounts for non-unit directions).
+    # dists = dists * torch.norm(rays_d[..., None, :], dim=-1).to(device)
+    #
+    # # Add noise to model's predictions for density. Can be used to
+    # # regularize network during training (prevents floater artifacts).
+    # noise = torch.tensor(0).to(device)
+    # if raw_noise_std > 0.:
+    #     noise = torch.randn(raw[..., 0].shape) * raw_noise_std
+    #
+    # # Predict density of each sample along each ray. Higher values imply
+    # # higher likelihood of being absorbed at this point. [n_rays, n_samples]
+    # alpha = torch.tensor(1).to(device) - torch.exp(-nn.functional.relu(raw[:, :, 0] + noise) * dists)
+    # # The smaller the dists or the output(density), the closer alpha is to 1.
+    #
+    # # Compute weight for RGB of each sample along each ray. [n_rays, n_samples]
+    # # The higher the alpha, the lower subsequent weights are driven.
+    # weights = alpha * cumprod_exclusive(1. - alpha + 1e-10)
+    #
+    # # Compute weighted RGB map.
+    # rgb = torch.sigmoid(raw[..., 0])  # [n_rays, n_samples, 3]
+    # rgb_each_point = weights * torch.sigmoid(raw[..., 0])
+
+    # rgb = raw[..., :2]  # [n_rays, n_samples, 3]
+
+    # render_img = torch.sum(alpha, dim=1)
+    #
+    # return render_img, alpha
+
+    # render_img = torch.sum(rgb_each_point, dim=1)
+    # return render_img, rgb_each_point
+
+    rgb_each_point = torch.sigmoid(raw[..., 0])
+    render_img = torch.sum(rgb_each_point, dim=1)
+    render_img[render_img >= 1] = 1
+    return render_img, rgb_each_point
+    # render_img = torch.sum(raw, dim=1)
+
 
 def sample_pdf(
         bins: torch.Tensor,
@@ -496,14 +547,50 @@ def sample_hierarchical(
     return pts, z_vals_combined, new_z_samples
 
 
+"""
+Full Forward Pass
+"""
+
+
+def get_chunks(
+        inputs: torch.Tensor,
+        chunksize: int = 2 ** 15
+) -> List[torch.Tensor]:
+    r"""
+  Divide an input into chunks.
+  """
+    return [inputs[i:i + chunksize] for i in range(0, inputs.shape[0], chunksize)]
+
+
 def prepare_chunks(
         points: torch.Tensor,
+        # encoding_function: Callable[[torch.Tensor], torch.Tensor],
         chunksize: int = 2 ** 14
 ) -> List[torch.Tensor]:
-
+    r"""
+  Encode and chunkify points to prepare for NeRF model.
+  """
     points = points.reshape((-1, points.shape[-1]))
-    points = [points[i:i + chunksize] for i in range(0, points.shape[0], chunksize)]
+    # points = encoding_function(points)
+    points = get_chunks(points, chunksize=chunksize)
     return points
+
+
+def prepare_viewdirs_chunks(
+        points: torch.Tensor,
+        rays_d: torch.Tensor,
+        encoding_function: Callable[[torch.Tensor], torch.Tensor],
+        chunksize: int = 2 ** 15
+) -> List[torch.Tensor]:
+    r"""
+  Encode and chunkify viewdirs to prepare for NeRF model.
+  """
+    # Prepare the viewdirs
+    viewdirs = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
+    viewdirs = viewdirs[:, None, ...].expand(points.shape).reshape((-1, 3))
+    viewdirs = encoding_function(viewdirs)
+    viewdirs = get_chunks(viewdirs, chunksize=chunksize)
+    return viewdirs
 
 
 def model_forward(
@@ -514,13 +601,26 @@ def model_forward(
         model: nn.Module,
         arm_angle: torch.Tensor,
         DOF: int,
+        kwargs_sample_stratified: dict = None,
+        n_samples_hierarchical: int = 0,
+        kwargs_sample_hierarchical: dict = None,
         chunksize: int = 2 ** 15,
-        n_samples: int = 64
+
+        if_3dof: bool = False
 ) -> dict:
+    r"""
+    Compute forward pass through model(s).
+    """
+
+    # Set no kwargs if none are given.
+    if kwargs_sample_stratified is None:
+        kwargs_sample_stratified = {}
+    if kwargs_sample_hierarchical is None:
+        kwargs_sample_hierarchical = {}
 
     # Sample query points along each ray.
     query_points, z_vals = sample_stratified(
-        rays_o, rays_d, arm_angle, near, far, n_samples=n_samples)
+        rays_o, rays_d, arm_angle, near, far, **kwargs_sample_stratified)
     # Prepare batches.
 
     arm_angle = arm_angle / 180 * np.pi
@@ -592,56 +692,6 @@ def transition_matrix(label, value):
     else:
         return "wrong label"
 
-# def transition_matrix_torch(label, value):
-#     if label == "rot_x":
-#         return torch.tensor([
-#             [1, 0, 0, 0],
-#             [0, torch.cos(value), -torch.sin(value), 0],
-#             [0, torch.sin(value), torch.cos(value), 0],
-#             [0, 0, 0, 1]], dtype=torch.float32)
-#
-#     elif label == "rot_y":
-#         return torch.tensor([
-#             [torch.cos(value), 0, -torch.sin(value), 0],
-#             [0, 1, 0, 0],
-#             [torch.sin(value), 0, torch.cos(value), 0],
-#             [0, 0, 0, 1]], dtype=torch.float32)
-#
-#     elif label == "rot_z":
-#         return torch.tensor([
-#             [torch.cos(value), -torch.sin(value), 0, 0],
-#             [torch.sin(value), torch.cos(value), 0, 0],
-#             [0, 0, 1, 0],
-#             [0, 0, 0, 1]], dtype=torch.float32,requires_grad=True)
-#
-#     else:
-#         raise ValueError("Wrong label")
-def transition_matrix_torch(label, value):
-    # Initialize an identity matrix
-    matrix = torch.eye(4, dtype=torch.float32)
-
-    if label == "rot_x":
-        matrix[1, 1] = torch.cos(value)
-        matrix[1, 2] = -torch.sin(value)
-        matrix[2, 1] = torch.sin(value)
-        matrix[2, 2] = torch.cos(value)
-
-    elif label == "rot_y":
-        matrix[0, 0] = torch.cos(value)
-        matrix[0, 2] = -torch.sin(value)
-        matrix[2, 0] = torch.sin(value)
-        matrix[2, 2] = torch.cos(value)
-
-    elif label == "rot_z":
-        matrix[0, 0] = torch.cos(value)
-        matrix[0, 1] = -torch.sin(value)
-        matrix[1, 0] = torch.sin(value)
-        matrix[1, 1] = torch.cos(value)
-
-    else:
-        raise ValueError("Wrong label")
-
-    return matrix
 
 def plot_3d_visual(x, y, z, if_transform=True):
     if if_transform:

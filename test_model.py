@@ -2,7 +2,7 @@ import os
 import cv2
 import matplotlib.pyplot as plt
 import torch
-from train import nerf_forward, init_models
+from train import model_forward, init_models
 from func import *
 import numpy as np
 from torch import nn
@@ -16,19 +16,9 @@ def test_model( angle,model,  save_offline_data=False):
     rays_d = rays_d.reshape([-1, 3]).to(device)
 
     angle_tensor = torch.from_numpy(np.asarray(angle).astype('float32')).to(device)
-    outputs = nerf_forward(rays_o, rays_d,
+    outputs = model_forward(rays_o, rays_d,
                            near, far, model, angle_tensor, DOF,
-                           kwargs_sample_stratified=kwargs_sample_stratified,
-                           n_samples_hierarchical=n_samples_hierarchical,
-                           kwargs_sample_hierarchical=kwargs_sample_hierarchical,
                            chunksize=chunksize)
-
-    # Check for any numerical issues.
-    for k, v in outputs.items():
-        if torch.isnan(v).any():
-            print(f"! [Numerical Alert] {k} contains NaN.")
-        if torch.isinf(v).any():
-            print(f"! [Numerical Alert] {k} contains Inf.")
 
     all_points = outputs["query_points"].detach().cpu().numpy().reshape(-1, 3)
     rgb_each_point = outputs["rgb_each_point"].reshape(-1)
@@ -37,6 +27,7 @@ def test_model( angle,model,  save_offline_data=False):
     # np_image = np.clip(0, 1, np_image)
     # np_image_combine = np.dstack((np_image, np_image, np_image))
     # plt.imshow(np_image_combine)
+    # plt.show()
 
     # binary_out = torch.relu(rgb_predicted)
     rgb_each_point = rgb_each_point.where(rgb_each_point>0.,torch.tensor(0).to(device))
@@ -49,13 +40,13 @@ def test_model( angle,model,  save_offline_data=False):
     # query_rgb = rgb_each_point[query_points]
     # query_rgb = np.sum(rgb_each_point[query_points],1)
     # occupied_point_idx = np.nonzero(query_rgb)
-    empty_xyz = all_points[select_empty_idx]
+    # empty_xyz = all_points[select_empty_idx]
 
-    ax = plt.figure().add_subplot(projection='3d')
+    # ax = plt.figure().add_subplot(projection='3d')
 
-    title_name = ''
-    for i in range(len(angle)):
-        title_name+='M%d: %0.2f  '%(i, angle[i])
+    # title_name = ''
+    # for i in range(len(angle)):
+    #     title_name+='M%d: %0.2f  '%(i, angle[i])
     # plt.suptitle(title_name, fontsize=14)
 
     pose_matrix = pts_trans_matrix(angle_tensor[0].item(),angle_tensor[1].item(),no_inverse=False)
@@ -89,16 +80,13 @@ def test_model( angle,model,  save_offline_data=False):
     #     np.save(log_pth + '/pc_record/%04d.npy' % idx, occup_points)
     return query_xyz
 
-def query_based_model(query_pos, angle,model, save_offline_data=False):
+def query_one_point(query_pos, angle,model, save_offline_data=False):
     print('angle: ', angle)
     DOF = len(angle)
-    # rays_o, rays_d = get_rays(height, width, focal)
-    # rays_o = rays_o.reshape([-1, 3]).to(device)
-    # rays_d = rays_d.reshape([-1, 3]).to(device)
-    angle_tensor = angle.to(device)
 
+    angle_tensor = angle.to(device)
     pose_matrix_array = pts_trans_matrix(angle_tensor[0].item(),angle_tensor[1].item(),no_inverse=False)
-    pose_matrix_tensor = torch.tensor(pose_matrix_array).to(device)
+    pose_matrix_tensor = torch.tensor(pose_matrix_array,dtype=torch.float32).to(device)
 
     query_pos =torch.cat((query_pos, torch.ones(1).to(device)))
     query_pos = torch.matmul(pose_matrix_tensor,query_pos.T).T[:3]
@@ -107,14 +95,54 @@ def query_based_model(query_pos, angle,model, save_offline_data=False):
 
     model_output = model(model_input)
 
-    alpha_0 = 1.- torch.exp(-nn.functional.relu(model_output[1]))
-    weights = alpha_0 * (1. - alpha_0 + 1e-10)+ 1e-10
-    rgb = torch.relu(model_output[0])
-    rgb_each_point = weights*rgb
-
-
+    alpha_0 = 1.- torch.exp(-nn.functional.leaky_relu(model_output[1]))
+    # rgb = torch.relu(model_output[0])
+    rgb = model_output[0]
+    rgb_each_point = alpha_0*rgb
 
     return rgb_each_point
+
+def query_a_box( angle, model,DOF):
+
+    rays_o, rays_d = get_rays(height, width, focal)
+    rays_o = rays_o.reshape([-1, 3]).to(device)
+    rays_d = rays_d.reshape([-1, 3]).to(device)
+
+    angle_tensor = angle.to(device)
+    outputs = model_forward(rays_o, rays_d,
+                           near, far, model, angle_tensor, DOF,
+                           chunksize=chunksize)
+
+    all_points = outputs["query_points"].reshape(-1, 3)
+    rgb_each_point = outputs["rgb_each_point"].reshape(-1)
+    img_predicted = outputs['rgb_map']
+
+    pose_matrix_tensor = pts_trans_matrix(angle_tensor[0],angle_tensor[1],no_inverse=False).to(device)
+    # pose_matrix_tensor = torch.tensor(pose_matrix_array,dtype=torch.float32).to(device)
+    all_points_xyz =torch.cat((all_points, torch.ones((len(all_points),1)).to(device)),dim =1)
+    all_points_xyz = torch.tensor(all_points_xyz,dtype=torch.float32)
+    all_points_xyz = torch.matmul(pose_matrix_tensor,all_points_xyz.T).T[:,:3]
+
+    # mask = (rgb_each_point > 0.1).float()
+    mask = torch.where(rgb_each_point > 0.1, rgb_each_point, torch.zeros_like(rgb_each_point))
+
+
+    # Use the mask to compute the weighted sum and mean
+    occ_points_xyz = all_points_xyz * mask.unsqueeze(-1)  # Assuming all_points_xyz has shape (N, 3)
+    occ_point_center_xyz = occ_points_xyz.sum(dim=0) / mask.sum()
+
+    # rgb_each_point = torch.where(rgb_each_point>0.1,True, False)
+    #
+    # occ_points_xyz = all_points[rgb_each_point]
+
+
+
+    # occ_points_xyz = np.concatenate((occ_points_xyz, np.ones((len(occ_points_xyz), 1))), 1)
+    # occ_points_xyz = np.dot(pose_matrix, occ_points_xyz.T).T[:, :3]
+
+    return occ_point_center_xyz
+
+
 
 def interaction(data_pth, angle_list):
     def call_back_func(x):
