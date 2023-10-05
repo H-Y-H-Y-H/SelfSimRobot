@@ -557,7 +557,7 @@ if __name__ == "__main__":
     # start simulation:
     p.connect(p.GUI)
 
-    MODE = 3
+    MODE = 1
 
     if MODE == -1:
         path = list(np.loadtxt('planning/trajectory/fcl_169_smooth.csv'))
