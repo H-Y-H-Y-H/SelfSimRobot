@@ -8,11 +8,11 @@ import random
 
 # changed Transparency in urdf, line181, Mar31
 
-def interact_env(mode=0):
+def interact_env(mode=0,n_samples=10):
 
     c_angle = env.init_obs[0]
     debug_points = 0
-    t = np.linspace(0, 1, 10).reshape(-1, 1)
+    t = np.linspace(0, 1, n_samples).reshape(-1, 1)
 
 
     if mode == 1:
@@ -145,8 +145,6 @@ def points_in_obstacle(points,
 
     # Return the points inside the box.
     return points[mask].sum()
-
-
 
 
 def collision_free_planning(n=5):
@@ -328,7 +326,7 @@ def get_neighbors(node_value):
 #     return neighbors
 
 
-def is_collision(node_value):
+def is_collision(node_value,action_space =90):
 
     node_value_degree = (torch.tensor(node_value)* action_space).to(device)
 
@@ -363,6 +361,7 @@ def A_star_search(start, goal):
     threshold = 0.1
     open_list = []
     closed_list = set()
+    open_nodes_dict = {}
 
     start_a = torch.tensor(start, dtype=torch.float64, requires_grad=False).to(device)
     goal_a = torch.tensor(goal, dtype=torch.float64, requires_grad=False).to(device)
@@ -410,8 +409,18 @@ def A_star_search(start, goal):
             h = heuristic(neighbor, goal_ee)
             neighbor_node = Node(neighbor, current_node, g, h)
 
-            heapq.heappush(open_list, neighbor_node)
-
+            # Check if the neighbor is already in the open_list with a higher f value
+            if tuple(neighbor) in open_nodes_dict:
+                if open_nodes_dict[tuple(neighbor)].f > neighbor_node.f:
+                    # Remove the old node from the open_list
+                    open_list.remove(open_nodes_dict[tuple(neighbor)])
+                    heapq.heapify(open_list)  # Re-heapify after removal
+                    # Add the new node with the better f value
+                    heapq.heappush(open_list, neighbor_node)
+                    open_nodes_dict[tuple(neighbor)] = neighbor_node
+            else:
+                heapq.heappush(open_list, neighbor_node)
+                open_nodes_dict[tuple(neighbor)] = neighbor_node
     return None
 
 
@@ -471,6 +480,32 @@ def reconstruct_path(rrt_tree, goal):
 
 
 
+def is_collision_line(point1, point2, num_samples=10):
+    for i in np.linspace(0, 1, num_samples):
+        interpolated_point = tuple(a * (1 - i) + b * i for a, b in zip(point1, point2))
+        if is_collision(interpolated_point):
+            return True
+    print('cut')
+    return False
+
+
+def shortcut_path(path):
+    i = 0
+    while i < len(path) - 2:
+        print(i)
+        pointA = path[i]
+        skip = 2
+        while (i + skip) < len(path):
+            pointB = path[i + skip]
+            if not is_collision_line(pointA, pointB):  # Make sure you implement this function
+                del path[i+1:i+skip]
+                break
+            skip += 1
+        i += 1
+    return path
+
+
+
 
 if __name__ == "__main__":
     DOF = 4
@@ -522,9 +557,19 @@ if __name__ == "__main__":
     # start simulation:
     p.connect(p.GUI)
 
-    MODE = 2
+    MODE = 3
 
-    if MODE == 0:
+    if MODE == -1:
+        path = list(np.loadtxt('planning/trajectory/fcl_169_smooth.csv'))
+        path = shortcut_path(path)
+        print('cutted_path:',path)
+        # path = smooth_path_bspline(path)
+        print('DONE:')
+        np.savetxt('planning/trajectory/fcl_169_smooth.csv',path)
+        print(path)
+
+
+    elif MODE == 0:
         env = FBVSM_Env(
             show_moving_cam=False,
             robot_ID=robot_id,
@@ -568,7 +613,7 @@ if __name__ == "__main__":
                           [0.25, 0, -0.1],
                           p.getQuaternionFromEuler([0, 0, 0]))
 
-        cmds = np.loadtxt('planning/trajectory/fcl_169.csv')
+        cmds = np.loadtxt('planning/trajectory/fcl_169_smooth.csv')
 
         interact_env(1)
 
