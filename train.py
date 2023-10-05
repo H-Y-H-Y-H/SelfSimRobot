@@ -164,7 +164,7 @@ if __name__ == "__main__":
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
     DOF = 4  # the number of motors  # dof4 apr03
-    num_data = 166855#138537 # 166855 # 20**DOF
+    num_data = 138537 # 166855 # 20**DOF
 
     print("DOF, num_data, robot_id",DOF,num_data)
 
@@ -172,10 +172,10 @@ if __name__ == "__main__":
     pxs = 100  # collected data pixels
     # data = np.load('data/data_uniform_robo1/dof%d_data%d_px100.npz' % (DOF,num_data))
     # LOG_PATH = 'train_log/sim_%d_data_%d/' % (DOF,num_data)
-    # data = np.load('data/real_data/real_data0923_robo0_%d.npz' % (num_data))
-    data = np.load('data/real_data/real_data0920_robo1_%d(ee).npz' % num_data)
+    data = np.load('data/real_data/real_data0923_robo0_%d.npz' % (num_data))
+    # data = np.load('data/real_data/real_data0920_robo1_%d(ee).npz' % num_data)
     # LOG_PATH = "train_log/real_train_log_%ddof_%d(ee)(%d)/" % (num_data, pxs, seed_num)
-    LOG_PATH = "train_log/real_train_1_log0928_%ddof_%d(%d)/" % (num_data, pxs, seed_num)
+    LOG_PATH = "train_log/real_train_0_log0930_%ddof_%d(%d)/" % (num_data, pxs, seed_num)
 
     # print('log_path: ', LOG_PATH)
 
@@ -255,7 +255,7 @@ if __name__ == "__main__":
     # Save testing gt image for visualization
     matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', valid_img_visual)
 
-    pretrained_model_pth = 'train_log/real_train_1_log0928_%ddof_100(0)/best_model/'%num_data
+    # pretrained_model_pth = 'train_log/real_train_1_log0928_%ddof_100(0)/best_model/'%num_data
     # pretrained_model_pth = 'train_log/sim_2_data_441_0/best_model/'
 
     for _ in range(n_restarts):
@@ -265,7 +265,7 @@ if __name__ == "__main__":
                                        skip=(1, 2),
                                        output_size=2,
                                        lr=5e-4, # 5e-4
-                                       pretrained_model_pth=pretrained_model_pth
+                                       # pretrained_model_pth=pretrained_model_pth
                                        )
 
         # July 27, 2 dof, d_input=DOF + 3, 4 n_layers,

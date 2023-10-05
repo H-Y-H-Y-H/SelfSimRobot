@@ -46,14 +46,14 @@ def rot_Z(th):
 
     return matrix
 
-# def pts_trans_matrix(theta,phi,no_inverse=False):
-#     # the coordinates in pybullet, camera is along X axis, but in the pts coordinates, the camera is along z axis
-#
-#     w2c = transition_matrix("rot_z", -theta / 180. * np.pi)
-#     w2c = np.dot(transition_matrix("rot_y", -phi / 180. * np.pi), w2c)
-#     if no_inverse == False:
-#         w2c = np.linalg.inv(w2c)
-#     return w2c
+def pts_trans_matrix_numpy(theta,phi,no_inverse=False):
+    # the coordinates in pybullet, camera is along X axis, but in the pts coordinates, the camera is along z axis
+
+    w2c = transition_matrix("rot_z", -theta / 180. * np.pi)
+    w2c = np.dot(transition_matrix("rot_y", -phi / 180. * np.pi), w2c)
+    if no_inverse == False:
+        w2c = np.linalg.inv(w2c)
+    return w2c
 
 
 def pts_trans_matrix(theta, phi, no_inverse=False):
@@ -271,7 +271,6 @@ def cumprod_exclusive(
 volume rendering
 """
 
-
 def raw2outputs(
         raw: torch.Tensor,
         x_vals: torch.Tensor,
@@ -279,69 +278,83 @@ def raw2outputs(
         raw_noise_std: float = 0.0,
         white_bkgd: bool = False
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    r"""
-    Convert the raw NeRF output into RGB and other maps.
-    """
 
-    # z_vals: size: 2500x64, cropped image 50x50 pixel 64 depth.
-    # dists: size 2500x63, the dists between two corresponding points.
-    # Difference between consecutive elements of `z_vals`. [n_rays, n_samples]
-    dists = x_vals[..., 1:] - x_vals[..., :-1]
-    dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1)
-    # dists = torch.cat([dists, dists.max() * torch.ones_like(dists[..., :1])], dim=-1)
-
-    # add one elements for each ray to compensate the size to 64
-
-    # Multiply each distance by the norm of its corresponding direction ray
-    # to convert to real world distance (accounts for non-unit directions).
-    dists = dists * torch.norm(rays_d[..., None, :], dim=-1)
-
-    # Add noise to model's predictions for density. Can be used to
-    # regularize network during training (prevents floater artifacts).
-    noise = 0.
-    # if raw_noise_std > 0.:
-    #     noise = torch.randn(raw[..., 1].shape) * raw_noise_std
-
-    # Predict density of each sample along each ray. Higher values imply
-    # higher likelihood of being absorbed at this point. [n_rays, n_samples]
-    dists = dists.to(device)
-    # alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1] + noise) * dists)
-    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1] + noise) * 1)
-
-    # The larger the dists or the output(density), the closer alpha is to 1.
-
-    # Compute weight for RGB of each sample along each ray. [n_rays, n_samples]
-    # The higher the alpha, the lower subsequent weights are driven.
-    # weights = alpha * cumprod_exclusive(1. - alpha + 1e-10)
-    # weights = alpha * (1. - alpha ) + 1e-10
-
-
-    # Compute weighted RGB map.
-    # rgb = torch.relu(raw[..., 0])  # [n_rays, n_samples, 3]
-    # rgb_each_point = weights * torch.sigmoid(raw[..., 1])
-    # rgb_each_point = weights*rgb
+    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1]) * 1)
     rgb_each_point = alpha*raw[..., 0]
-    # rgb_each_point = torch.sigmoid(torch.relu(weights)) * raw[..., 3]
-
     render_img = torch.sum(rgb_each_point, dim=1)
-    # rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)  # [n_rays, 3]
 
-    # # Estimated depth map is predicted distance.
-    # weights = weights.to(z_vals)
-    # depth_map = torch.sum(weights * z_vals, dim=-1)
-    #
-    # # Disparity map is inverse depth.
-    # disp_map = 1. / torch.max(1e-10 * torch.ones_like(depth_map), depth_map / torch.sum(weights, -1))
-    #
-    # # Sum of weights along each ray. In [0, 1] up to numerical error.
-    # acc_map = torch.sum(weights, dim=-1)
-    #
-    # # To composite onto a white background, use the accumulated alpha map.
-    # if white_bkgd:
-    #     rgb_map = rgb_map + (1. - acc_map[..., None])
-
-    # return render_img, depth_map, acc_map, weights, rgb_each_point
     return render_img, rgb_each_point
+
+# def raw2outputs(
+#         raw: torch.Tensor,
+#         x_vals: torch.Tensor,
+#         rays_d: torch.Tensor,
+#         raw_noise_std: float = 0.0,
+#         white_bkgd: bool = False
+# ) -> Tuple[torch.Tensor, torch.Tensor]:
+#     r"""
+#     Convert the raw NeRF output into RGB and other maps.
+#     """
+#
+#     # z_vals: size: 2500x64, cropped image 50x50 pixel 64 depth.
+#     # dists: size 2500x63, the dists between two corresponding points.
+#     # Difference between consecutive elements of `z_vals`. [n_rays, n_samples]
+#     dists = x_vals[..., 1:] - x_vals[..., :-1]
+#     dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1)
+#     # dists = torch.cat([dists, dists.max() * torch.ones_like(dists[..., :1])], dim=-1)
+#
+#     # add one elements for each ray to compensate the size to 64
+#
+#     # Multiply each distance by the norm of its corresponding direction ray
+#     # to convert to real world distance (accounts for non-unit directions).
+#     dists = dists * torch.norm(rays_d[..., None, :], dim=-1)
+#
+#     # Add noise to model's predictions for density. Can be used to
+#     # regularize network during training (prevents floater artifacts).
+#     noise = 0.
+#     # if raw_noise_std > 0.:
+#     #     noise = torch.randn(raw[..., 1].shape) * raw_noise_std
+#
+#     # Predict density of each sample along each ray. Higher values imply
+#     # higher likelihood of being absorbed at this point. [n_rays, n_samples]
+#     dists = dists.to(device)
+#     # alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1] + noise) * dists)
+#     alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1] + noise) * 1)
+#
+#     # The larger the dists or the output(density), the closer alpha is to 1.
+#
+#     # Compute weight for RGB of each sample along each ray. [n_rays, n_samples]
+#     # The higher the alpha, the lower subsequent weights are driven.
+#     # weights = alpha * cumprod_exclusive(1. - alpha + 1e-10)
+#     # weights = alpha * (1. - alpha ) + 1e-10
+#
+#
+#     # Compute weighted RGB map.
+#     # rgb = torch.relu(raw[..., 0])  # [n_rays, n_samples, 3]
+#     # rgb_each_point = weights * torch.sigmoid(raw[..., 1])
+#     # rgb_each_point = weights*rgb
+#     rgb_each_point = alpha*raw[..., 0]
+#     # rgb_each_point = torch.sigmoid(torch.relu(weights)) * raw[..., 3]
+#
+#     render_img = torch.sum(rgb_each_point, dim=1)
+#     # rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)  # [n_rays, 3]
+#
+#     # # Estimated depth map is predicted distance.
+#     # weights = weights.to(z_vals)
+#     # depth_map = torch.sum(weights * z_vals, dim=-1)
+#     #
+#     # # Disparity map is inverse depth.
+#     # disp_map = 1. / torch.max(1e-10 * torch.ones_like(depth_map), depth_map / torch.sum(weights, -1))
+#     #
+#     # # Sum of weights along each ray. In [0, 1] up to numerical error.
+#     # acc_map = torch.sum(weights, dim=-1)
+#     #
+#     # # To composite onto a white background, use the accumulated alpha map.
+#     # if white_bkgd:
+#     #     rgb_map = rgb_map + (1. - acc_map[..., None])
+#
+#     # return render_img, depth_map, acc_map, weights, rgb_each_point
+#     return render_img, rgb_each_point
 
 
 def raw2dense(

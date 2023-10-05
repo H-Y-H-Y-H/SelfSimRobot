@@ -43,7 +43,7 @@ class FBVSM_Env(gym.Env):
         self.nf = 0.4 # near and far
         self.full_matrix_inv = 0
         self.PASS_OBS = False
-        self.init_angle = init_angle
+        self.init_angle = np.asarray(init_angle)*np.pi/2
         self.dark_background = dark_background
 
         # cube_size = 0.2
@@ -99,8 +99,8 @@ class FBVSM_Env(gym.Env):
         joint_list = np.array(joint_list) / np.pi * 180
         joint_list /= self.action_space
 
-        obs_data = [np.array(joint_list), img]
-        return obs_data
+        currnet_obs = [np.array(joint_list), img]
+        return currnet_obs
 
     def act(self, action_norm, time_out_step_num=20):
         action_degree = action_norm * self.action_space
@@ -198,8 +198,8 @@ class FBVSM_Env(gym.Env):
 
         return reached
 
-    def add_obstacles(self, obj_urdf_path,position):
-        self.obstacle_id = p.loadURDF(obj_urdf_path, position)
+    def add_obstacles(self, obj_urdf_path,position,orientation):
+        self.obstacle_id = p.loadURDF(obj_urdf_path, position,orientation,useFixedBase=1)
 
     def reset(self):
         p.resetSimulation()
@@ -315,7 +315,9 @@ class FBVSM_Env(gym.Env):
         # visualize sphere
         self.colSphereId_1 = p.createCollisionShape(p.GEOM_SPHERE, radius=0.01)
 
-        return self.get_obs()
+        self.init_obs = self.get_obs()
+
+        return self.init_obs
 
     def step(self, a):
 
