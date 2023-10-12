@@ -164,18 +164,23 @@ if __name__ == "__main__":
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
     DOF = 4  # the number of motors  # dof4 apr03
-    num_data = 138537 # 166855 # 20**DOF
+    # num_data = 138537 # 166855 # 20**DOF
 
-    print("DOF, num_data, robot_id",DOF,num_data)
 
-    tr = 0.95  # training ratio
+    tr = 0.8  # training ratio
     pxs = 100  # collected data pixels
     # data = np.load('data/data_uniform_robo1/dof%d_data%d_px100.npz' % (DOF,num_data))
     # LOG_PATH = 'train_log/sim_%d_data_%d/' % (DOF,num_data)
-    data = np.load('data/real_data/real_data0923_robo0_%d.npz' % (num_data))
+    # data = np.load('data/real_data/real_data0923_robo0_%d.npz' % (num_data))
+    robotid = 0
+
+    data = np.load('data/data_uniform_robo%d/1009(1)_con_dof4_data.npz'%robotid)
+    num_data = len(data["angles"])
+    print("DOF, num_data, robot_id",DOF,num_data)
+
     # data = np.load('data/real_data/real_data0920_robo1_%d(ee).npz' % num_data)
     # LOG_PATH = "train_log/real_train_log_%ddof_%d(ee)(%d)/" % (num_data, pxs, seed_num)
-    LOG_PATH = "train_log/real_train_0_log0930_%ddof_%d(%d)/" % (num_data, pxs, seed_num)
+    LOG_PATH = "train_log/sim_train_id%d_log1010_%ddof_%d(%d)/" % (robotid,num_data, pxs, seed_num)
 
     # print('log_path: ', LOG_PATH)
 

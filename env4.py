@@ -102,7 +102,7 @@ class FBVSM_Env(gym.Env):
         currnet_obs = [np.array(joint_list), img]
         return currnet_obs
 
-    def act(self, action_norm, time_out_step_num=20):
+    def act(self, action_norm, time_out_step_num=30):
         action_degree = action_norm * self.action_space
         action_rad = action_degree / 180 * np.pi
 
@@ -235,9 +235,10 @@ class FBVSM_Env(gym.Env):
         startOrientation = p.getQuaternionFromEuler([0, 0, -np.pi/2])
         if self.robot_ID == 0:
             robo_urdf_path =  'DOF4ARM0/urdf/DOF4ARM0.urdf'
-        if self.robot_ID == 1:
+        elif self.robot_ID == 1:
             robo_urdf_path = '4dof_2nd/urdf/4dof_2nd.urdf'
-
+        else:
+            robo_urdf_path = '4dof_3nd/urdf/4dof_3nd.urdf'
         self.robot_id = p.loadURDF(
             robo_urdf_path,
             startPos,
@@ -414,11 +415,10 @@ def self_collision_check1(sample_size: int, Env, num_dof: int) -> np.array:
 
     return np.array(action_list)
 
-def self_collision_check_prerecord(sample_size: int, Env, num_dof: int) -> np.array:
+def self_collision_check_prerecord(all_combinations, sample_size: int, Env, num_dof: int) -> np.array:
     # line_array = np.linspace(-1.0, 1.0, num=sample_size + 1)
     # # Generate combinations for the given number of DOFs
     # all_combinations = product(line_array, repeat=num_dof)
-    all_combinations = np.loadtxt('data/action/new_a_robo1.csv')
 
     count = 0
     work_space = []
@@ -458,9 +458,9 @@ def self_collision_check_prerecord(sample_size: int, Env, num_dof: int) -> np.ar
 
 
 if __name__ == '__main__':
-    RENDER = True
+    RENDER = False
     NUM_MOTOR = 4
-    robot_ID = 1
+    robot_ID = 2
     TASK = 0
 
     p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
@@ -532,9 +532,12 @@ if __name__ == '__main__':
 
 
         # get workspace: np.array (nx4)
+        all_combinations = np.loadtxt('data/action/cleaned_1009_con_action_robo%d_dof4_size20.csv'%robot_ID)
+
         WorkSpace = self_collision_check_prerecord(
+            all_combinations=all_combinations,
             sample_size=sample_size,
             Env=env,
             num_dof = NUM_MOTOR)
         print(WorkSpace.shape)
-        np.savetxt("data/action/cleaned_con_action_robo%d_dof%d_size%d.csv"%(robot_ID,NUM_MOTOR,sample_size), WorkSpace)
+        np.savetxt("data/action/cleaned_1009(1)_con_action_robo%d_dof%d_size%d.csv"%(robot_ID,NUM_MOTOR,sample_size), WorkSpace)

@@ -126,7 +126,7 @@ def uniform_data(uniform_samples=10):
     return log_angle_list
 
 
-def collect_data(my_env, path, action_lists):
+def collect_data(my_env, save_path, action_lists):
     my_env.reset()
     clean_action_list, image_record, pose_record, angle_record = [], [], [], []
 
@@ -147,7 +147,7 @@ def collect_data(my_env, path, action_lists):
         angle_record.append(angles)
         clean_action_list.append(action_l)
 
-    np.savez(path + '0920con_dof%d_data%d_px%d.npz' % ( NUM_MOTOR, len(clean_action_list), WIDTH),
+    np.savez(save_path ,
              images=np.array(image_record),
              poses=np.array(pose_record),
              angles=np.array(angle_record),
@@ -227,7 +227,7 @@ if __name__ == "__main__":
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 1.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
     NUM_MOTOR = 4  # the number of motors
-    robot_ID = 1
+    robot_ID = 2
     sample_size = 20
 
 
@@ -254,15 +254,15 @@ if __name__ == "__main__":
     log_pth = "data/data_uniform_robo%d/"%robot_ID
     os.makedirs(log_pth, exist_ok=True)
 
-    # action_lists = np.loadtxt('data/action/cleaned_con_action_robo1_dof4_size20.csv')
-    action_lists = np.load('data/real_data/real_data_robo1_166460.npz')
+    action_lists = np.loadtxt('data/action/cleaned_1009(1)_con_action_robo%d_dof4_size20.csv'%robot_ID)
+    # action_lists = np.load('data/real_data/real_data_robo1_166460.npz')
 
-    action_lists = action_lists['angles']/90
+    # action_lists = action_lists['angles']/90
 
     print(action_lists.shape)
-
+    log_pth += '1009(1)_con_dof%d_data.npz' % (NUM_MOTOR)
     collect_data(my_env=MyEnv,
-                 path=log_pth,
+                 save_path=log_pth,
                  action_lists=action_lists)
 
     """visual test"""

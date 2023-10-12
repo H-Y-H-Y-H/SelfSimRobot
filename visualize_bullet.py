@@ -509,7 +509,7 @@ def shortcut_path(path):
 
 if __name__ == "__main__":
     DOF = 4
-    robot_id = 1
+    robot_id = 0
     EndeffectorOnly = False
     seed = 0
     action_space = 90
@@ -527,6 +527,7 @@ if __name__ == "__main__":
     test_name = 'real_train_1_log0928_%ddof_%d(%d)/' % (data_point, 100, seed)
     test_model_pth = 'train_log/%s/best_model/' % test_name
 
+    test_model_pth = 'train_log/final_model/sim_train_id0/best_model/'
     # DOF + 3 -> xyz and angle2 or 3 -> xyz
     model, optimizer = init_models(d_input=(DOF - 2) + 3,
                                    n_layers=4,
@@ -546,18 +547,19 @@ if __name__ == "__main__":
     for param in model.parameters():
         param.requires_grad = False
 
-    model_ee.load_state_dict(torch.load(test_model_ee_pth + "best_model.pt", map_location=torch.device(device)))
-    model_ee = model_ee.to(torch.float64)
-    model_ee.eval()
-    for param in model_ee.parameters():
-        param.requires_grad = False
+    if EndeffectorOnly:
+        model_ee.load_state_dict(torch.load(test_model_ee_pth + "best_model.pt", map_location=torch.device(device)))
+        model_ee = model_ee.to(torch.float64)
+        model_ee.eval()
+        for param in model_ee.parameters():
+            param.requires_grad = False
 
 
 
     # start simulation:
     p.connect(p.GUI)
 
-    MODE = 1
+    MODE = 0
 
     if MODE == -1:
         path = list(np.loadtxt('planning/trajectory/fcl_169_smooth.csv'))
@@ -581,7 +583,7 @@ if __name__ == "__main__":
             init_angle=[0, 1, -1, -1])
 
         cmds = np.loadtxt('planning/trajectory/fcl_169.csv')
-        interact_env(1)
+        interact_env(0)
 
     elif MODE == 1:
         env = FBVSM_Env(
