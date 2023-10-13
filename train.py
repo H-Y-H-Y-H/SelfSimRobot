@@ -3,7 +3,7 @@ import random
 from model import FBV_SM, PositionalEncoder
 from func import *
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 print("train,", device)
 
 
@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
     seed_num = 1
     Flag_save_image_during_training = False
-    robotid = 0
+    robotid = 2
 
 
     np.random.seed(seed_num)
@@ -179,7 +179,7 @@ if __name__ == "__main__":
     nf_size = 0.4
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
 
-    FLAG_PositionalEncoder= False
+    FLAG_PositionalEncoder= True
     if FLAG_PositionalEncoder:
         add_name = 'PE'
     else:
