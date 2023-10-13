@@ -45,59 +45,152 @@ class PositionalEncoder(nn.Module):
         return torch.concat([fn(x) for fn in self.embed_fns], dim=-1)
 
 
-class FBV_SM(nn.Module):
-    def __init__(
-            self,
-            d_input: int = 5,
-            n_layers: int = 8,
-            d_filter: int = 256,
-            skip: Tuple[int] = (4, ),  # 4 mar 29
-            output_size: int = 2
-    ):
-        super().__init__()
+class FBV_SM_T(nn.Module):
+    def __init__(self,
+                 encoder=None,
+                 d_input: int = 5,
+                 n_layers: int = 4,
+                 d_filter: int = 128,
+                 skip: Tuple[int] = (1, 2),
+                 output_size: int = 2):
+        super(FBV_SM_T, self).__init__()
+
         self.d_input = d_input
         self.skip = skip
         self.act = nn.functional.relu
+        self.encoder = encoder
 
-        # Create model layers
-        self.layers = nn.ModuleList(
-            [nn.Linear(self.d_input, d_filter)] +
-            [nn.Linear(d_filter + self.d_input, d_filter) if i in skip else nn.Linear(d_filter, d_filter) for i in range(n_layers - 1)]
-        )
-
+        # Initialize layers
+        self.layers = self._build_layers(d_input, d_filter, n_layers)
         self.output = nn.Linear(d_filter, output_size)
 
-    def forward(
-            self,
-            x: torch.Tensor
-    ) -> torch.Tensor:
-        x_input = x
-        for i, layer in enumerate(self.layers):
+    def _build_layers(self, d_input, d_filter, n_layers):
+        """Helper function to build model layers."""
+        layers = [nn.Linear(d_input, d_filter)]
 
+        for i in range(n_layers-1):
+            input_dim = d_filter + d_input if i in self.skip else d_filter
+            layers.append(nn.Linear(input_dim, d_filter))
+
+        return nn.ModuleList(layers)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.encoder !=None:
+            x = self.encoder(x)
+        x_input = x
+
+        for i, layer in enumerate(self.layers):
             x = self.act(layer(x))
             if i in self.skip:
                 x = torch.cat([x, x_input], dim=-1)
 
-        x = self.output(x)
+        return self.output(x)
 
-        return x
+class FBV_SM(nn.Module):
+    def __init__(self,
+                 encoder=None,
+                 d_input: int = 5,
+                 d_filter: int = 128,
+                 skip: Tuple[int] = (1, 2),
+                 output_size: int = 2):
+        super(FBV_SM, self).__init__()
+
+        self.d_input = d_input
+        self.skip = skip
+        self.act = nn.functional.relu
+        self.encoder = encoder
+
+        # Initialize layers
+        self.pos_encoder = nn.Sequential(
+            nn.Linear(3, d_filter),
+            nn.ReLU(),
+            nn.Linear(d_filter,d_filter),
+        )
+
+        self.cmd_encoder = nn.Sequential(
+            nn.Linear(d_input-3, d_filter),
+            nn.ReLU(),
+            nn.Linear(d_filter,d_filter),
+        )
+        self.feed_forward = nn.Sequential(
+            nn.Linear(d_filter*2, d_filter),
+            nn.ReLU(),
+            nn.Linear(d_filter,d_filter//4)
+        )
+
+        self.output = nn.Linear(d_filter//4, output_size)
+
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.encoder !=None:
+            x = self.encoder(x)
+        # x_input = x
+
+        x_pos = self.pos_encoder(x[:,:3])
+        x_cmd = self.cmd_encoder(x[:,3:])
+        x = self.feed_forward(torch.cat((x_pos,x_cmd),dim=1))
+
+        return self.output(x)
+
+
+
+
+class FBV_SM_old(nn.Module):
+    def __init__(self,
+                 encoder=None,
+                 d_input: int = 5,
+                 n_layers: int = 4,
+                 d_filter: int = 128,
+                 skip: Tuple[int] = (1, 2),
+                 output_size: int = 2):
+        super(FBV_SM_old, self).__init__()
+
+        self.d_input = d_input
+        self.skip = skip
+        self.act = nn.functional.relu
+        self.encoder = encoder
+
+        # Initialize layers
+        self.layers = self._build_layers(d_input, d_filter, n_layers)
+        self.output = nn.Linear(d_filter, output_size)
+
+    def _build_layers(self, d_input, d_filter, n_layers):
+        """Helper function to build model layers."""
+        layers = [nn.Linear(d_input, d_filter)]
+
+        for i in range( n_layers-1):
+            input_dim = d_filter + d_input if i in self.skip else d_filter
+            layers.append(nn.Linear(input_dim, d_filter))
+
+        return nn.ModuleList(layers)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.encoder !=None:
+            x = self.encoder(x)
+        x_input = x
+
+        for i, layer in enumerate(self.layers):
+            x = self.act(layer(x))
+            if i in self.skip:
+                x = torch.cat([x, x_input], dim=-1)
+
+        return self.output(x)
 
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
 
-    d_input = 3
+    d_input = 5
     n_freqs = 10
     log_space = True
 
-    n_layers = 2
-    d_filter = 128
-    d_viewdirs = None
 
     encoder = PositionalEncoder(d_input, n_freqs, log_space=log_space)
-
-    model = FBV_SM(encoder.d_output, n_layers=n_layers, d_filter=d_filter)
+    print(encoder.d_output)
+    model = FBV_SM(encoder.d_output)
     model.to(device)
+    pytorch_total_params = sum(p.numel() for p in model.parameters())
+    print(pytorch_total_params)
 
 

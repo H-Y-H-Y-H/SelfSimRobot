@@ -548,7 +548,6 @@ def model_forward(
     for batch in batches:
         batch = batch.to(device)
         predictions.append(model(batch))
-
     raw = torch.cat(predictions, dim=0)
     raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 

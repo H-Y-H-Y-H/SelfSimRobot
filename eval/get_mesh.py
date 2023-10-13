@@ -1,24 +1,36 @@
 import numpy as np
-from skimage.measure import marching_cubes
-from stl import mesh
+import matplotlib.pyplot as plt
 
-# Sample 3D array
-array = np.zeros((50, 50, 50))
-array[20:30, 20:30, 20:30] = 1  # A filled cube within the larger cube
+mesh_file = 'sim_robo_1/points/pts1.csv'
+points = np.loadtxt(mesh_file)
 
-# Convert to mesh using marching cubes
-vertices, faces, _, _ = marching_cubes(array, level=0.5)
 
-# Export to .obj
-with open('output.obj', 'w') as f:
-    for v in vertices:
-        f.write(f"v {v[0]} {v[1]} {v[2]}\n")
-    for face in faces:
-        f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
+# Extract the x, y, and z coordinates from the list of points
+x_coords = [point[0] for point in points]
+y_coords = [point[1] for point in points]
+z_coords = [point[2] for point in points]
 
-# Export to .stl
-my_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
-for i, face in enumerate(faces):
-    for j in range(3):
-        my_mesh.vectors[i][j] = vertices[face[j]]
-my_mesh.save('output.stl')
+# Create a new figure
+fig = plt.figure()
+
+# Add 3D subplot
+ax = fig.add_subplot(111, projection='3d')
+
+# Scatter plot
+ax.scatter(x_coords, y_coords, z_coords, c='r', marker='o',s=10)
+
+# Set axis labels
+ax.set_xlabel('X Label')
+ax.set_ylabel('Y Label')
+ax.set_zlabel('Z Label')
+# Determine the global min and max across all dimensions
+global_min = min(min(x_coords), min(y_coords), min(z_coords))
+global_max = max(max(x_coords), max(y_coords), max(z_coords))
+
+# Set the limits for each axis to ensure uniform intervals
+ax.set_xlim([global_min, global_max])
+ax.set_ylim([global_min, global_max])
+ax.set_zlim([global_min, global_max])
+
+# Show the plot
+plt.show()

@@ -19,13 +19,24 @@ def crop_center(
     return img[h_offset:-h_offset, w_offset:-w_offset]
 
 
-def init_models(d_input, n_layers, d_filter, skip, pretrained_model_pth=None, lr=5e-4, output_size=2):
-    # Models
-    model = FBV_SM(d_input=d_input,
-                   n_layers=n_layers,
-                   d_filter=d_filter,
-                   skip=skip,
-                   output_size=output_size)
+def init_models(d_input, n_layers, d_filter, skip, pretrained_model_pth=None, lr=5e-4, output_size=2,FLAG_PositionalEncoder = False):
+
+    if FLAG_PositionalEncoder:
+        encoder = PositionalEncoder(d_input, n_freqs=10, log_space=True)
+        d_input = encoder.d_output
+        model = FBV_SM(encoder = encoder,
+                       d_input=d_input,
+                       # n_layers=n_layers,
+                       d_filter=d_filter,
+                       skip=skip,
+                       output_size=output_size)
+    else:
+        # Models
+        model = FBV_SM(d_input=d_input,
+                       # n_layers=n_layers,
+                       d_filter=d_filter,
+                       skip=skip,
+                       output_size=output_size)
     model.to(device)
     # Pretrained Model
     if pretrained_model_pth != None:
@@ -34,7 +45,6 @@ def init_models(d_input, n_layers, d_filter, skip, pretrained_model_pth=None, lr
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     return model, optimizer
-
 
 
 
@@ -108,7 +118,6 @@ def train(model, optimizer):
                 valid_epoch_loss.append(v_loss.item())
                 valid_psnr.append(val_psnr)
                 np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
-                np_image = np.clip(0, 1, np_image)
                 if v_i < max_pic_save:
                     valid_image.append(np_image)
             loss_valid = np.mean(valid_epoch_loss)
@@ -155,6 +164,7 @@ if __name__ == "__main__":
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
+    select_data_amount = 10000
 
     """
     prepare data and parameters
@@ -164,50 +174,48 @@ if __name__ == "__main__":
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = False
     DOF = 4  # the number of motors  # dof4 apr03
-    # num_data = 138537 # 166855 # 20**DOF
-
+    FLAG_PositionalEncoder= False
+    if FLAG_PositionalEncoder:
+        add_name = 'PE'
+    else:
+        add_name = 'no_PE'
 
     tr = 0.8  # training ratio
     pxs = 100  # collected data pixels
-    # data = np.load('data/data_uniform_robo1/dof%d_data%d_px100.npz' % (DOF,num_data))
-    # LOG_PATH = 'train_log/sim_%d_data_%d/' % (DOF,num_data)
-    # data = np.load('data/real_data/real_data0923_robo0_%d.npz' % (num_data))
     robotid = 0
 
     data = np.load('data/data_uniform_robo%d/1009(1)_con_dof4_data.npz'%robotid)
-    num_data = len(data["angles"])
-    print("DOF, num_data, robot_id",DOF,num_data)
+    num_raw_data = len(data["angles"])
 
-    # data = np.load('data/real_data/real_data0920_robo1_%d(ee).npz' % num_data)
-    # LOG_PATH = "train_log/real_train_log_%ddof_%d(ee)(%d)/" % (num_data, pxs, seed_num)
-    LOG_PATH = "train_log/sim_train_id%d_log1010_%ddof_%d(%d)/" % (robotid,num_data, pxs, seed_num)
-
-    # print('log_path: ', LOG_PATH)
-
+    print("DOF, num_data, robot_id, PE",DOF,select_data_amount,robotid,FLAG_PositionalEncoder)
+    LOG_PATH = "train_log/sim_id%d_%d(%d)_%s/" % (robotid,select_data_amount, seed_num,add_name)
     print("Data Loaded!")
 
-    sample_id = random.sample(range(num_data), num_data)
+    sample_id = random.sample(range(num_raw_data), select_data_amount)
 
-    valid_amount = int(num_data * (1 - tr))
     max_pic_save = 10
-    valid_img_visual = []
-    for vimg in range(max_pic_save):
-        print(vimg)
-        vaild_img = np.copy(data['images'][sample_id[int(num_data * tr) + vimg]])
-        valid_img_visual.append(vaild_img)
-    valid_img_visual = np.hstack(valid_img_visual)
+    start_idx = int(select_data_amount * tr)
+    end_idx = start_idx + max_pic_save
+
+    # Select the required images and stack them horizontally
+    valid_img_visual = np.hstack(data['images'][sample_id[start_idx:end_idx]])
+
+    # Repeat the stacked image three times along the depth
     valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
+
     print("Valid Data Loaded!")
 
     # Gather as torch tensors
     focal = torch.from_numpy(data['focal'].astype('float32'))
 
-    training_img = torch.from_numpy(data['images'][sample_id[:int(num_data * tr)]].astype('float32'))
-    training_angles = torch.from_numpy(data['angles'][sample_id[:int(num_data * tr)]].astype('float32'))
+    training_img = torch.from_numpy(data['images'][sample_id[:int(select_data_amount * tr)]].astype('float32'))
+    training_angles = torch.from_numpy(data['angles'][sample_id[:int(select_data_amount * tr)]].astype('float32'))
 
-    testing_img = torch.from_numpy(data['images'][sample_id[int(num_data * tr):]].astype('float32'))
-    testing_angles = torch.from_numpy(data['angles'][sample_id[int(num_data * tr):]].astype('float32'))
-
+    testing_img = torch.from_numpy(data['images'][sample_id[int(select_data_amount * tr):]].astype('float32'))
+    testing_angles = torch.from_numpy(data['angles'][sample_id[int(select_data_amount * tr):]].astype('float32'))
+    train_amount = len(training_angles)
+    valid_amount = len(testing_angles)
+    print(valid_amount)
 
     # Grab rays from sample image
     height, width = training_img.shape[1:3]
@@ -231,7 +239,7 @@ if __name__ == "__main__":
     one_image_per_step = True  # One image per gradient step (disables batching)
     chunksize = 2 ** 20  # Modify as needed to fit in GPU memory
     center_crop = True  # Crop the center of image (one_image_per_)   # debug
-    center_crop_iters = 200  # Stop cropping center after this many epochs
+    center_crop_iters = 10000  # Stop cropping center after this many epochs
     display_rate = 1000  # Display test output every X epochs
 
     # Early Stopping
@@ -249,7 +257,6 @@ if __name__ == "__main__":
         'perturb': perturb
     }
 
-
     os.makedirs(LOG_PATH + "image/", exist_ok=True)
     os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
 
@@ -264,19 +271,16 @@ if __name__ == "__main__":
     # pretrained_model_pth = 'train_log/sim_2_data_441_0/best_model/'
 
     for _ in range(n_restarts):
-        model, optimizer = init_models(d_input=(DOF-2) + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
+
+        model, optimizer = init_models(d_input=(DOF - 2) + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
                                        n_layers=4,
                                        d_filter=128,
                                        skip=(1, 2),
                                        output_size=2,
-                                       lr=5e-4, # 5e-4
+                                       lr=5e-4,  # 5e-4
                                        # pretrained_model_pth=pretrained_model_pth
+                                       FLAG_PositionalEncoder = FLAG_PositionalEncoder
                                        )
-
-        # July 27, 2 dof, d_input=DOF + 3, 4 n_layers,
-        #                  d_filter=128,
-        #                  skip=(0,1,2),
-        #                  output_size=1,
 
 
         success = train(model, optimizer)
