@@ -48,7 +48,7 @@ height, width = testing_img.shape[1:3]
 rays_o, rays_d = get_rays(height, width, focal)
 
 model = FBV_SM(d_input=5,
-               n_layers=4,
+               # n_layers=4,
                d_filter=128,
                skip=(1,2),
                output_size=2)

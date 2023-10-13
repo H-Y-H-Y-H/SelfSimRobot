@@ -23,7 +23,7 @@ def init_models(d_input, n_layers, d_filter, skip, pretrained_model_pth=None, lr
 
     if FLAG_PositionalEncoder:
         encoder = PositionalEncoder(d_input, n_freqs=10, log_space=True)
-        d_input = encoder.d_output
+
         model = FBV_SM(encoder = encoder,
                        d_input=d_input,
                        # n_layers=n_layers,
@@ -161,6 +161,10 @@ def train(model, optimizer):
 if __name__ == "__main__":
 
     seed_num = 1
+    Flag_save_image_during_training = False
+    robotid = 0
+
+
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
@@ -169,11 +173,12 @@ if __name__ == "__main__":
     """
     prepare data and parameters
     """
+    DOF = 4  # the number of motors  # dof4 apr03
+
     cam_dist = 1
     nf_size = 0.4
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
-    Flag_save_image_during_training = False
-    DOF = 4  # the number of motors  # dof4 apr03
+
     FLAG_PositionalEncoder= False
     if FLAG_PositionalEncoder:
         add_name = 'PE'
@@ -182,7 +187,6 @@ if __name__ == "__main__":
 
     tr = 0.8  # training ratio
     pxs = 100  # collected data pixels
-    robotid = 0
 
     data = np.load('data/data_uniform_robo%d/1009(1)_con_dof4_data.npz'%robotid)
     num_raw_data = len(data["angles"])
@@ -239,7 +243,7 @@ if __name__ == "__main__":
     one_image_per_step = True  # One image per gradient step (disables batching)
     chunksize = 2 ** 20  # Modify as needed to fit in GPU memory
     center_crop = True  # Crop the center of image (one_image_per_)   # debug
-    center_crop_iters = 10000  # Stop cropping center after this many epochs
+    center_crop_iters = 200  # Stop cropping center after this many epochs
     display_rate = 1000  # Display test output every X epochs
 
     # Early Stopping
