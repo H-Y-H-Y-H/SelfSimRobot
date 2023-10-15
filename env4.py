@@ -45,6 +45,8 @@ class FBVSM_Env(gym.Env):
         self.PASS_OBS = False
         self.init_angle = np.asarray(init_angle)*np.pi/2
         self.dark_background = dark_background
+        self.rotation_view = False
+        self.start_time = time.time()
 
         # cube_size = 0.2
         # self.pos_sphere = np.asarray([
@@ -107,6 +109,13 @@ class FBVSM_Env(gym.Env):
         action_rad = action_degree / 180 * np.pi
 
         reached = True
+
+
+        if self.rotation_view:
+            elapsed_time = time.time() - self.start_time
+            camera_yaw = 5 * elapsed_time
+            p.resetDebugVisualizerCamera(cameraDistance=0.6, cameraPitch=-30, cameraYaw=camera_yaw,
+                                     cameraTargetPosition=[0, 0, 0])
 
         if not self.show_moving_cam:
             for moving_times in range(time_out_step_num):
@@ -177,29 +186,29 @@ class FBVSM_Env(gym.Env):
                 cameraEyePosition=self.camera_pos,
                 cameraTargetPosition=[0, 0, 0],
                 cameraUpVector=camera_up_vector)
-            p.removeUserDebugItem(self.camera_line)
-            self.camera_line = p.addUserDebugLine(self.camera_pos, [0, 0, 0], [1, 0, 0])
+            # p.removeUserDebugItem(self.camera_line)
+            # self.camera_line = p.addUserDebugLine(self.camera_pos, [0, 0, 0], [1, 0, 0])
 
         # ONLY for visualization
-        if self.render_flag:
-            p.removeUserDebugItem(self.camera_line_inverse)
-            self.camera_line_inverse = p.addUserDebugLine(self.camera_pos_inverse, [0, 0, 0], [1, 1, 1])
-
-            for i in range(8):
-                p.removeUserDebugItem(self.move_frame_edges_back[i])
-                if i in [0, 1, 2, 3]:
-                    p.removeUserDebugItem(self.move_frame_edges_front[i])
-                    self.move_frame_edges_front[i] = p.addUserDebugLine(move_frame_front[i],
-                                                                  move_frame_front[(i + 1) % 4], [1, 1, 1])
-                    self.move_frame_edges_back[i] = p.addUserDebugLine(move_frame_back[i], move_frame_back[(i + 1) % 4], [1, 1, 1])
-
-                else:
-                    self.move_frame_edges_back[i] = p.addUserDebugLine(move_frame_back[4], move_frame_back[i - 4], [1, 1, 1])
+        # if self.render_flag:
+        #     p.removeUserDebugItem(self.camera_line_inverse)
+        #     self.camera_line_inverse = p.addUserDebugLine(self.camera_pos_inverse, [0, 0, 0], [1, 1, 1])
+        #
+        #     for i in range(8):
+        #         p.removeUserDebugItem(self.move_frame_edges_back[i])
+        #         if i in [0, 1, 2, 3]:
+        #             p.removeUserDebugItem(self.move_frame_edges_front[i])
+        #             self.move_frame_edges_front[i] = p.addUserDebugLine(move_frame_front[i],
+        #                                                           move_frame_front[(i + 1) % 4], [1, 1, 1])
+        #             self.move_frame_edges_back[i] = p.addUserDebugLine(move_frame_back[i], move_frame_back[(i + 1) % 4], [1, 1, 1])
+        #
+        #         else:
+        #             self.move_frame_edges_back[i] = p.addUserDebugLine(move_frame_back[4], move_frame_back[i - 4], [1, 1, 1])
 
         return reached
 
     def add_obstacles(self, obj_urdf_path,position,orientation):
-        self.obstacle_id = p.loadURDF(obj_urdf_path, position,orientation,useFixedBase=1)
+        self.obstacle_id = p.loadURDF(obj_urdf_path, position, orientation, useFixedBase=1)
 
     def reset(self):
         p.resetSimulation()
@@ -207,18 +216,20 @@ class FBVSM_Env(gym.Env):
         p.setAdditionalSearchPath(pd.getDataPath())
 
         if self.dark_background:
-            p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
-
+            # p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+            textureId = p.loadTexture("white_ground.jpg")
+            self.groundId = p.loadURDF("plane.urdf",[0, 0, -0.105])
+            p.changeVisualShape(self.groundId, -1, textureUniqueId=textureId)
             # Set the background color to gray (values between 0 and 1)
-            p.configureDebugVisualizer(p.COV_ENABLE_TINY_RENDERER, 0)
-            p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
+            # p.configureDebugVisualizer(p.COV_ENABLE_TINY_RENDERER, 0)
+            # p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
 
             # Set the background color to gray
-            gl_background_color = [0.5, 0.5, 0.5, 1]  # RGBA values between 0 and 1
-            p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 1)
-            p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 1)
-            p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 1)
-            p.changeVisualShape(-1, -1, rgbaColor=gl_background_color)
+            # gl_background_color = [0.5, 0.5, 0.5, 1]  # RGBA values between 0 and 1
+            # p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 1)
+            # p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 1)
+            # p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 1)
+            # p.changeVisualShape(-1, -1, rgbaColor=gl_background_color)
 
         else:
 
@@ -292,26 +303,27 @@ class FBVSM_Env(gym.Env):
         self.fixed_frame_edges_front=[]
         self.move_frame_edges_back = []
         self.move_frame_edges_front=[]
-        # box
-        for eid in range(4):
 
-            self.move_frame_edges_front.append(
-                p.addUserDebugLine(self.front_view_square[eid], self.front_view_square[(eid + 1) % 4], [1, 1, 1]))
-            self.move_frame_edges_back.append(
-                p.addUserDebugLine(self.back_view_square[eid], self.back_view_square[(eid + 1) % 4], [1, 1, 1]))
-
-            self.fixed_frame_edges_front.append(
-                p.addUserDebugLine(self.front_view_square[eid], self.front_view_square[(eid + 1) % 4], [0, 0, 1]))
-            self.fixed_frame_edges_back.append(
-                p.addUserDebugLine(self.back_view_square[eid], self.back_view_square[(eid + 1) % 4], [0, 0, 1]))
-
-        # camera to edges
-        for eid in range(4):
-            self.move_frame_edges_back.append(p.addUserDebugLine(self.camera_pos, self.back_view_square[eid], [1, 1, 0]))
-            self.fixed_frame_edges_back.append(p.addUserDebugLine(self.camera_pos, self.back_view_square[eid], [0, 0, 1]))
-
-        # inverse camera line for updating
-        self.camera_line_inverse = p.addUserDebugLine(self.camera_pos, [0, 0, 0], [0.0, 0.0, 1.0])
+        # # box
+        # for eid in range(4):
+        #
+        #     # self.move_frame_edges_front.append(
+        #     #     p.addUserDebugLine(self.front_view_square[eid], self.front_view_square[(eid + 1) % 4], [1, 1, 1]))
+        #     # self.move_frame_edges_back.append(
+        #     #     p.addUserDebugLine(self.back_view_square[eid], self.back_view_square[(eid + 1) % 4], [1, 1, 1]))
+        #
+        #     self.fixed_frame_edges_front.append(
+        #         p.addUserDebugLine(self.front_view_square[eid], self.front_view_square[(eid + 1) % 4], [0, 0, 1]))
+        #     self.fixed_frame_edges_back.append(
+        #         p.addUserDebugLine(self.back_view_square[eid], self.back_view_square[(eid + 1) % 4], [0, 0, 1]))
+        #
+        # # camera to edges
+        # for eid in range(4):
+        #     # self.move_frame_edges_back.append(p.addUserDebugLine(self.camera_pos, self.back_view_square[eid], [1, 1, 0]))
+        #     self.fixed_frame_edges_back.append(p.addUserDebugLine(self.camera_pos, self.back_view_square[eid], [0, 0, 1]))
+        #
+        # # inverse camera line for updating
+        # self.camera_line_inverse = p.addUserDebugLine(self.camera_pos, [0, 0, 0], [0.0, 0.0, 1.0])
 
         # visualize sphere
         self.colSphereId_1 = p.createCollisionShape(p.GEOM_SPHERE, radius=0.01)

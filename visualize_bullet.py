@@ -54,9 +54,11 @@ def interact_env(mode=0,n_samples=10):
             np.random.shuffle(idx)
             occu_pts = occu_pts[idx[:10000]]
 
-        p_rgb = np.ones_like(occu_pts)
+        p_rgb = [(0,1,0.5)]*len(occu_pts)
+        p_rgb = np.asarray(p_rgb)
+
         p.removeUserDebugItem(debug_points)  # update points every step
-        debug_points = p.addUserDebugPoints(occu_pts, p_rgb, pointSize=2)
+        debug_points = p.addUserDebugPoints(occu_pts, p_rgb, pointSize=3)
 
         # debug_points = p.addUserDebugPoints([occu_pts], [p_rgb], pointSize=10)
 
@@ -511,7 +513,7 @@ if __name__ == "__main__":
     DOF = 4
     robot_id = 0
     EndeffectorOnly = False
-    seed = 0
+    seed = 1
     action_space = 90
 
     if robot_id == 0:
@@ -519,27 +521,18 @@ if __name__ == "__main__":
     else:
         data_point = 166855
 
-
-
     test_name_ee = 'real_train_1_log0928_%ddof_%d_ee(%d)/' % (data_point, 100, seed)
     test_model_ee_pth =  'train_log/%s/best_model/' % test_name_ee
 
-    test_name = 'real_train_1_log0928_%ddof_%d(%d)/' % (data_point, 100, seed)
-    test_model_pth = 'train_log/%s/best_model/' % test_name
+    # test_name = 'real_train_1_log0928_%ddof_%d(%d)/' % (data_point, 100, seed)
+    # test_model_pth = 'train_log/%s/best_model/' % test_name
 
-    test_model_pth = 'train_log/final_model/sim_train_id0/best_model/'
+    test_model_pth = 'train_log/sim_id%d_10000(%d)_PE/best_model/'%(robot_id,seed)
     # DOF + 3 -> xyz and angle2 or 3 -> xyz
     model, optimizer = init_models(d_input=(DOF - 2) + 3,
-                                   n_layers=4,
                                    d_filter=128,
-                                   skip=(1, 2),
-                                   output_size=2)
+                                   output_size=2,FLAG_PositionalEncoder=True)
 
-    model_ee, _ = init_models(d_input=(DOF - 2) + 3,
-                                   n_layers=4,
-                                   d_filter=128,
-                                   skip=(1, 2),
-                                   output_size=2)
 
     model.load_state_dict(torch.load(test_model_pth + "best_model.pt", map_location=torch.device(device)))
     model = model.to(torch.float64)
@@ -548,6 +541,9 @@ if __name__ == "__main__":
         param.requires_grad = False
 
     if EndeffectorOnly:
+        model_ee, _ = init_models(d_input=(DOF - 2) + 3,
+                                  d_filter=128,
+                                  output_size=2)
         model_ee.load_state_dict(torch.load(test_model_ee_pth + "best_model.pt", map_location=torch.device(device)))
         model_ee = model_ee.to(torch.float64)
         model_ee.eval()
@@ -558,6 +554,16 @@ if __name__ == "__main__":
 
     # start simulation:
     p.connect(p.GUI)
+    p.configureDebugVisualizer(rgbBackground=[1, 1, 1])
+    camera_distance = 5
+    camera_pitch = -30
+    camera_yaw = 0
+    p.resetDebugVisualizerCamera(cameraDistance=camera_distance,
+                                 cameraPitch=camera_pitch,
+                                 cameraYaw=camera_yaw,
+                                 cameraTargetPosition=[0, 0, 0])
+    rotation_speed = 10  # Degrees per second
+    start_time = time.time()
 
     MODE = 0
 
@@ -572,6 +578,9 @@ if __name__ == "__main__":
 
 
     elif MODE == 0:
+
+        angles_input = np.loadtxt('eval/sim_robo_%d/test_angles.csv'%robot_id)[20]/90
+
         env = FBVSM_Env(
             show_moving_cam=False,
             robot_ID=robot_id,
@@ -580,7 +589,9 @@ if __name__ == "__main__":
             render_flag=True,
             num_motor=DOF,
             dark_background=True,
-            init_angle=[0, 1, -1, -1])
+            init_angle=angles_input)
+
+        env.rotation_view = True
 
         cmds = np.loadtxt('planning/trajectory/fcl_169.csv')
         interact_env(0)

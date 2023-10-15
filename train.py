@@ -3,7 +3,7 @@ import random
 from model import FBV_SM, PositionalEncoder
 from func import *
 
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("train,", device)
 
 
@@ -19,23 +19,19 @@ def crop_center(
     return img[h_offset:-h_offset, w_offset:-w_offset]
 
 
-def init_models(d_input, n_layers, d_filter, skip, pretrained_model_pth=None, lr=5e-4, output_size=2,FLAG_PositionalEncoder = False):
+def init_models(d_input, d_filter, pretrained_model_pth=None, lr=5e-4, output_size=2,FLAG_PositionalEncoder = False):
 
     if FLAG_PositionalEncoder:
         encoder = PositionalEncoder(d_input, n_freqs=10, log_space=True)
 
         model = FBV_SM(encoder = encoder,
                        d_input=d_input,
-                       # n_layers=n_layers,
                        d_filter=d_filter,
-                       skip=skip,
                        output_size=output_size)
     else:
         # Models
         model = FBV_SM(d_input=d_input,
-                       # n_layers=n_layers,
                        d_filter=d_filter,
-                       skip=skip,
                        output_size=output_size)
     model.to(device)
     # Pretrained Model
@@ -160,26 +156,24 @@ def train(model, optimizer):
 
 if __name__ == "__main__":
 
+    sim_real = 'real'
+    arm_ee = 'arm'
     seed_num = 1
-    Flag_save_image_during_training = False
-    robotid = 2
-
+    robotid = 1
+    FLAG_PositionalEncoder= True
 
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
     select_data_amount = 10000
 
-    """
-    prepare data and parameters
-    """
     DOF = 4  # the number of motors  # dof4 apr03
 
     cam_dist = 1
     nf_size = 0.4
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
+    Flag_save_image_during_training = False
 
-    FLAG_PositionalEncoder= True
     if FLAG_PositionalEncoder:
         add_name = 'PE'
     else:
@@ -188,11 +182,11 @@ if __name__ == "__main__":
     tr = 0.8  # training ratio
     pxs = 100  # collected data pixels
 
-    data = np.load('data/data_uniform_robo%d/1009(1)_con_dof4_data.npz'%robotid)
+    data = np.load('data/%s_data/%s_data_robo%d(%s).npz'%(sim_real,sim_real,robotid,arm_ee))
     num_raw_data = len(data["angles"])
 
     print("DOF, num_data, robot_id, PE",DOF,select_data_amount,robotid,FLAG_PositionalEncoder)
-    LOG_PATH = "train_log/sim_id%d_%d(%d)_%s/" % (robotid,select_data_amount, seed_num,add_name)
+    LOG_PATH = "train_log/%s_id%d_%d(%d)_%s/" % (sim_real,robotid,select_data_amount, seed_num,add_name)
     print("Data Loaded!")
 
     sample_id = random.sample(range(num_raw_data), select_data_amount)
@@ -239,7 +233,6 @@ if __name__ == "__main__":
 
     # Training
     n_iters = 400000
-    # batch_size = 2 ** 14  # Number of rays per gradient step (power of 2)
     one_image_per_step = True  # One image per gradient step (disables batching)
     chunksize = 2 ** 20  # Modify as needed to fit in GPU memory
     center_crop = True  # Crop the center of image (one_image_per_)   # debug
@@ -277,9 +270,7 @@ if __name__ == "__main__":
     for _ in range(n_restarts):
 
         model, optimizer = init_models(d_input=(DOF - 2) + 3,  # DOF + 3 -> xyz and angle2 or 3 -> xyz
-                                       n_layers=4,
                                        d_filter=128,
-                                       skip=(1, 2),
                                        output_size=2,
                                        lr=5e-4,  # 5e-4
                                        # pretrained_model_pth=pretrained_model_pth

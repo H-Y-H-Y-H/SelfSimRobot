@@ -8,7 +8,7 @@ import torch
 from torch import nn
 from typing import Optional, Tuple, List, Union, Callable
 
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
 
 
@@ -279,7 +279,7 @@ def raw2outputs(
         white_bkgd: bool = False
 ) -> Tuple[torch.Tensor, torch.Tensor]:
 
-    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1]) * 1)
+    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1]))
     rgb_each_point = alpha*raw[..., 0]
     render_img = torch.sum(rgb_each_point, dim=1)
 

@@ -6,17 +6,17 @@ import cv2
 list_img = []
 # process image:
 def median_img():
-
-    for i in range(0,166855,500):
+    robot_id = 2
+    for i in range(0,160091,500):
         print(i)
-        img = plt.imread('../../FBVSM_DATA/real_data1/%06d.png'%i )
+        img = plt.imread('../../FBVSM_DATA/real_data%d/%06d.png'%(robot_id,i) )
         img = cv2.resize(img,(100,100))
         list_img.append(img)
     med_img = np.median(list_img,axis=0)
-    plt.imsave('median_img.png',med_img)
+    plt.imsave('median_img_rb%d.png'%robot_id,med_img)
 
 # median_img()
-
+# quit()
 def mean_img():
     for i in [125,56597,157533,157720]:
         print(i)
@@ -70,7 +70,6 @@ from PIL import Image
 
 def change_ee_img2bool():
 
-
     img_bg = plt.imread('median_img.png')[..., :3]
     # img_bg = np.where(med_img_occ == 1., 1.,img_bg)
 
@@ -120,24 +119,50 @@ def remove_the_robot_root():
 
 
 def get_arm_data():
-    save_pth = "../../FBVSM_DATA/real_bimg_robo0/"
+    mode = 'ee'#'get_arm'
+
+    robot_id = 2
+    save_pth = "../../FBVSM_DATA/real_bimg_robo%d(%s)/"%(robot_id,mode)
     os.makedirs(save_pth,exist_ok=True)
-    num_img = 138537 #166855
-    TASK = 13
-    # for i in range(TASK*10000,(TASK+1)*10000):#166855
-    for i in range(300):
+    num_img =138537 #166855 # 160091 #
+    TASK = 16
+    for i in range(TASK*10000,(TASK+1)*10000):#166855
+    # for i in range(num_img):
         print(i)
-        image = plt.imread('../../FBVSM_DATA/real_data0/%06d.png'%i )[...,:3]
-        image_g = np.where(image[...,1:2]<0.08, image[...,1:2],0)
-        image_g[:, :22] = 0
+        if mode == 'get_arm':
+            image = plt.imread('../../FBVSM_DATA/real_data%d/%06d.png'%(robot_id,i))[...,:3]
+            # image_g = np.where(image[...,1:2]<0.18, image[...,1:2],0)
+            image_g = np.where(image[..., :1] < 0.2, image[..., :1], 0)
 
+            image_g[:, :25] = 0
 
-        image_g = cv2.resize(image_g,(100,100))
+            image_g = cv2.resize(image_g,(100,100))
+            image_g = np.where(image_g > 0., 1, 0)
 
-        # image_b = np.where(image[...,2:]>0.2,   image[...,2:], 0)
+            plt.imsave(save_pth + '/%06d.png'%i,image_g, cmap='gray')
+            # plt.imshow(image_g)
+            # plt.show()
+
+        elif mode == 'ee':
+            image = plt.imread('../../FBVSM_DATA/real_data%d/%06d.png' % (robot_id, i))[..., :3]
+            # image_g = np.where(image[...,1:2]<0.33, image[...,1:2],0)
+            # image_g[:, :25] = 0
+
+            # image_b = np.where(image[...,2:]>0.2,   image[...,2:], 0)
+
+            image = cv2.resize(image,(100,100))
+            image_r = np.where(image[...,:1] < 0.15,  1, 0)
+            image_b = image[...,2:]*image_r[...,:1]
+            image_b = np.where(image_b[...,:1] > 0.15,  1, 0)
+            image_b = image_b.reshape(100,100)
+            # image_b[60:,50:] = 0
+            # plt.imshow(image_b)
+            # plt.show()
+            plt.imsave(save_pth + '/%06d.png'%i,image_b, cmap='gray')
+
         # img = np.dstack((image_r,image[...,1:2],image_b))
-        image_g  = np.where(image_g > 0.,1, 0)
-        image_g[60:] = 0
+        # image_g  = np.where(image_g > 0.,1, 0)
+        # image_g[60:] = 0
 
         # bool_img = np.zeros_like(image_g)
         # bool_img[r_indices] = 1
@@ -152,19 +177,18 @@ def get_arm_data():
         # image_b = image_b.reshape(100,100)
         # image_b[60:,50:] = 0
 
-        plt.imsave(save_pth + '/%06d.png'%i,image_g, cmap='gray')
 
         # plt.imshow(image_g)
         # plt.show()
-
-
 
 # get_arm_data()
 
 
 
 def create_npz_data():
-    cmds_angle = np.loadtxt('../data/real_data/log_pos_robo0.csv')*90
+    robo_id = 2
+
+    cmds_angle = np.loadtxt('../data/real_data/log_pos_robo%d.csv'%robo_id)*90
     cmds_angle[:,1:] *= -1
     num_img = len(cmds_angle)
     all_real_img = []
@@ -173,13 +197,13 @@ def create_npz_data():
 
     for i in range(num_img):
         print(i)
-        all_real_img.append(plt.imread('../../FBVSM_DATA/real_bimg_robo0/%06d.png'%i)[...,0])
-    np.savez('../data/real_data/real_data0920_robo0_%d.npz' % (num_img),
+        all_real_img.append(plt.imread('../../FBVSM_DATA/real_bimg_robo%d(ee)/%06d.png'%(robo_id,i))[...,0])
+    np.savez('../data/real_data/real_data_robo%d_%d(ee).npz' % (robo_id,num_img),
              images=all_real_img,
              focal =focal,
              angles=cmds_angle)
 
-# create_npz_data()
+create_npz_data()
 
 
 

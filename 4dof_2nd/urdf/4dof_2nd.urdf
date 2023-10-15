@@ -122,9 +122,9 @@
           filename="package://4dof_2nd/meshes/L2.STL" />
       </geometry>
       <material
-        name="black">
+        name="gray">
         <color
-          rgba="0 0 0 1" />
+          rgba="0.55 0.55 0.55 1" />
       </material>
     </visual>
     <collision>
@@ -175,9 +175,9 @@
           filename="package://4dof_2nd/meshes/L3.STL" />
       </geometry>
       <material
-        name="black">
+        name="gray">
         <color
-          rgba="0 0 0 1" />
+          rgba="0.55 0.55 0.55 1" />
       </material>
     </visual>
     <collision>
@@ -228,9 +228,9 @@
           filename="package://4dof_2nd/meshes/L4.STL" />
       </geometry>
       <material
-        name="black">
+        name="gray">
         <color
-          rgba="0 0 0 1" />
+          rgba="0.55 0.55 0.55 1" />
       </material>
     </visual>
     <collision>

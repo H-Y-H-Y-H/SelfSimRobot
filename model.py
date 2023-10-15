@@ -91,12 +91,11 @@ class FBV_SM(nn.Module):
                  encoder=None,
                  d_input: int = 5,
                  d_filter: int = 128,
-                 skip: Tuple[int] = (1, 2),
                  output_size: int = 2):
         super(FBV_SM, self).__init__()
 
         self.d_input = d_input
-        self.skip = skip
+
         self.act = nn.functional.relu
         self.encoder = encoder
 
