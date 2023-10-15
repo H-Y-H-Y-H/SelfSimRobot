@@ -186,7 +186,7 @@ if __name__ == "__main__":
     num_raw_data = len(data["angles"])
 
     print("DOF, num_data, robot_id, PE",DOF,select_data_amount,robotid,FLAG_PositionalEncoder)
-    LOG_PATH = "train_log/%s_id%d_%d(%d)_%s/" % (sim_real,robotid,select_data_amount, seed_num,add_name)
+    LOG_PATH = "train_log/%s_id%d_%d(%d)_%s(%s)/" % (sim_real,robotid,select_data_amount, seed_num,add_name,arm_ee)
     print("Data Loaded!")
 
     sample_id = random.sample(range(num_raw_data), select_data_amount)
