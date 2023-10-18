@@ -1,4 +1,6 @@
 import time
+
+import numpy as np
 import torch.optim as optim
 from env4 import FBVSM_Env
 import pybullet as p
@@ -511,46 +513,56 @@ def shortcut_path(path):
 
 if __name__ == "__main__":
     DOF = 4
-    robot_id = 0
-    EndeffectorOnly = False
     seed = 1
     action_space = 90
 
-    if robot_id == 0:
-        data_point = 138537
-    else:
-        data_point = 166855
-
-    test_name_ee = 'real_train_1_log0928_%ddof_%d_ee(%d)/' % (data_point, 100, seed)
-    test_model_ee_pth =  'train_log/%s/best_model/' % test_name_ee
-
+    robot_id = 2
+    sim_real = 'real'
+    EndeffectorOnly = False
+    both_models = False
+    data_amount = 1000
     # test_name = 'real_train_1_log0928_%ddof_%d(%d)/' % (data_point, 100, seed)
     # test_model_pth = 'train_log/%s/best_model/' % test_name
 
-    test_model_pth = 'train_log/sim_id%d_10000(%d)_PE/best_model/'%(robot_id,seed)
+    # test_model_pth = 'train_log/%s_id%d_%d(%d)_PE(arm)/best_model/'%(sim_real,robot_id,data_amount,seed)
+    test_model_pth = 'train_log/%s_id%d_%d(%d)_PE(arm)/best_model/'%(sim_real,robot_id,data_amount,seed)
+    # test_model_pth = 'train_log/%s_id1_10000(%d)_PE/best_model/'%(sim_real,seed)
+
+
     # DOF + 3 -> xyz and angle2 or 3 -> xyz
     model, optimizer = init_models(d_input=(DOF - 2) + 3,
                                    d_filter=128,
-                                   output_size=2,FLAG_PositionalEncoder=True)
-
-
+                                   output_size=2,
+                                   FLAG_PositionalEncoder=True)
     model.load_state_dict(torch.load(test_model_pth + "best_model.pt", map_location=torch.device(device)))
     model = model.to(torch.float64)
     model.eval()
     for param in model.parameters():
         param.requires_grad = False
 
+
+    test_model_ee_pth = 'train_log/%s_id%d_10000(%d)_PE(ee)/best_model/' % (sim_real, robot_id, seed)
     if EndeffectorOnly:
+        model, _ = init_models(d_input=(DOF - 2) + 3,
+                                  d_filter=128,
+                                  output_size=2,
+                                  FLAG_PositionalEncoder=True)
+        model.load_state_dict(torch.load(test_model_ee_pth + "best_model.pt", map_location=torch.device(device)))
+        model = model.to(torch.float64)
+        model.eval()
+        for param in model.parameters():
+            param.requires_grad = False
+
+    if both_models:
         model_ee, _ = init_models(d_input=(DOF - 2) + 3,
                                   d_filter=128,
-                                  output_size=2)
+                                  output_size=2,
+                                  FLAG_PositionalEncoder=True)
         model_ee.load_state_dict(torch.load(test_model_ee_pth + "best_model.pt", map_location=torch.device(device)))
         model_ee = model_ee.to(torch.float64)
         model_ee.eval()
         for param in model_ee.parameters():
             param.requires_grad = False
-
-
 
     # start simulation:
     p.connect(p.GUI)
@@ -579,8 +591,8 @@ if __name__ == "__main__":
 
     elif MODE == 0:
 
-        angles_input = np.loadtxt('eval/sim_robo_%d/test_angles.csv'%robot_id)[20]/90
-
+        # angles_input = np.loadtxt('eval/%s_robo_%d/test_angles.csv'%(sim_real,robot_id))[45]/90
+        angles_input = np.loadtxt('train_log/real_id2_10000(1)_PE(arm)/image/valid_angle.csv')[4]/90
         env = FBVSM_Env(
             show_moving_cam=False,
             robot_ID=robot_id,
@@ -589,7 +601,8 @@ if __name__ == "__main__":
             render_flag=True,
             num_motor=DOF,
             dark_background=True,
-            init_angle=angles_input)
+            init_angle=angles_input
+        )
 
         env.rotation_view = True
 

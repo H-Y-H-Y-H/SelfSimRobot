@@ -19,16 +19,15 @@ test_num = 2000
 # 0: rectuglar
 # 1: ball-head
 # 2: break ball-head
-robot_id = 0
+robot_id = 1
+sim_real = 'real'
+arm_ee = 'ee'
+LOG_PATH ="%s_robo_%d(%s)/"%(sim_real,robot_id,arm_ee)
 
-LOG_PATH ="sim_robo_%d/"%robot_id
-
-test_model_name ='../train_log/sim_id%d_10000(1)_PE/best_model/best_model.pt'%robot_id
+test_model_name ='../train_log/%s_id%d_10000(1)_PE(%s)/best_model/best_model.pt'%(sim_real,robot_id,arm_ee)
 os.makedirs(LOG_PATH+'/image_om',exist_ok=True)
-# os.makedirs(LOG_PATH+'/points',exist_ok=True)
 
-
-data = np.load('../data/data_uniform_robo%d/1009(1)_con_dof4_data.npz'%robot_id)
+data = np.load('../data/%s_data/%s_data_robo%d(%s).npz'%(sim_real,sim_real,robot_id,arm_ee))
 num_raw_data = len(data["angles"])
 
 
@@ -113,7 +112,7 @@ def OM_eval(testing_img,testing_angles):
 
     np.savetxt(LOG_PATH+'test_loss_OM.csv',test_loss_list)
 
-# OM_eval(testing_img,testing_angles)
+OM_eval(testing_img,testing_angles)
 
 def save_gt():
     os.makedirs(LOG_PATH + 'image_gt/', exist_ok=True)
@@ -134,7 +133,7 @@ def NN_RD_eval():
     rdm_loss_list = []
 
     os.makedirs(LOG_PATH + 'image_nn/',exist_ok= True)
-    os.makedirs(LOG_PATH + 'image_rd/',exist_ok= True)
+    os.makedirs(LOG_PATH + 'image_rs/',exist_ok= True)
 
     # for v_i in range(valid_amount):
     for v_i in range(test_amount):
@@ -154,7 +153,7 @@ def NN_RD_eval():
         rd_loss = np.mean((rdm_img - img_label) ** 2)
         rdm_loss_list.append(rd_loss)
 
-        print(v_i,'loss NN & RD:',v_loss, rd_loss)
+        print(v_i,'loss NN & RS:',v_loss, rd_loss)
 
 
         np_image_combine = np.dstack((predict_img, predict_img, predict_img))
@@ -165,10 +164,10 @@ def NN_RD_eval():
 
         if v_i < 100:
             plt.imsave(LOG_PATH + 'image_nn/' + 'test%d.png'%v_i, np_image_combine)
-            plt.imsave(LOG_PATH + 'image_rd/' + 'test%d.png'%v_i, rdm_img)
+            plt.imsave(LOG_PATH + 'image_rs/' + 'test%d.png'%v_i, rdm_img)
 
     np.savetxt(LOG_PATH+'test_loss_NN.csv', test_loss_list)
-    np.savetxt(LOG_PATH+'test_loss_RD.csv', rdm_loss_list)
+    np.savetxt(LOG_PATH+'test_loss_RS.csv', rdm_loss_list)
 
 
 NN_RD_eval()

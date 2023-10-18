@@ -75,7 +75,8 @@ def train(model, optimizer):
                                near, far, model,
                                chunksize=chunksize,
                                arm_angle=angle,
-                               DOF=DOF)
+                               DOF=DOF,
+                               output_flag= different_arch)
 
         # Backprop!
         rgb_predicted = outputs['rgb_map']
@@ -125,18 +126,19 @@ def train(model, optimizer):
             np_image_combine = np.hstack(valid_image)
             np_image_combine = np.dstack((np_image_combine, np_image_combine, np_image_combine))
             np_image_combine = np.clip(np_image_combine,0,1)
-            matplotlib.image.imsave(LOG_PATH + 'image/' + 'latest.png', np_image_combine)
+            matplotlib.image.imsave(LOG_PATH + '/image/' + 'latest.png', np_image_combine)
             if Flag_save_image_during_training:
-                matplotlib.image.imsave(LOG_PATH + 'image/' + '%d.png' % i, np_image_combine)
+                matplotlib.image.imsave(LOG_PATH + '/image/' + '%d.png' % i, np_image_combine)
 
             record_file_train.write(str(loss_train) + "\n")
             record_file_val.write(str(loss_valid) + "\n")
+            torch.save(model.state_dict(), LOG_PATH + '/best_model/model_epoch%d.pt'%i)
 
             if min_loss > loss_valid:
                 """record the best image and model"""
                 min_loss = loss_valid
-                matplotlib.image.imsave(LOG_PATH + 'image/' + 'best.png', np_image_combine)
-                torch.save(model.state_dict(), LOG_PATH + 'best_model/best_model.pt')
+                matplotlib.image.imsave(LOG_PATH + '/image/' + 'best.png', np_image_combine)
+                torch.save(model.state_dict(), LOG_PATH + '/best_model/best_model.pt')
                 patience = 0
             elif loss_valid == loss_v_last:
                 print("restart")
@@ -158,9 +160,12 @@ if __name__ == "__main__":
 
     sim_real = 'real'
     arm_ee = 'arm'
-    seed_num = 1
-    robotid = 1
+    seed_num = 0
+    robotid = 0
     FLAG_PositionalEncoder= True
+
+    # 0:OM, 1:OneOut, 2: OneOut with distance
+    different_arch = 2
 
     np.random.seed(seed_num)
     random.seed(seed_num)
@@ -172,7 +177,7 @@ if __name__ == "__main__":
     cam_dist = 1
     nf_size = 0.4
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
-    Flag_save_image_during_training = False
+    Flag_save_image_during_training = True
 
     if FLAG_PositionalEncoder:
         add_name = 'PE'
@@ -186,17 +191,24 @@ if __name__ == "__main__":
     num_raw_data = len(data["angles"])
 
     print("DOF, num_data, robot_id, PE",DOF,select_data_amount,robotid,FLAG_PositionalEncoder)
-    LOG_PATH = "train_log/%s_id%d_%d(%d)_%s(%s)/" % (sim_real,robotid,select_data_amount, seed_num,add_name,arm_ee)
+    LOG_PATH = "train_log/%s_id%d_%d(%d)_%s(%s)" % (sim_real,robotid,select_data_amount, seed_num,add_name,arm_ee)
+    if different_arch !=0:
+        LOG_PATH += 'diff_out_%d'%different_arch
     print("Data Loaded!")
+    os.makedirs(LOG_PATH + "/image/", exist_ok=True)
+    os.makedirs(LOG_PATH + "/best_model/", exist_ok=True)
+
 
     sample_id = random.sample(range(num_raw_data), select_data_amount)
 
-    max_pic_save = 10
+    max_pic_save = 6
     start_idx = int(select_data_amount * tr)
     end_idx = start_idx + max_pic_save
 
     # Select the required images and stack them horizontally
     valid_img_visual = np.hstack(data['images'][sample_id[start_idx:end_idx]])
+    valid_angle = data['angles'][sample_id[start_idx:end_idx]]
+    np.savetxt(LOG_PATH+'/image/valid_angle.csv',valid_angle)
 
     # Repeat the stacked image three times along the depth
     valid_img_visual = np.dstack((valid_img_visual, valid_img_visual, valid_img_visual))
@@ -237,7 +249,7 @@ if __name__ == "__main__":
     chunksize = 2 ** 20  # Modify as needed to fit in GPU memory
     center_crop = True  # Crop the center of image (one_image_per_)   # debug
     center_crop_iters = 200  # Stop cropping center after this many epochs
-    display_rate = 1000  # Display test output every X epochs
+    display_rate = int(select_data_amount*tr)  # Display test output every X epochs
 
     # Early Stopping
     warmup_iters = 400  # Number of iterations during warmup phase
@@ -254,18 +266,16 @@ if __name__ == "__main__":
         'perturb': perturb
     }
 
-    os.makedirs(LOG_PATH + "image/", exist_ok=True)
-    os.makedirs(LOG_PATH + "best_model/", exist_ok=True)
 
-    record_file_train = open(LOG_PATH + "log_train.txt", "w")
-    record_file_val = open(LOG_PATH + "log_val.txt", "w")
+    record_file_train = open(LOG_PATH + "/log_train.txt", "w")
+    record_file_val = open(LOG_PATH + "/log_val.txt", "w")
     Patience_threshold = 100
 
     # Save testing gt image for visualization
-    matplotlib.image.imsave(LOG_PATH + 'image/' + 'gt.png', valid_img_visual)
+    matplotlib.image.imsave(LOG_PATH + '/image/' + 'gt.png', valid_img_visual)
 
     # pretrained_model_pth = 'train_log/real_train_1_log0928_%ddof_100(0)/best_model/'%num_data
-    # pretrained_model_pth = 'train_log/sim_2_data_441_0/best_model/'
+    # pretrained_model_pth = 'train_log/real_id1_10000(1)_PE(arm)/best_model/'
 
     for _ in range(n_restarts):
 
@@ -273,7 +283,7 @@ if __name__ == "__main__":
                                        d_filter=128,
                                        output_size=2,
                                        lr=5e-4,  # 5e-4
-                                       # pretrained_model_pth=pretrained_model_pth
+                                       # pretrained_model_pth=pretrained_model_pth,
                                        FLAG_PositionalEncoder = FLAG_PositionalEncoder
                                        )
 
@@ -287,5 +297,3 @@ if __name__ == "__main__":
     record_file_train.close()
     record_file_val.close()
 
-    # torch.save(model.state_dict(), LOG_PATH + 'nerf.pt')
-    # torch.save(fine_model.state_dict(), LOG_PATH + 'nerf-fine.pt')

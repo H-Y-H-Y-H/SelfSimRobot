@@ -240,36 +240,69 @@ def sample_stratified(
     return pts, x_vals
 
 
-def cumprod_exclusive(
-        tensor: torch.Tensor
-) -> torch.Tensor:
-    r"""
-    (Courtesy of https://github.com/krrish94/nerf-pytorch)
-
-    Mimick functionality of tf.math.cumprod(..., exclusive=True), as it isn't available in PyTorch.
-
-    Args:
-    tensor (torch.Tensor): Tensor whose cumprod (cumulative product, see `torch.cumprod`) along dim=-1
-      is to be computed.
-    Returns:
-    cumprod (torch.Tensor): cumprod of Tensor along dim=-1, mimiciking the functionality of
-      tf.math.cumprod(..., exclusive=True) (see `tf.math.cumprod` for details).
-    """
-
-    # Compute regular cumprod first (this is equivalent to `tf.math.cumprod(..., exclusive=False)`).
-    cumprod = torch.cumprod(tensor, -1)
-    # "Roll" the elements along dimension 'dim' by 1 element.
-    # The last element in each ray(last column) is moved to the first column.
-    cumprod = torch.roll(cumprod, 1, -1)
-    # Replace the first element by "1" as this is what tf.cumprod(..., exclusive=True) does.
-    cumprod[..., 0] = 1.
-
-    return cumprod
+# def cumprod_exclusive(
+#         tensor: torch.Tensor
+# ) -> torch.Tensor:
+#     r"""
+#     (Courtesy of https://github.com/krrish94/nerf-pytorch)
+#
+#     Mimick functionality of tf.math.cumprod(..., exclusive=True), as it isn't available in PyTorch.
+#
+#     Args:
+#     tensor (torch.Tensor): Tensor whose cumprod (cumulative product, see `torch.cumprod`) along dim=-1
+#       is to be computed.
+#     Returns:
+#     cumprod (torch.Tensor): cumprod of Tensor along dim=-1, mimiciking the functionality of
+#       tf.math.cumprod(..., exclusive=True) (see `tf.math.cumprod` for details).
+#     """
+#
+#     # Compute regular cumprod first (this is equivalent to `tf.math.cumprod(..., exclusive=False)`).
+#     cumprod = torch.cumprod(tensor, -1)
+#     # "Roll" the elements along dimension 'dim' by 1 element.
+#     # The last element in each ray(last column) is moved to the first column.
+#     cumprod = torch.roll(cumprod, 1, -1)
+#     # Replace the first element by "1" as this is what tf.cumprod(..., exclusive=True) does.
+#     cumprod[..., 0] = 1.
+#
+#     return cumprod
 
 
 """
 volume rendering
 """
+def raw2outputs_OneOutput(
+        raw: torch.Tensor,
+        x_vals: torch.Tensor,
+        rays_d: torch.Tensor,
+        raw_noise_std: float = 0.0,
+        white_bkgd: bool = False
+) -> Tuple[torch.Tensor, torch.Tensor]:
+
+    dense = 1.0 - torch.exp(-nn.functional.relu(raw[..., 0]))
+
+    render_img = torch.sum(dense, dim=1)
+
+    return render_img, dense
+
+def raw2outputs_OneOutput_with_dist(
+        raw: torch.Tensor,
+        x_vals: torch.Tensor,
+        rays_d: torch.Tensor,
+        raw_noise_std: float = 0.0,
+        white_bkgd: bool = False
+) -> Tuple[torch.Tensor, torch.Tensor]:
+
+    dists = x_vals[..., 1:] - x_vals[..., :-1]
+
+    # add one elements for each ray to compensate the size to 64
+    dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1).to(device)
+    rays_d = rays_d.to(device)
+    dists = dists * torch.norm(rays_d[..., None, :], dim=-1)
+    alpha_dense = 1.0 - torch.exp(-nn.functional.relu(raw[..., 0]) * dists)
+
+    render_img = torch.sum(alpha_dense, dim=1)
+
+    return render_img, alpha_dense
 
 def raw2outputs(
         raw: torch.Tensor,
@@ -284,148 +317,6 @@ def raw2outputs(
     render_img = torch.sum(rgb_each_point, dim=1)
 
     return render_img, rgb_each_point
-
-# def raw2outputs(
-#         raw: torch.Tensor,
-#         x_vals: torch.Tensor,
-#         rays_d: torch.Tensor,
-#         raw_noise_std: float = 0.0,
-#         white_bkgd: bool = False
-# ) -> Tuple[torch.Tensor, torch.Tensor]:
-#     r"""
-#     Convert the raw NeRF output into RGB and other maps.
-#     """
-#
-#     # z_vals: size: 2500x64, cropped image 50x50 pixel 64 depth.
-#     # dists: size 2500x63, the dists between two corresponding points.
-#     # Difference between consecutive elements of `z_vals`. [n_rays, n_samples]
-#     dists = x_vals[..., 1:] - x_vals[..., :-1]
-#     dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1)
-#     # dists = torch.cat([dists, dists.max() * torch.ones_like(dists[..., :1])], dim=-1)
-#
-#     # add one elements for each ray to compensate the size to 64
-#
-#     # Multiply each distance by the norm of its corresponding direction ray
-#     # to convert to real world distance (accounts for non-unit directions).
-#     dists = dists * torch.norm(rays_d[..., None, :], dim=-1)
-#
-#     # Add noise to model's predictions for density. Can be used to
-#     # regularize network during training (prevents floater artifacts).
-#     noise = 0.
-#     # if raw_noise_std > 0.:
-#     #     noise = torch.randn(raw[..., 1].shape) * raw_noise_std
-#
-#     # Predict density of each sample along each ray. Higher values imply
-#     # higher likelihood of being absorbed at this point. [n_rays, n_samples]
-#     dists = dists.to(device)
-#     # alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1] + noise) * dists)
-#     alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1] + noise) * 1)
-#
-#     # The larger the dists or the output(density), the closer alpha is to 1.
-#
-#     # Compute weight for RGB of each sample along each ray. [n_rays, n_samples]
-#     # The higher the alpha, the lower subsequent weights are driven.
-#     # weights = alpha * cumprod_exclusive(1. - alpha + 1e-10)
-#     # weights = alpha * (1. - alpha ) + 1e-10
-#
-#
-#     # Compute weighted RGB map.
-#     # rgb = torch.relu(raw[..., 0])  # [n_rays, n_samples, 3]
-#     # rgb_each_point = weights * torch.sigmoid(raw[..., 1])
-#     # rgb_each_point = weights*rgb
-#     rgb_each_point = alpha*raw[..., 0]
-#     # rgb_each_point = torch.sigmoid(torch.relu(weights)) * raw[..., 3]
-#
-#     render_img = torch.sum(rgb_each_point, dim=1)
-#     # rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)  # [n_rays, 3]
-#
-#     # # Estimated depth map is predicted distance.
-#     # weights = weights.to(z_vals)
-#     # depth_map = torch.sum(weights * z_vals, dim=-1)
-#     #
-#     # # Disparity map is inverse depth.
-#     # disp_map = 1. / torch.max(1e-10 * torch.ones_like(depth_map), depth_map / torch.sum(weights, -1))
-#     #
-#     # # Sum of weights along each ray. In [0, 1] up to numerical error.
-#     # acc_map = torch.sum(weights, dim=-1)
-#     #
-#     # # To composite onto a white background, use the accumulated alpha map.
-#     # if white_bkgd:
-#     #     rgb_map = rgb_map + (1. - acc_map[..., None])
-#
-#     # return render_img, depth_map, acc_map, weights, rgb_each_point
-#     return render_img, rgb_each_point
-
-
-def raw2dense(
-        raw: torch.Tensor,
-        z_vals: torch.Tensor,
-        rays_d: torch.Tensor,
-        raw_noise_std: float = 0.0,
-        white_bkgd: bool = False
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    r"""
-    Convert the raw NeRF output into RGB and other maps.
-    """
-    # raw = raw[...,0]
-    # multiplied_ray = torch.prod(raw,dim=1)*255
-    # return multiplied_ray
-
-    # z_vals: size: 2500x64, cropped image 50x50 pixel 64 depth.
-    # dists: size 2500x63, the dists between two corresponding points.
-    # Difference between consecutive elements of `z_vals`. [n_rays, n_samples]
-    dists = z_vals[..., 1:] - z_vals[..., :-1]
-    dists = torch.cat([dists, 1e10 * torch.ones_like(dists[..., :1])], dim=-1)
-    # add one elements for each ray to compensate the size to 64
-
-    # Multiply each distance by the norm of its corresponding direction ray
-    # to convert to real world distance (accounts for non-unit directions).
-    dists = dists * torch.norm(rays_d[..., None, :], dim=-1)
-
-    # Add noise to model's predictions for density. Can be used to
-    # regularize network during training (prevents floater artifacts).
-    noise = torch.tensor(0).to(device)
-    if raw_noise_std > 0.:
-        noise = torch.randn(raw[..., 0].shape) * raw_noise_std
-
-    # Predict density of each sample along each ray. Higher values imply
-    # higher likelihood of being absorbed at this point. [n_rays, n_samples]
-    dists = dists.to(device)
-    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[:, :, 1] + noise) * dists)
-    # The larger the dists or the output(density), the closer alpha is to 1.
-
-    # Compute weight for RGB of each sample along each ray. [n_rays, n_samples]
-    # The higher the alpha, the lower subsequent weights are driven.
-    weights = alpha * cumprod_exclusive(1. - alpha + 1e-10)
-
-    # Compute weighted RGB map.
-    rgb = torch.sigmoid(raw[..., :2])  # [n_rays, n_samples, 3]
-    rgb_each_point = weights * torch.sigmoid(raw[..., 1])
-
-    # rgb = raw[..., :2]  # [n_rays, n_samples, 3]
-    # rgb_each_point = weights * raw[..., 0]
-
-    render_img = torch.sum(rgb_each_point, dim=1)
-    rgb_map = torch.sum(weights[..., None] * rgb, dim=-2)  # [n_rays, 3]
-
-    weights = weights.to(z_vals)
-    # Estimated depth map is predicted distance.
-    depth_map = torch.sum(weights * z_vals, dim=-1)
-
-    # Disparity map is inverse depth.
-    disp_map = 1. / torch.max(1e-10 * torch.ones_like(depth_map), depth_map / torch.sum(weights, -1))
-
-    # Sum of weights along each ray. In [0, 1] up to numerical error.
-    acc_map = torch.sum(weights, dim=-1)
-
-    # To composite onto a white background, use the accumulated alpha map.
-    if white_bkgd:
-        rgb_map = rgb_map + (1. - acc_map[..., None])
-
-    # render_img = torch.sigmoid(render_img)
-
-    return render_img, rgb_each_point
-
 
 
 def sample_pdf(
@@ -528,7 +419,8 @@ def model_forward(
         arm_angle: torch.Tensor,
         DOF: int,
         chunksize: int = 2 ** 15,
-        n_samples: int = 64
+        n_samples: int = 64,
+        output_flag: int = 0
 ) -> dict:
 
     # Sample query points along each ray.
@@ -551,7 +443,12 @@ def model_forward(
     raw = torch.cat(predictions, dim=0)
     raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 
-    rgb_map, rgb_each_point = raw2outputs(raw, z_vals, rays_d)  # out1 raw to dense
+    if output_flag ==0:
+        rgb_map, rgb_each_point = raw2outputs(raw, z_vals, rays_d)
+    elif output_flag ==1:
+        rgb_map, rgb_each_point = raw2outputs_OneOutput(raw, z_vals, rays_d)
+    elif output_flag ==2:
+        rgb_map, rgb_each_point = raw2outputs_OneOutput_with_dist(raw, z_vals, rays_d)
 
     outputs = {
         'rgb_map': rgb_map,
@@ -561,22 +458,6 @@ def model_forward(
     # Store outputs.
     return outputs
 
-
-"""make pose"""
-
-
-# def w2c_matrix(theta, phi, radius):
-#     w2c = transition_matrix("tran_z", radius)
-#     w2c = np.dot(transition_matrix("rot_y", -theta / 180. * np.pi), w2c)
-#     w2c = np.dot(transition_matrix("rot_x", -phi / 180. * np.pi), w2c)
-#     return w2c
-#
-#
-# def c2w_matrix(theta, phi, radius):
-#     c2w = transition_matrix("tran_z", radius)
-#     c2w = np.dot(transition_matrix("rot_x", phi / 180. * np.pi), c2w)
-#     c2w = np.dot(transition_matrix("rot_y", theta / 180. * np.pi), c2w)
-#     return c2w
 
 
 def transition_matrix(label, value):
@@ -604,30 +485,6 @@ def transition_matrix(label, value):
     else:
         return "wrong label"
 
-# def transition_matrix_torch(label, value):
-#     if label == "rot_x":
-#         return torch.tensor([
-#             [1, 0, 0, 0],
-#             [0, torch.cos(value), -torch.sin(value), 0],
-#             [0, torch.sin(value), torch.cos(value), 0],
-#             [0, 0, 0, 1]], dtype=torch.float32)
-#
-#     elif label == "rot_y":
-#         return torch.tensor([
-#             [torch.cos(value), 0, -torch.sin(value), 0],
-#             [0, 1, 0, 0],
-#             [torch.sin(value), 0, torch.cos(value), 0],
-#             [0, 0, 0, 1]], dtype=torch.float32)
-#
-#     elif label == "rot_z":
-#         return torch.tensor([
-#             [torch.cos(value), -torch.sin(value), 0, 0],
-#             [torch.sin(value), torch.cos(value), 0, 0],
-#             [0, 0, 1, 0],
-#             [0, 0, 0, 1]], dtype=torch.float32,requires_grad=True)
-#
-#     else:
-#         raise ValueError("Wrong label")
 def transition_matrix_torch(label, value):
     # Initialize an identity matrix
     matrix = torch.eye(4, dtype=torch.float32)
