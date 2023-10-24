@@ -270,7 +270,7 @@ def sample_stratified(
 """
 volume rendering
 """
-def raw2outputs_OneOutput(
+def VR_rendering(
         raw: torch.Tensor,
         x_vals: torch.Tensor,
         rays_d: torch.Tensor,
@@ -284,7 +284,7 @@ def raw2outputs_OneOutput(
 
     return render_img, dense
 
-def raw2outputs_OneOutput_with_dist(
+def VRAT_rendering(
         raw: torch.Tensor,
         x_vals: torch.Tensor,
         rays_d: torch.Tensor,
@@ -304,7 +304,7 @@ def raw2outputs_OneOutput_with_dist(
 
     return render_img, alpha_dense
 
-def raw2outputs(
+def OM_rendering(
         raw: torch.Tensor,
         x_vals: torch.Tensor,
         rays_d: torch.Tensor,
@@ -444,11 +444,11 @@ def model_forward(
     raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 
     if output_flag ==0:
-        rgb_map, rgb_each_point = raw2outputs(raw, z_vals, rays_d)
+        rgb_map, rgb_each_point = OM_rendering(raw, z_vals, rays_d)
     elif output_flag ==1:
-        rgb_map, rgb_each_point = raw2outputs_OneOutput(raw, z_vals, rays_d)
+        rgb_map, rgb_each_point = VR_rendering(raw, z_vals, rays_d)
     elif output_flag ==2:
-        rgb_map, rgb_each_point = raw2outputs_OneOutput_with_dist(raw, z_vals, rays_d)
+        rgb_map, rgb_each_point = VRAT_rendering(raw, z_vals, rays_d)
 
     outputs = {
         'rgb_map': rgb_map,

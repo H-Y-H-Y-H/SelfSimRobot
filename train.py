@@ -104,16 +104,17 @@ def train(model, optimizer):
                                        near, far, model,
                                        chunksize=chunksize,
                                        arm_angle=angle,
-                                       DOF=DOF)
+                                       DOF=DOF,
+                                     output_flag= different_arch)
 
                 rgb_predicted = outputs['rgb_map']
 
                 img_label_tensor = img_label.reshape(-1).to(device)
 
                 v_loss = torch.nn.functional.mse_loss(rgb_predicted, img_label_tensor)
-                val_psnr = (-10. * torch.log10(v_loss)).item()
+
                 valid_epoch_loss.append(v_loss.item())
-                valid_psnr.append(val_psnr)
+
                 np_image = rgb_predicted.reshape([height, width, 1]).detach().cpu().numpy()
                 if v_i < max_pic_save:
                     valid_image.append(np_image)
@@ -165,7 +166,8 @@ if __name__ == "__main__":
     FLAG_PositionalEncoder= True
 
     # 0:OM, 1:OneOut, 2: OneOut with distance
-    different_arch = 2
+    different_arch = 0
+    print('different_arch',different_arch)
 
     np.random.seed(seed_num)
     random.seed(seed_num)
@@ -192,7 +194,7 @@ if __name__ == "__main__":
 
     print("DOF, num_data, robot_id, PE",DOF,select_data_amount,robotid,FLAG_PositionalEncoder)
     LOG_PATH = "train_log/%s_id%d_%d(%d)_%s(%s)" % (sim_real,robotid,select_data_amount, seed_num,add_name,arm_ee)
-    if different_arch !=0:
+    if different_arch != 0:
         LOG_PATH += 'diff_out_%d'%different_arch
     print("Data Loaded!")
     os.makedirs(LOG_PATH + "/image/", exist_ok=True)
@@ -249,7 +251,7 @@ if __name__ == "__main__":
     chunksize = 2 ** 20  # Modify as needed to fit in GPU memory
     center_crop = True  # Crop the center of image (one_image_per_)   # debug
     center_crop_iters = 200  # Stop cropping center after this many epochs
-    display_rate = int(select_data_amount*tr)  # Display test output every X epochs
+    display_rate = 1000 #int(select_data_amount*tr)  # Display test output every X epochs
 
     # Early Stopping
     warmup_iters = 400  # Number of iterations during warmup phase

@@ -1,5 +1,5 @@
 import time
-
+import pyautogui
 import numpy as np
 import torch.optim as optim
 from env4 import FBVSM_Env
@@ -40,15 +40,26 @@ def interact_env(mode=0,n_samples=10):
     motor_input = []
     for m in range(DOF):
         motor_input.append(p.addUserDebugParameter("motor%d:"%m, -1, 1, env.get_obs()[0][m]))
-    c_angle = torch.tensor(c_angle).to(device)
 
-    for i in range(100000):
-        for dof_i in range(DOF):
-            c_angle[dof_i] = p.readUserDebugParameter(motor_input[dof_i])
+
+    c_angle = torch.tensor(c_angle).to(device)
+    debug_points_buffer = []
+    angles_logger = []
+    sep = 100
+    for i in range(500):
+        # for dof_i in range(DOF):
+        #     c_angle[dof_i] = p.readUserDebugParameter(motor_input[dof_i])
+
+        c_angle = angles_input[i//sep] + (angles_input[i//sep+1] - angles_input[i//sep])*(i%sep)/sep
+        angles_logger.append(c_angle)
+        c_angle = torch.tensor(c_angle).to(device)
         degree_angles = c_angle*action_space
 
         # occu_pts = test_model(degree_angles,model)
+        # t1 = time.time()
         occu_pts = query_models(degree_angles,model,DOF)
+        # t2 = time.time()
+        # print("FPS:",1/(t2-t1))
         occu_pts = occu_pts.detach().cpu().numpy()
 
         if len(occu_pts)>10000:
@@ -60,12 +71,18 @@ def interact_env(mode=0,n_samples=10):
         p_rgb = np.asarray(p_rgb)
 
         p.removeUserDebugItem(debug_points)  # update points every step
-        debug_points = p.addUserDebugPoints(occu_pts, p_rgb, pointSize=3)
+        debug_points = p.addUserDebugPoints(occu_pts, p_rgb, pointSize=8)
 
         # debug_points = p.addUserDebugPoints([occu_pts], [p_rgb], pointSize=10)
 
         c_angle_cmd = c_angle.detach().cpu().numpy()
         obs, _, _, _ = env.step(c_angle_cmd)
+
+        #Saving:
+        screenshot = pyautogui.screenshot()
+        # Save the screenshot
+        screenshot.save("data/paper_fig_eval3d/%d.png"%i)
+        np.savetxt('data/paper_fig_eval3d/robot0.csv',angles_logger)
 
 
 def go_to_target_pos():
@@ -308,28 +325,6 @@ def get_neighbors(node_value):
     return [tuple(v) for v in valid_neighbors]
 
 
-# def get_neighbors(node_value,goal):
-#     node_np = np.array(node_value)
-#
-#     # Generate potential increments and decrements for each joint angle
-#     increments = np.eye(len(node_np)) * joint_interval
-#     decrements = -increments
-#
-#     # Get potential neighbors by adding/subtracting 0.1 from the joint angles
-#     potential_neighbors = np.vstack([node_np + increments, node_np + decrements])
-#
-#     # Filter to ensure all angles are within the range [-1, 1]
-#     valid_neighbors = potential_neighbors[
-#         np.all(np.logical_and(potential_neighbors >= -1.0, potential_neighbors <= 1.0), axis=1)]
-#
-#     # Add the neighbor along the straight line from the start to the goal
-#     line_step = get_line_step(node_value, goal)
-#     valid_neighbors = np.vstack([valid_neighbors, line_step])
-#
-#     neighbors = [tuple(v) for v in valid_neighbors]
-#     return neighbors
-
-
 def is_collision(node_value,action_space =90):
 
     node_value_degree = (torch.tensor(node_value)* action_space).to(device)
@@ -516,11 +511,11 @@ if __name__ == "__main__":
     seed = 1
     action_space = 90
 
-    robot_id = 2
+    robot_id = 0
     sim_real = 'real'
     EndeffectorOnly = False
     both_models = False
-    data_amount = 1000
+    data_amount = 10000
     # test_name = 'real_train_1_log0928_%ddof_%d(%d)/' % (data_point, 100, seed)
     # test_model_pth = 'train_log/%s/best_model/' % test_name
 
@@ -591,8 +586,8 @@ if __name__ == "__main__":
 
     elif MODE == 0:
 
-        # angles_input = np.loadtxt('eval/%s_robo_%d/test_angles.csv'%(sim_real,robot_id))[45]/90
-        angles_input = np.loadtxt('train_log/real_id2_10000(1)_PE(arm)/image/valid_angle.csv')[4]/90
+        angles_input = np.loadtxt('eval/%s_robo_%d/test_angles.csv'%(sim_real,robot_id))/90
+        # angles_input = np.loadtxt('train_log/real_id2_10000(1)_PE(arm)/image/valid_angle.csv')[4]/90
         env = FBVSM_Env(
             show_moving_cam=False,
             robot_ID=robot_id,
@@ -601,12 +596,12 @@ if __name__ == "__main__":
             render_flag=True,
             num_motor=DOF,
             dark_background=True,
-            init_angle=angles_input
+            # init_angle=angles_input,
+            rotation_view = False
         )
 
-        env.rotation_view = True
 
-        cmds = np.loadtxt('planning/trajectory/fcl_169.csv')
+        # cmds = np.loadtxt('planning/trajectory/fcl_169.csv')
         interact_env(0)
 
     elif MODE == 1:

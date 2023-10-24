@@ -18,7 +18,8 @@ class FBVSM_Env(gym.Env):
                  num_motor=2,
                  max_num_motor=4,
                  init_angle = [0]*4,
-                 dark_background = False
+                 dark_background = False,
+                 rotation_view = False
                  ):
         self.robot_ID = robot_ID
         self.show_moving_cam = show_moving_cam
@@ -45,7 +46,7 @@ class FBVSM_Env(gym.Env):
         self.PASS_OBS = False
         self.init_angle = np.asarray(init_angle)*np.pi/2
         self.dark_background = dark_background
-        self.rotation_view = False
+        self.rotation_view = rotation_view
         self.start_time = time.time()
 
         # cube_size = 0.2
@@ -82,16 +83,25 @@ class FBVSM_Env(gym.Env):
 
 
     def get_obs(self):
-        """ self.view_matrix is updating with action"""
-        img = p.getCameraImage(self.width, self.height,
-                               self.view_matrix, self.projection_matrix,
+        ########### Capture side view images #############
+        GUI_data = p.getDebugVisualizerCamera()
+        viewMatrix = GUI_data[2]
+        img = p.getCameraImage(480, 480,
+                               viewMatrix, self.projection_matrix,
                                renderer=p.ER_BULLET_HARDWARE_OPENGL,
-                               shadow=0)
-        img = img[2][:, :, :3]
-        img = green_black(img)
-        cv2.imshow('Windows', img)
+                               shadow=0)[2]
+
+
+        # """ self.view_matrix is updating with action"""
+        # img = p.getCameraImage(self.width, self.height,
+        #                        self.view_matrix, self.projection_matrix,
+        #                        renderer=p.ER_BULLET_HARDWARE_OPENGL,
+        #                        shadow=0)
+        # img = img[2][:, :, :3]
+        # img = green_black(img)
+        # cv2.imshow('Windows', img)
         self.step_id += 1
-        cv2.waitKey(1)
+        # cv2.waitKey(1)
 
         joint_list = []
         for j in range(self.num_motor):
@@ -115,6 +125,9 @@ class FBVSM_Env(gym.Env):
             elapsed_time = time.time() - self.start_time
             camera_yaw = 5 * elapsed_time
             p.resetDebugVisualizerCamera(cameraDistance=0.6, cameraPitch=-30, cameraYaw=camera_yaw,
+                                     cameraTargetPosition=[0, 0, 0])
+        else:
+            p.resetDebugVisualizerCamera(cameraDistance=0.5, cameraPitch=-30, cameraYaw=45,
                                      cameraTargetPosition=[0, 0, 0])
 
         if not self.show_moving_cam:
