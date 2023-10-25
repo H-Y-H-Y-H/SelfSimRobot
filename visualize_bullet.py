@@ -74,7 +74,7 @@ def interact_env(mode=0,n_samples=10):
         p_rgb = np.asarray(p_rgb)
 
         p.removeUserDebugItem(debug_points)  # update points every step
-        debug_points = p.addUserDebugPoints(occu_pts, p_rgb, pointSize=8)
+        debug_points = p.addUserDebugPoints(occu_pts, p_rgb, pointSize=4)
 
         # debug_points = p.addUserDebugPoints([occu_pts], [p_rgb], pointSize=10)
 
