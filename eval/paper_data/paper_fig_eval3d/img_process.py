@@ -1,3 +1,5 @@
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -13,9 +15,10 @@ h1 = int((h-c_h)/2)
 h2 = int((h+c_h)/2)
 
 color_select = np.asarray([0,1,0])
-save_path = 'robot0_shadow/'
+save_path = 'robot1_shadow/'
+os.makedirs(save_path,exist_ok=True)
 for i in range(500):
-    img = plt.imread('%d.png'%i)
+    img = plt.imread('robot1_sim/%d.png'%i)
 
     img = img[h1:h2,w1:w2,:3]
     dist = np.sum((img -color_select)**2,axis=2)

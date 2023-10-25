@@ -81,8 +81,8 @@ def interact_env(mode=0,n_samples=10):
         #Saving:
         screenshot = pyautogui.screenshot()
         # Save the screenshot
-        screenshot.save("data/paper_fig_eval3d/%d.png"%i)
-        np.savetxt('data/paper_fig_eval3d/robot0.csv',angles_logger)
+        screenshot.save("eval/paper_data/paper_fig_eval3d/robot%d_sim/%d.png" % (robot_id,i))
+        np.savetxt('eval/paper_data/paper_fig_eval3d/robot%d.csv' % robot_id, angles_logger)
 
 
 def go_to_target_pos():
@@ -511,7 +511,7 @@ if __name__ == "__main__":
     seed = 1
     action_space = 90
 
-    robot_id = 0
+    robot_id = 1
     sim_real = 'real'
     EndeffectorOnly = False
     both_models = False
