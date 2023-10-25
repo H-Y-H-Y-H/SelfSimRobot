@@ -81,7 +81,7 @@ def test_model( angle_tensor,model,  save_offline_data=False):
     return query_xyz
 
 
-def query_models( angle, model, DOF, mean_ee = False):
+def query_models( angle, model, DOF, mean_ee = False, n_samples = 64):
 
     rays_o, rays_d = get_rays(height, width, focal)
     rays_o = rays_o.reshape([-1, 3]).to(device)
@@ -90,7 +90,8 @@ def query_models( angle, model, DOF, mean_ee = False):
     angle_tensor = angle.to(device)
     outputs = model_forward(rays_o, rays_d,
                            near, far, model, angle_tensor, DOF,
-                           chunksize=chunksize)
+                           chunksize=chunksize,
+                            n_samples = n_samples)
 
     all_points = outputs["query_points"].reshape(-1, 3)
     rgb_each_point = outputs["rgb_each_point"].reshape(-1)
@@ -103,7 +104,7 @@ def query_models( angle, model, DOF, mean_ee = False):
     all_points_xyz = torch.matmul(pose_matrix_tensor,all_points_xyz.T).T[:,:3]
 
     # mask = (rgb_each_point > 0.1).float()
-    mask = torch.where(rgb_each_point > 0.1, rgb_each_point, torch.zeros_like(rgb_each_point))
+    mask = torch.where(rgb_each_point > 0.05, rgb_each_point, torch.zeros_like(rgb_each_point))
 
     unmasked_occ_points_xyz = all_points_xyz[mask.bool()]
 

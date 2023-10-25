@@ -46,6 +46,9 @@ def interact_env(mode=0,n_samples=10):
     debug_points_buffer = []
     angles_logger = []
     sep = 100
+    SAVE_PATH = "eval/paper_data/paper_fig_eval3d"
+    os.makedirs(SAVE_PATH+"/robot%d_sim"%robot_id, exist_ok= True)
+    os.makedirs(SAVE_PATH, exist_ok=True)
     for i in range(500):
         # for dof_i in range(DOF):
         #     c_angle[dof_i] = p.readUserDebugParameter(motor_input[dof_i])
@@ -57,7 +60,7 @@ def interact_env(mode=0,n_samples=10):
 
         # occu_pts = test_model(degree_angles,model)
         # t1 = time.time()
-        occu_pts = query_models(degree_angles,model,DOF)
+        occu_pts = query_models(degree_angles,model,DOF,n_samples = 64)
         # t2 = time.time()
         # print("FPS:",1/(t2-t1))
         occu_pts = occu_pts.detach().cpu().numpy()
@@ -81,8 +84,8 @@ def interact_env(mode=0,n_samples=10):
         #Saving:
         screenshot = pyautogui.screenshot()
         # Save the screenshot
-        screenshot.save("eval/paper_data/paper_fig_eval3d/robot%d_sim/%d.png" % (robot_id,i))
-        np.savetxt('eval/paper_data/paper_fig_eval3d/robot%d.csv' % robot_id, angles_logger)
+        screenshot.save(SAVE_PATH+"/robot%d_sim/%d.png" % (robot_id,i))
+        np.savetxt(SAVE_PATH+'/robot%d.csv' % robot_id, angles_logger)
 
 
 def go_to_target_pos():
@@ -534,7 +537,6 @@ if __name__ == "__main__":
     model.eval()
     for param in model.parameters():
         param.requires_grad = False
-
 
     test_model_ee_pth = 'train_log/%s_id%d_10000(%d)_PE(ee)/best_model/' % (sim_real, robot_id, seed)
     if EndeffectorOnly:

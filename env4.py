@@ -127,7 +127,7 @@ class FBVSM_Env(gym.Env):
             p.resetDebugVisualizerCamera(cameraDistance=0.6, cameraPitch=-30, cameraYaw=camera_yaw,
                                      cameraTargetPosition=[0, 0, 0])
         else:
-            p.resetDebugVisualizerCamera(cameraDistance=0.5, cameraPitch=-30, cameraYaw=45,
+            p.resetDebugVisualizerCamera(cameraDistance=0.5, cameraPitch=-30, cameraYaw=135,
                                      cameraTargetPosition=[0, 0, 0])
 
         if not self.show_moving_cam:
