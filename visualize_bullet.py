@@ -84,7 +84,7 @@ def interact_env(mode=0,n_samples=10):
         #Saving:
         screenshot = pyautogui.screenshot()
         # Save the screenshot
-        screenshot.save(SAVE_PATH+"/robot%d_sim/%d.png" % (robot_id,i))
+        screenshot.save(SAVE_PATH+"/robot%d_sim/%d.jpeg" % (robot_id,i))
         np.savetxt(SAVE_PATH+'/robot%d.csv' % robot_id, angles_logger)
 
 
