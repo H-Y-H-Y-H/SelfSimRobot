@@ -19,9 +19,9 @@ test_num = 2000
 # 0: rectuglar
 # 1: ball-head
 # 2: break ball-head
-robot_id = 1
+robot_id = 2
 sim_real = 'real'
-arm_ee = 'ee'
+arm_ee = 'arm'
 LOG_PATH ="%s_robo_%d(%s)/"%(sim_real,robot_id,arm_ee)
 
 test_model_name ='../train_log/%s_id%d_10000(1)_PE(%s)/best_model/best_model.pt'%(sim_real,robot_id,arm_ee)
@@ -112,7 +112,7 @@ def OM_eval(testing_img,testing_angles):
 
     np.savetxt(LOG_PATH+'test_loss_OM.csv',test_loss_list)
 
-OM_eval(testing_img,testing_angles)
+# OM_eval(testing_img,testing_angles)
 
 def save_gt():
     os.makedirs(LOG_PATH + 'image_gt/', exist_ok=True)
@@ -170,7 +170,7 @@ def NN_RD_eval():
     np.savetxt(LOG_PATH+'test_loss_RS.csv', rdm_loss_list)
 
 
-NN_RD_eval()
+# NN_RD_eval()
 
 
 

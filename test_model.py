@@ -104,7 +104,7 @@ def query_models( angle, model, DOF, mean_ee = False, n_samples = 64):
     all_points_xyz = torch.matmul(pose_matrix_tensor,all_points_xyz.T).T[:,:3]
 
     # mask = (rgb_each_point > 0.1).float()
-    mask = torch.where(rgb_each_point > 0.05, rgb_each_point, torch.zeros_like(rgb_each_point))
+    mask = torch.where(rgb_each_point > 0.08, rgb_each_point, torch.zeros_like(rgb_each_point))
 
     unmasked_occ_points_xyz = all_points_xyz[mask.bool()]
 
