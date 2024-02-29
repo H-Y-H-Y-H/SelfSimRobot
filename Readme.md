@@ -1,7 +1,5 @@
 # Fully_body_VSM
 
-bullet_test.py -- visualize the near 8 points in the pybullet env.
+run visualize_bullet.py -- running the results of robot body prediction in real-time in the Pybullet simulation with the GUI interface.
 
-rays_check.py -- provide the location of 8 points(near, far) in 42 degree camera view.
 
-visualize_bullet.py -- visualize the results of robot body estimation in the Pybullet simulation with the GUI interface.
