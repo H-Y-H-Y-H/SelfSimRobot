@@ -233,16 +233,7 @@ class FBVSM_Env(gym.Env):
             textureId = p.loadTexture("white_ground.jpg")
             self.groundId = p.loadURDF("plane.urdf",[0, 0, -0.105])
             p.changeVisualShape(self.groundId, -1, textureUniqueId=textureId)
-            # Set the background color to gray (values between 0 and 1)
-            # p.configureDebugVisualizer(p.COV_ENABLE_TINY_RENDERER, 0)
-            # p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 0)
 
-            # Set the background color to gray
-            # gl_background_color = [0.5, 0.5, 0.5, 1]  # RGBA values between 0 and 1
-            # p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 1)
-            # p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 1)
-            # p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 1)
-            # p.changeVisualShape(-1, -1, rgbaColor=gl_background_color)
 
         else:
 
@@ -362,19 +353,11 @@ class FBVSM_Env(gym.Env):
 def green_black(img):
     img = np.array(img)
     t = 60
-    # print(img)
-
     # Mask image to only select browns
     mask = cv2.inRange(img[...,1], 100, 255)
 
     # Change image to red where we found brown
     img[mask > 0] = (255, 255, 255)
-
-
-    # for x in range(img.shape[0]):
-    #     for y in range(img.shape[1]):
-    #         if img[x, y, 1] > 100:
-    #             img[x, y] = np.array([255., 255., 255.])
 
     return img
 
@@ -459,33 +442,10 @@ def self_collision_check_prerecord(all_combinations, sample_size: int, Env, num_
     return np.array(work_space)
 
 
-# def self_collision_check(sample_size: int, Env: FBVSM_Env) -> np.array:
-#     """
-#     four dof robot config sampling
-#     sample_size: sampled number for each motor
-#     Env: robot env
-#     """
-#     line_array = np.linspace(-1.0, 1.0, num=sample_size+1)
-#     work_space = []
-#     count = 0
-#     for m0 in line_array:
-#         for m1 in line_array:
-#             for m2 in line_array:
-#                 for m3 in line_array:
-#                     print(count)
-#                     count +=1
-#                     angle_norm = np.array([m0, m1, m2, m3])
-#                     obs, _, done, _ = Env.step(angle_norm)
-#                     if done:
-#                         work_space.append(angle_norm)
-#
-#     return np.array(work_space)
-
-
 if __name__ == '__main__':
-    RENDER = False
+    RENDER = True
     NUM_MOTOR = 4
-    robot_ID = 2
+    robot_ID = 2 # Robot 0 1 2 represents Robot 1 2 3 in the paper
     TASK = 0
 
     p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
@@ -533,15 +493,14 @@ if __name__ == '__main__':
                 c_angle[m_id] = single_cmd_value
                 obs, _, _, _ = env.step(c_angle)
                 print(env.get_obs()[0])
+            print('finished all the commands!')
 
-        # print(1, c_angle)
-        # env.back_orig()
 
         for _ in range(1000000):
             p.stepSimulation()
             time.sleep(1 / 240)
 
-    elif mode == "s":
+    elif mode == "s": # Generate efficient trajectories for data collection.
 
         # Example usage
         sample_size = 20  # example value

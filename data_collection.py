@@ -66,20 +66,12 @@ def transition_matrix(label, value):
         return "wrong label"
 
 
-# def c2w_matrix(theta, phi, radius):
-#     c2w = transition_matrix("tran_z", radius)
-#     c2w = np.dot(transition_matrix("rot_x", phi / 180. * np.pi), c2w)
-#     c2w = np.dot(transition_matrix("rot_y", theta / 180. * np.pi), c2w)
-#     return c2w
-
-
 def w2c_matrix(theta, phi):
     # the coordinates in pybullet, camera is along X axis, but in the pts coordinates, the camera is along z axis
     full_matrix = np.dot(rot_Z(theta / 180 * np.pi),
                          rot_Y(phi / 180 * np.pi))
     full_matrix = np.linalg.inv(full_matrix)
     return full_matrix
-
 
 
 def random_data(DOF, num_data):
@@ -159,21 +151,6 @@ def collect_data(my_env, save_path, action_lists):
             p.stepSimulation()
             time.sleep(1 / 240)
         pass
-
-
-# def df_data(data_num: int, dof: int) -> np.array:
-#     # data for dense field
-#     if dof == 1:
-#         theta_0_list = np.linspace(-1., 1., data_num, endpoint=False)  # no repeated angles
-#         theta_1_list = np.ones_like(theta_0_list) * 0.3
-#         theta_2_list = np.ones_like(theta_0_list) * 0.3
-#         return np.stack((theta_0_list, theta_1_list, theta_2_list), -1)
-#     elif dof == 3:
-#         theta_0_list = np.linspace(-1., 1., data_num, endpoint=False)  # no repeated angles
-#         theta_1_list = np.linspace(-1., 1., data_num, endpoint=False)
-#         theta_2_list = np.linspace(-1., 1., data_num, endpoint=False)
-#         return np.stack((theta_0_list, theta_1_list, theta_2_list), -1)
-
 
 def matrix_visual():
     fig = plt.figure(figsize=(8, 8))
@@ -255,9 +232,7 @@ if __name__ == "__main__":
     os.makedirs(log_pth, exist_ok=True)
 
     action_lists = np.loadtxt('data/action/cleaned_1009(1)_con_action_robo%d_dof4_size20.csv'%robot_ID)
-    # action_lists = np.load('data/real_data/real_data_robo1_166460.npz')
 
-    # action_lists = action_lists['angles']/90
 
     print(action_lists.shape)
     log_pth += '1009(1)_con_dof%d_data.npz' % (NUM_MOTOR)

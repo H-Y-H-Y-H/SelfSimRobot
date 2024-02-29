@@ -10,56 +10,48 @@ import random
 
 # changed Transparency in urdf, line181, Mar31
 
-def interact_env(mode=0,n_samples=10):
+def interact_env(sub_mode=0,n_samples=10):
 
     c_angle = env.init_obs[0]
     debug_points = 0
     t = np.linspace(0, 1, n_samples).reshape(-1, 1)
 
 
-    if mode == 1:
-        # traj_list = np.loadtxt('planning/trajectory/spiral.csv')
-        # color_list = np.ones_like(traj_list)
-        # p.addUserDebugPoints(traj_list, color_list, pointSize=3)
-        #
-        #
-        # cmds = np.loadtxt('planning/trajectory/cmds_output.csv')
-        # for i in range(0,len(cmds),10):
-        #     print(cmds[i])
-        #     obs, _, _, _ = env.step(cmds[i])
-
-
+    if sub_mode == 1:
         for i in range(1,len(cmds)):
             print(cmds[i])
             traj_array = (1 - t) * cmds[i-1] + t * cmds[i]
             for traj in traj_array:
                 obs, _, _, _ = env.step(traj)
+        quit()
 
-
-    # input para
     motor_input = []
-    for m in range(DOF):
-        motor_input.append(p.addUserDebugParameter("motor%d:"%m, -1, 1, env.get_obs()[0][m]))
+    if sub_mode ==2: # manually control the arm:
+        # input para
+        for m in range(DOF):
+            motor_input.append(p.addUserDebugParameter("motor%d:"%m, -1, 1, env.get_obs()[0][m]))
 
 
-    c_angle = torch.tensor(c_angle).to(device)
-    debug_points_buffer = []
-    angles_logger = []
+    elif sub_mode ==3: # Auto for evaluations:
+        c_angle = torch.tensor(c_angle).to(device)
+        SAVE_PATH = "eval/paper_data/paper_fig_eval3d"
+
+        if EndeffectorOnly:
+            img_path = SAVE_PATH + "/robot%d_sim(ee)"%robot_id
+        else:
+            img_path = SAVE_PATH + "/robot%d_sim(arm)"%robot_id
+
+        os.makedirs(img_path, exist_ok= True)
+        os.makedirs(SAVE_PATH, exist_ok=True)
+
     sep = 100
-    SAVE_PATH = "eval/paper_data/paper_fig_eval3d"
-
-    if EndeffectorOnly:
-        img_path = SAVE_PATH + "/robot%d_sim(ee)"%robot_id
-    else:
-        img_path = SAVE_PATH + "/robot%d_sim(arm)"%robot_id
-
-    os.makedirs(img_path, exist_ok= True)
-    os.makedirs(SAVE_PATH, exist_ok=True)
+    angles_logger = []
     for i in range(2000):
-        # for dof_i in range(DOF):
-        #     c_angle[dof_i] = p.readUserDebugParameter(motor_input[dof_i])
-
-        c_angle = angles_input[i//sep] + (angles_input[i//sep+1] - angles_input[i//sep])*(i%sep)/sep
+        if sub_mode == 2:
+            for dof_i in range(DOF):
+                c_angle[dof_i] = p.readUserDebugParameter(motor_input[dof_i])
+        elif sub_mode == 3:
+            c_angle = angles_input[i//sep] + (angles_input[i//sep+1] - angles_input[i//sep])*(i%sep)/sep
         angles_logger.append(c_angle)
         c_angle = torch.tensor(c_angle).to(device)
         degree_angles = c_angle*action_space
@@ -88,11 +80,12 @@ def interact_env(mode=0,n_samples=10):
         obs, _, _, _ = env.step(c_angle_cmd)
 
         #Saving:
-        screenshot = pyautogui.screenshot()
-        # Save the screenshot
-        screenshot.save(img_path+ "/%d.jpeg" % (i))
-        if not EndeffectorOnly:
-            np.savetxt(SAVE_PATH+'/robot%d.csv' % robot_id, angles_logger)
+        if sub_mode == 3:
+            screenshot = pyautogui.screenshot()
+            # Save the screenshot
+            screenshot.save(img_path+ "/%d.jpeg" % (i))
+            if not EndeffectorOnly:
+                np.savetxt(SAVE_PATH+'/robot%d.csv' % robot_id, angles_logger)
 
 
 def go_to_target_pos():
@@ -521,20 +514,25 @@ if __name__ == "__main__":
     seed = 1
     action_space = 90
 
-    robot_id = 1
-    sim_real = 'real'
+    sim_real = 'real' # Use the model trained by real robot data.
+    data_amount = 10000 # we used 10k data to train the model.
+    
+    
     EndeffectorOnly = False
+    robot_id = 2  # Robot 0 1 2 represents Robot 1 2 3 in the paper
+
+    # The ground truth Robot has a 3D model in transparent color and the model prediction is shown in green color dots.
+
+    test_model_pth = 'train_log/%s_id%d_%d(%d)_PE(arm)/best_model/' % (sim_real, robot_id, data_amount, seed)
+
+    # For the planning we need both
+    # end-effector model for calculating the target position
+    # and the arm model for collision-free control.
     both_models = False
-    data_amount = 10000
+
+
     # test_name = 'real_train_1_log0928_%ddof_%d(%d)/' % (data_point, 100, seed)
     # test_model_pth = 'train_log/%s/best_model/' % test_name
-
-    # test_model_pth = 'train_log/%s_id%d_%d(%d)_PE(arm)/best_model/'%(sim_real,robot_id,data_amount,seed)
-    # test_model_pth = 'train_log/%s_id%d_%d(%d)_PE(arm)/best_model/'%(sim_real,robot_id,data_amount,seed)
-
-    # For Abnormal Test
-    test_model_pth = 'train_log/%s_id%d_%d(%d)_PE(arm)/best_model/'%(sim_real,1,data_amount,seed)
-
 
 
     # DOF + 3 -> xyz and angle2 or 3 -> xyz
@@ -598,7 +596,7 @@ if __name__ == "__main__":
 
     elif MODE == 0:
 
-        angles_input = np.loadtxt('eval/%s_robo_%d(arm)/test_angles.csv'%(sim_real,1))/90
+        # angles_input = np.loadtxt('eval/%s_robo_%d(arm)/test_angles.csv'%(sim_real,1))/90
         # angles_input = np.loadtxt('train_log/real_id2_10000(1)_PE(arm)/image/valid_angle.csv')[4]/90
         env = FBVSM_Env(
             show_moving_cam=False,
@@ -609,12 +607,12 @@ if __name__ == "__main__":
             num_motor=DOF,
             dark_background=True,
             # init_angle=angles_input,
-            rotation_view = False
+            rotation_view = True
         )
 
 
         # cmds = np.loadtxt('planning/trajectory/fcl_169.csv')
-        interact_env(0)
+        interact_env(2)
 
     elif MODE == 1:
         env = FBVSM_Env(
