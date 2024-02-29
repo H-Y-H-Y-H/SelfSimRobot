@@ -530,8 +530,11 @@ if __name__ == "__main__":
     # test_model_pth = 'train_log/%s/best_model/' % test_name
 
     # test_model_pth = 'train_log/%s_id%d_%d(%d)_PE(arm)/best_model/'%(sim_real,robot_id,data_amount,seed)
-    test_model_pth = 'train_log/%s_id%d_%d(%d)_PE(arm)/best_model/'%(sim_real,robot_id,data_amount,seed)
-    # test_model_pth = 'train_log/%s_id1_10000(%d)_PE/best_model/'%(sim_real,seed)
+    # test_model_pth = 'train_log/%s_id%d_%d(%d)_PE(arm)/best_model/'%(sim_real,robot_id,data_amount,seed)
+
+    # For Abnormal Test
+    test_model_pth = 'train_log/%s_id%d_%d(%d)_PE(arm)/best_model/'%(sim_real,1,data_amount,seed)
+
 
 
     # DOF + 3 -> xyz and angle2 or 3 -> xyz
@@ -595,7 +598,7 @@ if __name__ == "__main__":
 
     elif MODE == 0:
 
-        angles_input = np.loadtxt('eval/%s_robo_%d(arm)/test_angles.csv'%(sim_real,robot_id))/90
+        angles_input = np.loadtxt('eval/%s_robo_%d(arm)/test_angles.csv'%(sim_real,1))/90
         # angles_input = np.loadtxt('train_log/real_id2_10000(1)_PE(arm)/image/valid_angle.csv')[4]/90
         env = FBVSM_Env(
             show_moving_cam=False,

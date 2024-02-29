@@ -130,8 +130,6 @@ class FBV_SM(nn.Module):
             nn.Linear(d_filter,d_filter),
         )
 
-
-
         self.output = nn.Linear(d_filter//4, output_size)
 
 
@@ -152,46 +150,46 @@ class FBV_SM(nn.Module):
 
 
 
-class FBV_SM_old(nn.Module):
-    def __init__(self,
-                 encoder=None,
-                 d_input: int = 5,
-                 n_layers: int = 4,
-                 d_filter: int = 128,
-                 skip: Tuple[int] = (1, 2),
-                 output_size: int = 2):
-        super(FBV_SM_old, self).__init__()
-
-        self.d_input = d_input
-        self.skip = skip
-        self.act = nn.functional.relu
-        self.encoder = encoder
-
-        # Initialize layers
-        self.layers = self._build_layers(d_input, d_filter, n_layers)
-        self.output = nn.Linear(d_filter, output_size)
-
-    def _build_layers(self, d_input, d_filter, n_layers):
-        """Helper function to build model layers."""
-        layers = [nn.Linear(d_input, d_filter)]
-
-        for i in range( n_layers-1):
-            input_dim = d_filter + d_input if i in self.skip else d_filter
-            layers.append(nn.Linear(input_dim, d_filter))
-
-        return nn.ModuleList(layers)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.encoder !=None:
-            x = self.encoder(x)
-        x_input = x
-
-        for i, layer in enumerate(self.layers):
-            x = self.act(layer(x))
-            if i in self.skip:
-                x = torch.cat([x, x_input], dim=-1)
-
-        return self.output(x)
+# class FBV_SM_old(nn.Module):
+#     def __init__(self,
+#                  encoder=None,
+#                  d_input: int = 5,
+#                  n_layers: int = 4,
+#                  d_filter: int = 128,
+#                  skip: Tuple[int] = (1, 2),
+#                  output_size: int = 2):
+#         super(FBV_SM_old, self).__init__()
+#
+#         self.d_input = d_input
+#         self.skip = skip
+#         self.act = nn.functional.relu
+#         self.encoder = encoder
+#
+#         # Initialize layers
+#         self.layers = self._build_layers(d_input, d_filter, n_layers)
+#         self.output = nn.Linear(d_filter, output_size)
+#
+#     def _build_layers(self, d_input, d_filter, n_layers):
+#         """Helper function to build model layers."""
+#         layers = [nn.Linear(d_input, d_filter)]
+#
+#         for i in range( n_layers-1):
+#             input_dim = d_filter + d_input if i in self.skip else d_filter
+#             layers.append(nn.Linear(input_dim, d_filter))
+#
+#         return nn.ModuleList(layers)
+#
+#     def forward(self, x: torch.Tensor) -> torch.Tensor:
+#         if self.encoder !=None:
+#             x = self.encoder(x)
+#         x_input = x
+#
+#         for i, layer in enumerate(self.layers):
+#             x = self.act(layer(x))
+#             if i in self.skip:
+#                 x = torch.cat([x, x_input], dim=-1)
+#
+#         return self.output(x)
 
 
 if __name__ == "__main__":
