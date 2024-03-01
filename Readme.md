@@ -39,6 +39,9 @@ On the left side of the GUI, there are four bars that you can interact with. The
 
 We have provided pre-trained models to help you get started without the need to train the models from scratch. These models are located in the train_log folder. The visualize_bullet.py script automatically uses these models to run the simulations.
 
+### Expected Run time:
+The demo will update the visualization every 0.38 seconds on a PC with a Nvidia Geforce RTX 3090 GPU and 12th Gen Intel i9-12900KF
+
 ### Modifying Parameters
 To explore different robot models and tasks, adjust the following parameters in the visualize_bullet.py script:
 
@@ -48,4 +51,7 @@ robot_id: Change this parameter to switch between different robot models.
 
 ### Reproduction instructions:
 To train a model from scratch, you can use the data in supplementary materials and use train.py to train the model by yourself.
+
+### License
+This project is open source and available under the MIT License.
 
