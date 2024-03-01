@@ -4,7 +4,7 @@ Fully_body_VSM is a project aimed at enabling robots to understand and predict t
 
 ## Environment Setup
 
-To run the Fully_body_VSM project, you need to have Python 3.9 installed on your system. If you do not have Python installed, we recommend downloading it from the official Python website or using a package manager like Homebrew for macOS, apt for Ubuntu, or Chocolatey for Windows.
+To run the Fully_body_VSM project, you need to have Python 3.9 installed on your system.
 
 ### Dependencies
 
