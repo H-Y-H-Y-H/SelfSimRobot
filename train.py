@@ -159,9 +159,9 @@ def train(model, optimizer):
 
 if __name__ == "__main__":
 
-    sim_real = 'real'
+    sim_real = 'sim'
     arm_ee = 'arm'
-    seed_num = 0
+    seed_num = 1
     robotid = 0
     FLAG_PositionalEncoder= True
 
@@ -172,11 +172,11 @@ if __name__ == "__main__":
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
-    select_data_amount = 10000
+    select_data_amount = 8000
 
     DOF = 4  # the number of motors  # dof4 apr03
 
-    cam_dist = 1
+    cam_dist = 1.0
     nf_size = 0.4
     near, far = cam_dist - nf_size, cam_dist + nf_size  # real scale dist=1.0
     Flag_save_image_during_training = True
@@ -189,11 +189,13 @@ if __name__ == "__main__":
     tr = 0.8  # training ratio
     pxs = 100  # collected data pixels
 
-    data = np.load('data/%s_data/%s_data_robo%d(%s).npz'%(sim_real,sim_real,robotid,arm_ee))
+    # data = np.load('data/%s_data/%s_data_robo%d(%s).npz'%(sim_real,sim_real,robotid,arm_ee))
+    # data = np.load('data/%s_data/%s_data_robo%d(%s)_cam%d.npz'%(sim_real,sim_real,robotid,arm_ee,cam_dist*1000))
+    data = np.load('data/%s_data/%s_data_robo%d(%s)_cam%d_test.npz'%(sim_real,sim_real,robotid,arm_ee,800)) # 800 test is 1000 ... local data, Jiong
     num_raw_data = len(data["angles"])
 
     print("DOF, num_data, robot_id, PE",DOF,select_data_amount,robotid,FLAG_PositionalEncoder)
-    LOG_PATH = "train_log/%s_id%d_%d(%d)_%s(%s)" % (sim_real,robotid,select_data_amount, seed_num,add_name,arm_ee)
+    LOG_PATH = "train_log/%s_id%d_%d(%d)_%s(%s)_cam%d(%d)" % (sim_real,robotid,select_data_amount, seed_num,add_name,arm_ee,cam_dist*1000,seed_num)
     if different_arch != 0:
         LOG_PATH += 'diff_out_%d'%different_arch
     print("Data Loaded!")

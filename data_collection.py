@@ -144,6 +144,8 @@ def collect_data(my_env, save_path, action_lists):
              poses=np.array(pose_record),
              angles=np.array(angle_record),
              focal=focal)
+    
+    print("Data collection done!")
 
     # keep running
     if RENDER:
@@ -199,13 +201,15 @@ def plot_new_cam(ax, orig_cam):
 
 if __name__ == "__main__":
     """data collection"""
-    RENDER = False
+    RENDER = True
     MOV_CAM = False
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 1.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
     NUM_MOTOR = 4  # the number of motors
-    robot_ID = 2
-    sample_size = 20
+    robot_ID = 0
+    # sample_size = 20
+
+    cam_dist = 1.2
 
 
     # Camera config: focal
@@ -221,21 +225,27 @@ if __name__ == "__main__":
         height=HEIGHT,
         render_flag=RENDER,
         num_motor=NUM_MOTOR,
-        init_angle = [-np.pi/2,0,0,-np.pi/2])
+        init_angle = [-np.pi/2,0,0,-np.pi/2], 
+        cam_dist=cam_dist)
     # -1, 0.8, 1, -0.1
+
+    
 
     np.random.seed(2023)
     torch.manual_seed(2023)
 
     # Data_collection
-    log_pth = "data/data_uniform_robo%d/"%robot_ID
+    # log_pth = "data/data_uniform_robo%d/"%robot_ID
+    log_pth = "data/sim_data/"
     os.makedirs(log_pth, exist_ok=True)
 
-    action_lists = np.loadtxt('data/action/cleaned_1009(1)_con_action_robo%d_dof4_size20.csv'%robot_ID)
+    # action_lists = np.loadtxt('data/action/cleaned_0531(1)_con_action_robo%d_dof4_size20.csv'%robot_ID)
+    action_lists = np.loadtxt('data/action/cleaned_con_action_robo%d_dof4_size10.csv'%robot_ID)
 
 
     print(action_lists.shape)
-    log_pth += '1009(1)_con_dof%d_data.npz' % (NUM_MOTOR)
+    # log_pth += '1009(1)_con_dof%d_data.npz' % (NUM_MOTOR)
+    log_pth += 'sim_data_robo%d(arm)_cam%d(2).npz' % (robot_ID, cam_dist * 1000)
     collect_data(my_env=MyEnv,
                  save_path=log_pth,
                  action_lists=action_lists)

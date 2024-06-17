@@ -19,7 +19,8 @@ class FBVSM_Env(gym.Env):
                  max_num_motor=4,
                  init_angle = [0]*4,
                  dark_background = False,
-                 rotation_view = False
+                 rotation_view = False,
+                 cam_dist = 1.0
                  ):
         self.robot_ID = robot_ID
         self.show_moving_cam = show_moving_cam
@@ -36,7 +37,7 @@ class FBVSM_Env(gym.Env):
         #  camera z offset
         self.z_offset = -0.108
         self.render_flag = render_flag
-        self.camera_pos = [1, 0, 0]  # previous 0.8 ! May 28,  # 4dof dist=1
+        self.camera_pos = [cam_dist, 0, 0]  # previous 0.8 ! May 28,  # 4dof dist=1
         self.camera_line = None
         self.camera_line_m = None
         self.step_id = 0
@@ -84,24 +85,24 @@ class FBVSM_Env(gym.Env):
 
     def get_obs(self):
         ########### Capture side view images #############
-        GUI_data = p.getDebugVisualizerCamera()
-        viewMatrix = GUI_data[2]
-        img = p.getCameraImage(480, 480,
-                               viewMatrix, self.projection_matrix,
-                               renderer=p.ER_BULLET_HARDWARE_OPENGL,
-                               shadow=0)[2]
+        # GUI_data = p.getDebugVisualizerCamera()
+        # viewMatrix = GUI_data[2]
+        # img = p.getCameraImage(480, 480,
+        #                        viewMatrix, self.projection_matrix,
+        #                        renderer=p.ER_BULLET_HARDWARE_OPENGL,
+        #                        shadow=0)[2]
 
 
         # """ self.view_matrix is updating with action"""
-        # img = p.getCameraImage(self.width, self.height,
-        #                        self.view_matrix, self.projection_matrix,
-        #                        renderer=p.ER_BULLET_HARDWARE_OPENGL,
-        #                        shadow=0)
-        # img = img[2][:, :, :3]
-        # img = green_black(img)
-        # cv2.imshow('Windows', img)
+        img = p.getCameraImage(self.width, self.height,
+                               self.view_matrix, self.projection_matrix,
+                               renderer=p.ER_BULLET_HARDWARE_OPENGL,
+                               shadow=0)[2]
+        img = img[:, :, :3]
+        img = green_black(img)
+        cv2.imshow('Windows', img)
         self.step_id += 1
-        # cv2.waitKey(1)
+        cv2.waitKey(1)
 
         joint_list = []
         for j in range(self.num_motor):
@@ -441,11 +442,37 @@ def self_collision_check_prerecord(all_combinations, sample_size: int, Env, num_
 
     return np.array(work_space)
 
+def self_collision_check(sample_size:int, Env:FBVSM_Env) -> np.array:
+    """
+    four dof robot config sampling
+    sample_size: sampled number for each motor
+    Env: robot env
+    """
+    line_array = np.linspace(-1.0, 1.0, num=sample_size+1)
+    work_space = []
+    # tqdm(
+    for m0 in line_array:
+        for m1 in line_array:
+            for m2 in line_array:
+                for m3 in line_array:
+                    angle_norm = np.array([m0, m1, m2, m3])
+                    obs, _, done, _ = Env.step(angle_norm)
+                    if done:
+                        print(angle_norm, "recorded")
+                        work_space.append(angle_norm)
+                    else:
+                        print(angle_norm, "no record")
+                        break # check this
+
+                    print("------------")
+                    
+    return np.array(work_space)
+
 
 if __name__ == '__main__':
     RENDER = True
     NUM_MOTOR = 4
-    robot_ID = 2 # Robot 0 1 2 represents Robot 1 2 3 in the paper
+    robot_ID = 0 # Robot 0 1 2 represents Robot 1 2 3 in the paper
     TASK = 0
 
     p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
@@ -503,7 +530,7 @@ if __name__ == '__main__':
     elif mode == "s": # Generate efficient trajectories for data collection.
 
         # Example usage
-        sample_size = 20  # example value
+        # sample_size = 20  # example value
 
 
         # get workspace: np.array (nx4)
@@ -516,12 +543,17 @@ if __name__ == '__main__':
 
 
         # get workspace: np.array (nx4)
-        all_combinations = np.loadtxt('data/action/cleaned_1009_con_action_robo%d_dof4_size20.csv'%robot_ID)
+        # all_combinations = np.loadtxt('data/action/cleaned_con_action_robo%d_dof4_size20.csv'%robot_ID)
 
-        WorkSpace = self_collision_check_prerecord(
-            all_combinations=all_combinations,
-            sample_size=sample_size,
-            Env=env,
-            num_dof = NUM_MOTOR)
+        # WorkSpace = self_collision_check_prerecord(
+        #     all_combinations=all_combinations,
+        #     sample_size=sample_size,
+        #     Env=env,
+        #     num_dof = NUM_MOTOR)
+        # print(WorkSpace.shape)
+        # np.savetxt("data/action/cleaned_0531(1)_con_action_robo%d_dof%d_size%d.csv"%(robot_ID,NUM_MOTOR,sample_size), WorkSpace)
+        WorkSpace = self_collision_check(
+            sample_size=10, 
+            Env=env)
         print(WorkSpace.shape)
-        np.savetxt("data/action/cleaned_1009(1)_con_action_robo%d_dof%d_size%d.csv"%(robot_ID,NUM_MOTOR,sample_size), WorkSpace)
+        np.savetxt("data/action/workspace-10.csv", WorkSpace, fmt="%.2f")
