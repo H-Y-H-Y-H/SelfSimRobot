@@ -10,12 +10,16 @@ class LearningCurve:
         self.curve_dict = {}
         for dist in dists:
             self.load_data(dist)
+            self.load_data(dist, sep=True)
 
 
-    def load_data(self, dist):
+    def load_data(self, dist, sep=False):
         curve = []
         for seed in self.seeds:
-            path = "train_log_dist/%s_id%d_%d(%d)_%s(%s)_cam%d(%d)" % ('sim', 0, 8000, seed, 'PE', 'arm', dist * 1000, seed)
+            if sep:
+                path = "train_log_model/%s_id%d_%d(%d)_%s(%s)_cam%d(%d)_sep" % ('sim', 0, 8000, seed, 'PE', 'arm', dist * 1000, seed)
+            else:
+                path = "train_log_model/%s_id%d_%d(%d)_%s(%s)_cam%d(%d)" % ('sim', 0, 8000, seed, 'PE', 'arm', dist * 1000, seed)
             train_log = np.loadtxt(path + "/log_train.txt")[-self.epoch:] # shape: (epoch,)
             val_log = np.loadtxt(path + "/log_val.txt")[-self.epoch:] # shape: (epoch,)
             log = np.vstack((train_log, val_log)) # shape: (2, epoch)
@@ -24,23 +28,32 @@ class LearningCurve:
 
         curve = np.array(curve) # shape: (3, 2, epoch)
         print(curve.shape)
-        self.curve_dict[dist] = curve # dictionary: {dist: (3, 2, epoch)}
+        if sep:
+            self.curve_dict[dist+1] = curve
+        else:
+            self.curve_dict[dist] = curve # dictionary: {dist: (3, 2, epoch)}
 
             
 
     def plot_curves(self):
         plt.figure(figsize=(8, 5))
-        plt.style.use('seaborn-v0_8-whitegrid')
+        plt.style.use('seaborn')
         x = np.arange(self.epoch)
         for dist in self.dists:
             y = np.mean(self.curve_dict[dist][:, 1], axis=0) * (dist * dist) # shape: (epoch,)
             yerr = np.std(self.curve_dict[dist][:, 1], axis=0) * (dist * dist) # shape: (epoch,)
 
+            y_sep = np.mean(self.curve_dict[dist+1][:, 1], axis=0) * (dist * dist) # shape: (epoch,)
+            yerr_sep = np.std(self.curve_dict[dist+1][:, 1], axis=0) * (dist * dist) # shape: (epoch,)
+
             # plt.plot(x, np.log(y),label="cam_dist=%d mm" % (dist * 1000))
             # plt.fill_between(x, np.log(y - yerr), np.log(y + yerr), alpha=0.8)
 
-            plt.plot(x, y, label="Camera Distance : %d mm" % (dist * 1000))
+            plt.plot(x, y, label="combined output")
             plt.fill_between(x, y - yerr, y + yerr, alpha=0.5)
+
+            plt.plot(x, y_sep, label="Sepreate outputs")
+            plt.fill_between(x, y_sep - yerr_sep, y_sep + yerr_sep, alpha=0.5)
 
         # plt.yscale("log")
 
@@ -52,7 +65,7 @@ class LearningCurve:
         plt.legend()
         plt.title("Validation Loss (Normalized)")
         plt.tight_layout()
-        plt.savefig("train_log_dist/report/learning_curve.png")
+        plt.savefig("train_log_model/report/learning_curve.png")
         plt.show()
 
     def plot_images(self):
@@ -65,12 +78,12 @@ class LearningCurve:
         cols_label = ['Distance = 800 mm', 'Distance = 1000 mm', 'Distance = 1200 mm']
         fig, axs = plt.subplots(len(rows), len(cols), sharex=True, sharey=True, figsize=(12, 6))
         fig.subplots_adjust(hspace=0.)
-        plt.style.use('seaborn-v0_8-whitegrid')
+        plt.style.use('seaborn')
 
         for i, dist in enumerate(cols):
             for j, row in enumerate(rows):
 
-                path = "train_log_dist/%s_id%d_%d(%d)_%s(%s)_cam%d(%d)" % ('sim', 0, 8000, seed, 'PE', 'arm', dist * 1000, seed) + "/image/%s.png" % row
+                path = "train_log_model/%s_id%d_%d(%d)_%s(%s)_cam%d(%d)" % ('sim', 0, 8000, seed, 'PE', 'arm', dist * 1000, seed) + "/image/%s.png" % row
                 img = plt.imread(path)[:, :400, :]
                 # print(img.shape)
                 axs[j, i].imshow(img)
@@ -83,12 +96,14 @@ class LearningCurve:
         for ax, row in zip(axs[:,0], rows_label):
             ax.set_ylabel(row, rotation=0, labelpad=50) #  size='small'
         fig.tight_layout()
-        plt.savefig("train_log_dist/report/training.png")
+        plt.savefig("train_log_model/report/training.png")
         plt.show()
 
     def plot_results(self):
         dist_best_loss = []
         dist_best_tloss = []
+        dist_best_loss_sep = []
+        dist_best_tloss_sep = []
         for dist in self.dists:
             best_loss_long_seeds = np.min(self.curve_dict[dist][:, 1], axis=1) * dist * dist # shape: (3,)
             best_loss_mean = np.mean(best_loss_long_seeds)
@@ -100,40 +115,61 @@ class LearningCurve:
             best_tloss_std = np.std(best_tloss_long_seeds)
             dist_best_tloss.append((best_tloss_mean, best_tloss_std))
 
+
+            best_tloss_long_seeds = np.min(self.curve_dict[dist+1][:, 1], axis=1) * dist * dist # shape: (3,)
+            best_tloss_mean = np.mean(best_tloss_long_seeds)
+            best_tloss_std = np.std(best_tloss_long_seeds)
+            dist_best_loss_sep.append((best_tloss_mean, best_tloss_std))
+
+
+            best_tloss_long_seeds = np.min(self.curve_dict[dist+1][:, 0], axis=1) * dist * dist # shape: (3,)
+            best_tloss_mean = np.mean(best_tloss_long_seeds)
+            best_tloss_std = np.std(best_tloss_long_seeds)
+            dist_best_tloss_sep.append((best_tloss_mean, best_tloss_std))
+
+
         # plt.figure(figsize=(12, 6))
-        plt.style.use('seaborn-v0_8-whitegrid')
+        # plt.style.use('seaborn')
         # plt.style.use('seaborn-whitegrid')
         width = 0.3    # the width of the bars: can also be len(x) sequence
-        fig, ax = plt.subplots(figsize=(8, 5))
+        fig, ax = plt.subplots(figsize=(10, 5))
         x = np.arange(len(self.dists))
         y = [loss for loss, _ in dist_best_loss]
         yerr = [std for _, std in dist_best_loss]
         yt = [loss for loss, _ in dist_best_tloss]
         yterr = [std for _, std in dist_best_tloss]
 
-        np.savetxt("train_log_dist/report/best_loss.txt", np.array([y, yerr, yt, yterr]))
+        y_sep = [loss for loss, _ in dist_best_loss_sep]
+        yerr_sep = [std for _, std in dist_best_loss_sep]
+        yt_sep = [loss for loss, _ in dist_best_tloss_sep]
+        yterr_sep = [std for _, std in dist_best_tloss_sep]
+
+        np.savetxt("train_log_model/report/best_loss.txt", np.array([y, yerr, yt, yterr, y_sep, yerr_sep, yt_sep, yterr_sep]))
 
         # bar chart with error bars
-        rects1 = ax.bar(x+width/2, y, yerr=yerr, capsize=5, label='Validation Loss', width=width)
-        rects2 = ax.bar(x-width/2, yt, yerr=yterr, capsize=5, label='Training Loss', width=width)
+        rects1 = ax.bar(x+width/2, y, yerr=yerr, capsize=5, label='Validation', width=width)
+        rects2 = ax.bar(x-width/2, yt, yerr=yterr, capsize=5, label='Training', width=width)
+
+        rects3 = ax.bar(x+1+width/2, y_sep, yerr=yerr_sep, capsize=5, label='Validation (Sep)', width=width)
+        rects4 = ax.bar(x+1-width/2, yt_sep, yerr=yterr_sep, capsize=5, label='Training (Sep)', width=width)
 
         # plt.errorbar(x, y, yerr=yerr, fmt='o', capsize=5)
-        plt.xticks(x, [str(dist * 1000) for dist in self.dists])
-        plt.xlabel("Camera Distance (mm)")
+        plt.xticks([0, 1], ["combined output", "separate outputs"])
+        # plt.xlabel("Camera Distance (mm)")
         plt.ylabel("Normalized MSE Loss")
         plt.title("Minimal Training Loss and Validation Loss (Normalized)")
         
         plt.legend()
-        plt.savefig("train_log_dist/report/best_loss.png")
+        plt.savefig("train_log_model/report/best_loss.png")
         plt.show()
 
 
 if __name__ == "__main__":
-    dists = [0.8, 1.0, 1.2]
+    dists = [1.0]
     lc = LearningCurve(dists, 398)
     plt.rcParams['figure.dpi'] = 100
     plt.rcParams['savefig.dpi'] = 300
     lc.plot_curves()
-    lc.plot_images()
+    # lc.plot_images()
     lc.plot_results()
 
