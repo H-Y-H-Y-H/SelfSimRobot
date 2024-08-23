@@ -148,48 +148,67 @@ class FBV_SM(nn.Module):
         return self.output(x)
 
 
+class FBV_SM2(nn.Module):
+    ## for separate output version
+    def __init__(self,
+                 encoder=None,
+                 d_input: int = 5,
+                 d_filter: int = 128,
+                 output_size: int = 2):
+        super(FBV_SM2, self).__init__()
+
+        self.d_input = d_input
+
+        self.act = nn.functional.relu
+        self.encoder = encoder
+
+        # Initialize layers
+        # only encoder version
+        n_freqs = self.encoder.n_freqs
+        pos_encoder_d = (n_freqs*2+1)*3
+        cmd_encoder_d = (n_freqs*2+1)*(d_input-3)
+        self.feed_forward = nn.Sequential(
+            nn.Linear(d_filter*2, d_filter),
+            nn.ReLU(),
+            nn.Linear(d_filter,d_filter),
+            nn.ReLU(),
+        )
+
+        self.pos_encoder = nn.Sequential(
+            nn.Linear(pos_encoder_d, d_filter),
+            nn.ReLU(),
+            nn.Linear(d_filter,d_filter),
+        )
+
+        self.cmd_encoder = nn.Sequential(
+            nn.Linear(cmd_encoder_d, d_filter),
+            nn.ReLU(),
+            nn.Linear(d_filter,d_filter),
+        )
+
+        self.output = nn.Linear(d_filter//4, output_size)
+        # for separate output version @Jiong Aug 16
+        self.alpha_out = nn.Linear(d_filter, 1)
+        self.greyscale_out = nn.Sequential(
+            nn.Linear(d_filter, d_filter//4),
+            nn.ReLU(),
+            nn.Linear(d_filter//4, 1)
+        )
 
 
-# class FBV_SM_old(nn.Module):
-#     def __init__(self,
-#                  encoder=None,
-#                  d_input: int = 5,
-#                  n_layers: int = 4,
-#                  d_filter: int = 128,
-#                  skip: Tuple[int] = (1, 2),
-#                  output_size: int = 2):
-#         super(FBV_SM_old, self).__init__()
-#
-#         self.d_input = d_input
-#         self.skip = skip
-#         self.act = nn.functional.relu
-#         self.encoder = encoder
-#
-#         # Initialize layers
-#         self.layers = self._build_layers(d_input, d_filter, n_layers)
-#         self.output = nn.Linear(d_filter, output_size)
-#
-#     def _build_layers(self, d_input, d_filter, n_layers):
-#         """Helper function to build model layers."""
-#         layers = [nn.Linear(d_input, d_filter)]
-#
-#         for i in range( n_layers-1):
-#             input_dim = d_filter + d_input if i in self.skip else d_filter
-#             layers.append(nn.Linear(input_dim, d_filter))
-#
-#         return nn.ModuleList(layers)
-#
-#     def forward(self, x: torch.Tensor) -> torch.Tensor:
-#         if self.encoder !=None:
-#             x = self.encoder(x)
-#         x_input = x
-#
-#         for i, layer in enumerate(self.layers):
-#             x = self.act(layer(x))
-#             if i in self.skip:
-#                 x = torch.cat([x, x_input], dim=-1)
-#
-#         return self.output(x)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_pos = self.encoder(x[:,:3])
+        x_cmd = self.encoder(x[:,3:])
+        x_pos = self.pos_encoder(x_pos)
+        x_cmd = self.cmd_encoder(x_cmd)
+        x = self.feed_forward(torch.cat((x_pos,x_cmd),dim=1))
+        # print(x.shape)
+        alpha = self.alpha_out(x)
+        greyscale = self.greyscale_out(x)
+        # print(alpha.shape,greyscale.shape)
+        return torch.cat((alpha,greyscale),dim=-1)
+
+
 
 
 if __name__ == "__main__":
