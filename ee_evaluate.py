@@ -31,7 +31,7 @@ def load_model_env():
         robot_ID=robot_id,
         width=width,
         height=height,
-        render_flag=True,
+        render_flag=RENDER,
         num_motor=DOF,
         dark_background=True,
         init_angle=[-0.5, -0.3, -0.5, -0.2])
@@ -39,7 +39,7 @@ def load_model_env():
     return model, env
 
 def query_simulator(env, angles):
-    obs, _, done, _ = env.step(angles)
+    done = env.act(angles)
     # link_id: -1, 0, 1, 2, 3, 4; base, L1, L2, L3, L4, sphere_link (robot_id = 1)
     link_index = 4
     if not done:
