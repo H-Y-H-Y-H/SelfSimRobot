@@ -514,16 +514,17 @@ if __name__ == "__main__":
     seed = 1
     action_space = 90
 
-    sim_real = 'sim' # Use the model trained by real robot data.
-    data_amount = 8000 # we used 10k data to train the model.
+    sim_real = 'real' # Use the model trained by real robot data.
+    data_amount = 10000 # we used 10k data to train the model.
     
     
-    EndeffectorOnly = False
-    robot_id = 0  # Robot 0 1 2 represents Robot 1 2 3 in the paper
+    EndeffectorOnly = True
+    robot_id = 1  # Robot 0 1 2 represents Robot 1 2 3 in the paper
 
     # The ground truth Robot has a 3D model in transparent color and the model prediction is shown in green color dots.
 
-    test_model_pth = 'train_log_model/%s_id%d_8000(%d)_PE(arm)_cam1000(%d)_sep/best_model/' % (sim_real, robot_id, seed, seed)
+    # test_model_pth = 'train_log_model/%s_id%d_8000(%d)_PE(arm)_cam1000(%d)_sep/best_model/' % (sim_real, robot_id, seed, seed)
+    test_model_pth = 'train_log/%s_id%d_10000(%d)_PE(ee)/best_model/' % (sim_real, robot_id, seed)
 
     # For the planning we need both
     # end-effector model for calculating the target position

@@ -472,7 +472,7 @@ def self_collision_check(sample_size:int, Env:FBVSM_Env) -> np.array:
 if __name__ == '__main__':
     RENDER = True
     NUM_MOTOR = 4
-    robot_ID = 0 # Robot 0 1 2 represents Robot 1 2 3 in the paper
+    robot_ID = 1 # Robot 0 1 2 represents Robot 1 2 3 in the paper
     TASK = 0
 
     p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
@@ -556,4 +556,4 @@ if __name__ == '__main__':
             sample_size=10, 
             Env=env)
         print(WorkSpace.shape)
-        np.savetxt("data/action/workspace-10.csv", WorkSpace, fmt="%.2f")
+        np.savetxt("data/action/ee_workspace_10.csv", WorkSpace, fmt="%.2f")

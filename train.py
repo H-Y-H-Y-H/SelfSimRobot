@@ -24,16 +24,16 @@ def init_models(d_input, d_filter, pretrained_model_pth=None, lr=5e-4, output_si
     if FLAG_PositionalEncoder:
         encoder = PositionalEncoder(d_input, n_freqs=10, log_space=True)
 
-        # model = FBV_SM(encoder = encoder,
-        #                d_input=d_input,
-        #                d_filter=d_filter,
-        #                output_size=output_size)
-
-        # separate output
-        model = FBV_SM2(encoder = encoder,
+        model = FBV_SM(encoder = encoder,
                        d_input=d_input,
                        d_filter=d_filter,
                        output_size=output_size)
+
+        # separate output
+        # model = FBV_SM2(encoder = encoder,
+        #                d_input=d_input,
+        #                d_filter=d_filter,
+        #                output_size=output_size)
     else:
         # Models
         model = FBV_SM(d_input=d_input,
