@@ -81,25 +81,114 @@ def plot_ee():
     c_s = centers[:, 3:] # simulator prediction, ground truth
 
     mse_error = np.linalg.norm(c_m - c_s, axis=1) # shape: (n,)
+    # normalized_error = mse_error / np.linalg.norm(c_s, axis=1)
     line_array = np.linspace(-1.0, 1.0, num=11)
     # angle 0, 1, 2, 3; 2 & 3 are the input angles
 
-    error_2 = []
-    for angle_i in line_array:
-        mask2_i = np.isclose(workspace[:, 1], angle_i, atol=1e-3)
-        error_i = mse_error[mask2_i] # shape: (m,), m<=n
-        print("angle 2: ", np.round(angle_i, 2), "error: ", error_i.shape)
-        error_2.append(np.mean(error_i))
+    ignore_first = True
+    if ignore_first:
+        start = 1
+        end = 11
+    else:
+        start = 0
+        end = 11
 
-    plt.plot(line_array[1:-1], error_2[1:-1])
-    plt.xlabel('angle 2')
+    """ee center error VS one angle"""
+    ids = [0, 1, 2, 3]
+    for angle_id in ids:
+        error_1d = []
+        for angle_i in line_array:
+            mask2_i = np.isclose(workspace[:, angle_id], angle_i, atol=1e-3)
+            error_i = mse_error[mask2_i] # shape: (m,), m<=n
+            print("angle 2: ", np.round(angle_i, 3), "error: ", error_i.shape)
+            error_1d.append(np.mean(error_i))
+
+        plt.plot(line_array[start:end], error_1d[start:end])
+        plt.xticks(line_array[start:end])
+        plt.xlabel('angle %d' % np.round(angle_id, 3))
+        plt.ylabel('MSE error')
+        plt.show()
+
+
+    """ee center error VS one angle (in the same plot)"""
+    ids = [0, 1, 2, 3]
+
+    for angle_id in ids:
+        error_1d = []
+        for angle_i in line_array:
+            mask2_i = np.isclose(workspace[:, angle_id], angle_i, atol=1e-3)
+            error_i = mse_error[mask2_i] # shape: (m,), m<=n
+            print("angle 2: ", np.round(angle_i, 3), "error: ", error_i.shape)
+            error_1d.append(np.mean(error_i))
+
+        plt.plot(line_array[start:end], error_1d[start:end], label='angle %d' % np.round(angle_id, 3))
+        # plt.xlabel('angle %d' % np.round(angle_id, 3))
+    plt.legend()
+    plt.xticks(line_array[start:end])
+    plt.xlabel('angle')
     plt.ylabel('MSE error')
     plt.show()
+
+
+    """ee center error VS two angles"""
+    idss = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]
+    for angle_ids in idss:
+        error_2d = []
+        for angle_i in line_array:
+            error_i = []
+            for angle_j in line_array:
+                mask2_i = np.isclose(workspace[:, angle_ids[0]], angle_i, atol=1e-3)
+                mask2_j = np.isclose(workspace[:, angle_ids[1]], angle_j, atol=1e-3)
+                mask2_ij = np.logical_and(mask2_i, mask2_j)
+                error_ij = mse_error[mask2_ij]
+                error_i.append(np.mean(error_ij))
+            error_2d.append(error_i)
+        error_2d = np.array(error_2d)
+
+        fig, ax = plt.subplots()
+        cax = ax.matshow(error_2d[start:end, start:end], cmap='binary')
+        fig.colorbar(cax)
+        plt.xticks(range(len(line_array[start:end])), np.round(line_array[start:end], 2))
+        plt.yticks(range(len(line_array[start:end])), np.round(line_array[start:end], 2))
+        plt.xlabel('angle %d' % angle_ids[0])
+        plt.ylabel('angle %d' % angle_ids[1])
+        plt.show()
+
+
+    """ee center error VS ee abs distance"""
+    abs_distance = np.linalg.norm(c_s, axis=1) # shape: (n,)
+    plt.scatter(abs_distance, mse_error)
+    plt.xlabel('ee abs distance')
+    plt.ylabel('MSE error')
+    plt.show()
+
+    """ee center error VS ee axis distance"""
+    x = c_s[:, 0]
+    y = c_s[:, 1]
+    z = c_s[:, 2] # shape: (n,)
+    axiss = {"xy": (x, y), "xz": (x, z), "yz": (y, z)}
+    for key, axis in axiss.items():
+
+        X = axis[0]
+        Y = axis[1]
+        Z = mse_error
+        print(np.max(Z), np.min(Z))
+        grid_x, grid_y = np.mgrid[min(X):max(X):30j, min(Y):max(Y):30j]
+        from scipy.interpolate import griddata
+        grid_z = griddata((X, Y), Z, (grid_x, grid_y), method='linear')
+        print(grid_z.shape)
+        print(np.nanmax(grid_z), np.nanmin(grid_z))
+        plt.imshow(grid_z.T, extent=(min(X), max(X), min(Y), max(Y)), origin='lower', cmap='plasma')
+        plt.colorbar(label='MSE error')
+        plt.xlabel('ee position %s' % key[0])
+        plt.ylabel('ee position %s' % key[1])
+        plt.show()
         
 
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
     print("train,", device)
 
     DOF = 4
