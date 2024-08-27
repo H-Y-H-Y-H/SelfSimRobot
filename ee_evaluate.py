@@ -107,7 +107,7 @@ def plot_ee():
         plt.plot(line_array[start:end], error_1d[start:end])
         plt.xticks(line_array[start:end])
         plt.xlabel('angle %d' % np.round(angle_id, 3))
-        plt.ylabel('MSE error')
+        plt.ylabel('MSE')
         plt.show()
 
 
@@ -127,7 +127,7 @@ def plot_ee():
     plt.legend()
     plt.xticks(line_array[start:end])
     plt.xlabel('angle')
-    plt.ylabel('MSE error')
+    plt.ylabel('MSE')
     plt.show()
 
 
@@ -147,8 +147,10 @@ def plot_ee():
         error_2d = np.array(error_2d)
 
         fig, ax = plt.subplots()
-        cax = ax.matshow(error_2d[start:end, start:end], cmap='binary')
-        fig.colorbar(cax)
+        # cax = ax.matshow(error_2d[start:end, start:end], cmap='binary')
+        # fig.colorbar(cax)
+        plt.imshow(error_2d[start:end, start:end], cmap='viridis')
+        plt.colorbar(label='MSE')
         plt.xticks(range(len(line_array[start:end])), np.round(line_array[start:end], 2))
         plt.yticks(range(len(line_array[start:end])), np.round(line_array[start:end], 2))
         plt.xlabel('angle %d' % angle_ids[0])
@@ -160,7 +162,7 @@ def plot_ee():
     abs_distance = np.linalg.norm(c_s, axis=1) # shape: (n,)
     plt.scatter(abs_distance, mse_error)
     plt.xlabel('ee abs distance')
-    plt.ylabel('MSE error')
+    plt.ylabel('MSE')
     plt.show()
 
     """ee center error VS ee axis distance"""
@@ -180,7 +182,7 @@ def plot_ee():
         print(grid_z.shape)
         print(np.nanmax(grid_z), np.nanmin(grid_z))
         plt.imshow(grid_z.T, extent=(min(X), max(X), min(Y), max(Y)), origin='lower', cmap='plasma')
-        plt.colorbar(label='MSE error')
+        plt.colorbar(label='MSE')
         plt.xlabel('ee position %s' % key[0])
         plt.ylabel('ee position %s' % key[1])
         plt.show()
