@@ -85,6 +85,7 @@ def plot_ee():
     line_array = np.linspace(-1.0, 1.0, num=11)
     # angle 0, 1, 2, 3; 2 & 3 are the input angles
 
+    """the first row (angle = -1) is unstable, trained with around 200 data in dataset, consider ignore it"""
     ignore_first = True
     if ignore_first:
         start = 1
