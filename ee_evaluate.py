@@ -56,7 +56,7 @@ def evaluate_ee(ee_model, env):
     workspace = np.loadtxt(workspace_path)
     print(workspace.shape)
     record_c = []
-    for angles in tqdm.tqdm(workspace):
+    for angles in tqdm.tqdm(workspace): # this takes an hour
         degree_angles = angles * action_space
         degree_angles = torch.tensor(degree_angles).to(device)
         xyz_center_m = query_models(degree_angles, ee_model, DOF, mean_ee=True, n_samples = 64)
