@@ -1,5 +1,5 @@
 import numpy as np
-from torchvision.utils import save_image
+# from torchvision.utils import save_image
 import matplotlib.pyplot as plt
 import matplotlib.image
 import os
@@ -137,9 +137,16 @@ def get_rays(
     # Find origin and direction of rays through every pixel and camera origin.
 
     # Apply pinhole camera model to gather directions at each pixel
+    # i, j = torch.meshgrid(
+    #     torch.arange(width, dtype=torch.float32).to(focal_length),
+    #     torch.arange(height, dtype=torch.float32).to(focal_length),
+    #     indexing='ij')
+
+    # debug jiong @ Aug 26, to(focal_length) is to focal_length's device, transfered again after get_rays function
+    
     i, j = torch.meshgrid(
-        torch.arange(width, dtype=torch.float32).to(focal_length),
-        torch.arange(height, dtype=torch.float32).to(focal_length),
+        torch.arange(width, dtype=torch.float32),
+        torch.arange(height, dtype=torch.float32),
         indexing='ij')
 
     directions = torch.stack([(i - width * .5) / focal_length,

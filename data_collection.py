@@ -206,10 +206,10 @@ if __name__ == "__main__":
     WIDTH, HEIGHT = 100, 100
     HYPER_radius_scaler = 1.  # distance between the camera and the robot arm, previous 4, scaled value, in pose matrix
     NUM_MOTOR = 4  # the number of motors
-    robot_ID = 0
+    robot_ID = 1
     # sample_size = 20
 
-    cam_dist = 1.2
+    cam_dist = 1.
 
 
     # Camera config: focal
@@ -240,12 +240,13 @@ if __name__ == "__main__":
     os.makedirs(log_pth, exist_ok=True)
 
     # action_lists = np.loadtxt('data/action/cleaned_0531(1)_con_action_robo%d_dof4_size20.csv'%robot_ID)
-    action_lists = np.loadtxt('data/action/cleaned_con_action_robo%d_dof4_size10.csv'%robot_ID)
+    # action_lists = np.loadtxt('data/action/cleaned_con_action_robo%d_dof4_size10.csv'%robot_ID)
+    action_lists = np.loadtxt('data/action/ee_workspace_10.csv')
 
 
     print(action_lists.shape)
     # log_pth += '1009(1)_con_dof%d_data.npz' % (NUM_MOTOR)
-    log_pth += 'sim_data_robo%d(arm)_cam%d(2).npz' % (robot_ID, cam_dist * 1000)
+    log_pth += 'sim_data_robo%d(ee).npz' % (robot_ID)
     collect_data(my_env=MyEnv,
                  save_path=log_pth,
                  action_lists=action_lists)

@@ -2,8 +2,7 @@
 /data/fixed_camera/
 /data/moving_camera/
 /__pycache__
-/train_log/log01/
-/train_log/log_debug/image/
+/train_log/
 /nedf_0410/data/
 /nedf_0410/train_log/
 /nedf_0502/data/

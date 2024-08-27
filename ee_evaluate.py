@@ -6,6 +6,7 @@ import torch
 from env4 import FBVSM_Env
 import pybullet as p
 import tqdm
+import matplotlib.pyplot as plt
 
 def visualize_ee():
     ee_path = '4dof_2nd/meshes/l4.STL'
@@ -51,14 +52,14 @@ def query_simulator(env, angles):
     return xyz
 
 
-def evaluate_ee(ee_model, env, workspace):
-    workspace = np.loadtxt(workspace)
+def evaluate_ee(ee_model, env):
+    workspace = np.loadtxt(workspace_path)
     print(workspace.shape)
     record_c = []
     for angles in tqdm.tqdm(workspace):
         degree_angles = angles * action_space
         degree_angles = torch.tensor(degree_angles).to(device)
-        xyz_center_m = query_models(degree_angles, model, DOF, mean_ee=True, n_samples = 64)
+        xyz_center_m = query_models(degree_angles, ee_model, DOF, mean_ee=True, n_samples = 64)
         xyz_center_m = xyz_center_m.detach().cpu().numpy()
 
         xyz_center_s = query_simulator(env, angles)
@@ -69,7 +70,32 @@ def evaluate_ee(ee_model, env, workspace):
         record_c.append(centers)
 
     record_c = np.array(record_c)
-    np.savetxt('data/action/ee_centers(model-sim).csv', record_c, fmt="%.6f")
+    print(record_c.shape)
+    np.savetxt(centers_path, record_c, fmt="%.6f")
+
+def plot_ee():
+    workspace = np.loadtxt(workspace_path)
+    centers = np.loadtxt(centers_path)
+
+    c_m = centers[:, :3] # model prediction
+    c_s = centers[:, 3:] # simulator prediction, ground truth
+
+    mse_error = np.linalg.norm(c_m - c_s, axis=1) # shape: (n,)
+    line_array = np.linspace(-1.0, 1.0, num=11)
+    # angle 0, 1, 2, 3; 2 & 3 are the input angles
+
+    error_2 = []
+    for angle_i in line_array:
+        mask2_i = np.isclose(workspace[:, 1], angle_i, atol=1e-3)
+        error_i = mse_error[mask2_i] # shape: (m,), m<=n
+        print("angle 2: ", np.round(angle_i, 2), "error: ", error_i.shape)
+        error_2.append(np.mean(error_i))
+
+    plt.plot(line_array[1:-1], error_2[1:-1])
+    plt.xlabel('angle 2')
+    plt.ylabel('MSE error')
+    plt.show()
+        
 
 
 if __name__ == "__main__":
@@ -84,12 +110,16 @@ if __name__ == "__main__":
     height = pxs
     width = pxs
     workspace_path = 'data/action/ee_workspace_10.csv'
-    p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
+    centers_path = 'data/action/ee_centers(model-sim).csv'
 
-    model, env = load_model_env()
-    evaluate_ee(
-        ee_model=model,
-        env=env,
-        workspace=workspace_path,
-    )
+    """read workspace, record the ee centers of model and simulator"""
+    
+    # p.connect(p.GUI) if RENDER else p.connect(p.DIRECT)
+    # model, env = load_model_env()
+    # evaluate_ee(ee_model=model, env=env)
+
+    """read workspace and centers, plot results"""
+    plot_ee()
+
+
  
