@@ -1,4 +1,4 @@
-import open3d as o3d
+# import open3d as o3d
 import numpy as np
 from test_model import query_models
 from train import init_models
@@ -8,13 +8,13 @@ import pybullet as p
 import tqdm
 import matplotlib.pyplot as plt
 
-def visualize_ee():
-    ee_path = '4dof_2nd/meshes/l4.STL'
-    ee = o3d.io.read_triangle_mesh(ee_path)
-    ee.compute_vertex_normals()
-    ee.paint_uniform_color([0.1, 0.1, 0.7])
-    coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0.06])
-    o3d.visualization.draw_geometries([ee, coord])
+# def visualize_ee():
+#     ee_path = '4dof_2nd/meshes/l4.STL'
+#     ee = o3d.io.read_triangle_mesh(ee_path)
+#     ee.compute_vertex_normals()
+#     ee.paint_uniform_color([0.1, 0.1, 0.7])
+#     coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0.06])
+#     o3d.visualization.draw_geometries([ee, coord])
 
 
 def load_model_env():
