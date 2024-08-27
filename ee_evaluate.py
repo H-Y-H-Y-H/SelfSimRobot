@@ -192,7 +192,7 @@ def plot_ee():
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    print("train,", device)
+    print("ee eval: ", device)
 
     DOF = 4
     RENDER = False
