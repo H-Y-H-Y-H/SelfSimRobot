@@ -7,6 +7,7 @@ from env4 import FBVSM_Env
 import pybullet as p
 import tqdm
 import matplotlib.pyplot as plt
+import time
 
 # def visualize_ee():
 #     ee_path = '4dof_2nd/meshes/l4.STL'
@@ -85,7 +86,7 @@ def plot_ee():
     line_array = np.linspace(-1.0, 1.0, num=11)
     # angle 0, 1, 2, 3; 2 & 3 are the input angles
 
-    """the first row (angle = -1) is unstable, trained with around 200 data in dataset, consider ignore it"""
+    """!!! the first row (angle = -1) is unstable, trained with around 200 data in dataset, consider ignore it"""
     ignore_first = True
     if ignore_first:
         start = 1
@@ -101,7 +102,7 @@ def plot_ee():
         for angle_i in line_array:
             mask2_i = np.isclose(workspace[:, angle_id], angle_i, atol=1e-3)
             error_i = mse_error[mask2_i] # shape: (m,), m<=n
-            print("angle 2: ", np.round(angle_i, 3), "error: ", error_i.shape)
+            print("angle %d=" %angle_id, np.round(angle_i, 3), "Number of data: ", error_i.shape)
             error_1d.append(np.mean(error_i))
 
         plt.plot(line_array[start:end], error_1d[start:end])
@@ -119,7 +120,6 @@ def plot_ee():
         for angle_i in line_array:
             mask2_i = np.isclose(workspace[:, angle_id], angle_i, atol=1e-3)
             error_i = mse_error[mask2_i] # shape: (m,), m<=n
-            print("angle 2: ", np.round(angle_i, 3), "error: ", error_i.shape)
             error_1d.append(np.mean(error_i))
 
         plt.plot(line_array[start:end], error_1d[start:end], label='angle %d' % np.round(angle_id, 3))
@@ -187,7 +187,36 @@ def plot_ee():
         plt.ylabel('ee position %s' % key[1])
         plt.show()
         
+def error_robot_state():
+    workspace = np.loadtxt(workspace_path)
+    centers = np.loadtxt(centers_path)
+    c_m = centers[:, :3] # model prediction
+    c_s = centers[:, 3:] # simulator prediction, ground truth
+    mse_error = np.linalg.norm(c_m - c_s, axis=1) # shape: (n,)
 
+    sorted_idx = np.argsort(mse_error)
+    max_10_idx = sorted_idx[-10:]
+    min_10_idx = sorted_idx[:10]
+    print("max 10 error: ", mse_error[max_10_idx])
+    print("min 10 error: ", mse_error[min_10_idx])
+
+    p.connect(p.GUI)
+    env = FBVSM_Env(
+        show_moving_cam=False,
+        robot_ID=robot_id,
+        width=width,
+        height=height,
+        render_flag=True,
+        num_motor=DOF,
+        dark_background=True,
+        init_angle=[-0.5, -0.3, -0.5, -0.2])
+    
+    for idx in min_10_idx:
+        angles = workspace[idx]
+        print("max error command: ", angles)
+        env.act(angles)
+        env.get_obs()
+        time.sleep(1)
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -212,6 +241,9 @@ if __name__ == "__main__":
 
     """read workspace and centers, plot results"""
     plot_ee()
+
+    """visualize robot state"""
+    error_robot_state()
 
 
  
