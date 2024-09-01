@@ -82,12 +82,13 @@ def plot_ee():
     c_s = centers[:, 3:] # simulator prediction, ground truth
 
     mse_error = np.linalg.norm(c_m - c_s, axis=1) # shape: (n,)
+    print("max error: ", np.max(mse_error))
     # normalized_error = mse_error / np.linalg.norm(c_s, axis=1)
     line_array = np.linspace(-1.0, 1.0, num=11)
     # angle 0, 1, 2, 3; 2 & 3 are the input angles
 
     """!!! the first row (angle = -1) is unstable, trained with around 200 data in dataset, consider ignore it"""
-    ignore_first = True
+    ignore_first = False
     if ignore_first:
         start = 1
         end = 11
@@ -160,12 +161,18 @@ def plot_ee():
 
     """ee center error VS ee abs distance"""
     abs_distance = np.linalg.norm(c_s, axis=1) # shape: (n,)
+    # angle1_mask, angle1 != -1
+    mask = np.isclose(workspace[:, 1], -1, atol=1e-3)
+    inv_mask = np.logical_not(mask)
+    abs_distance = abs_distance[inv_mask]
+    mse_error = mse_error[inv_mask]
     plt.scatter(abs_distance, mse_error)
     plt.xlabel('ee abs distance')
     plt.ylabel('MSE')
     plt.show()
 
     """ee center error VS ee axis distance"""
+    c_s = c_s[inv_mask]
     x = c_s[:, 0]
     y = c_s[:, 1]
     z = c_s[:, 2] # shape: (n,)
@@ -211,12 +218,19 @@ def error_robot_state():
         dark_background=True,
         init_angle=[-0.5, -0.3, -0.5, -0.2])
     
+    debug_id = None
     for idx in min_10_idx:
+
+        if debug_id is not None:
+            p.removeUserDebugItem(debug_id)
+        
         angles = workspace[idx]
         print("max error command: ", angles)
         env.act(angles)
         env.get_obs()
-        time.sleep(1)
+        # draw the ee center
+        debug_id = p.addUserDebugPoints([c_s[idx]], [[0, 1, 0]], pointSize=20)
+        time.sleep(10)
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -240,7 +254,7 @@ if __name__ == "__main__":
     # evaluate_ee(ee_model=model, env=env)
 
     """read workspace and centers, plot results"""
-    plot_ee()
+    # plot_ee()
 
     """visualize robot state"""
     error_robot_state()
