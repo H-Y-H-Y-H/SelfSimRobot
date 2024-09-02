@@ -59,8 +59,6 @@ def evaluate_ee(ee_model, env):
     record_c = []
     record_ws = [] # record workspace
     for angles in tqdm.tqdm(workspace): # this takes an hour
-        # angles = np.array([0.6, 0.6, -1.00, -1.00])
-        # print(angles)
         degree_angles = angles * action_space
         degree_angles = torch.tensor(degree_angles).to(device)
 
@@ -68,9 +66,6 @@ def evaluate_ee(ee_model, env):
         xyz_center_m_list = xyz_center_m_list.detach().cpu().numpy()
         
         xyz_center_m = np.mean(xyz_center_m_list, axis=0) # shape: (3,)
-
-        # xyz_center_m_direct = query_models(degree_angles, ee_model, DOF, mean_ee=True, n_samples = 64)
-        # xyz_center_m_direct = xyz_center_m_direct.detach().cpu().numpy()
 
         xyz_center_s, done_flag = query_simulator(env, angles)
         # combine the two centers
@@ -93,18 +88,9 @@ def plot_ee():
 
     mse_error = np.linalg.norm(c_m - c_s, axis=1) # shape: (n,)
     print("max error: ", np.max(mse_error))
-    # normalized_error = mse_error / np.linalg.norm(c_s, axis=1)
     line_array = np.linspace(-1.0, 1.0, num=11)
-    # angle 0, 1, 2, 3; 2 & 3 are the input angles
 
-    """!!! the first row (angle = -1) is unstable, trained with around 200 data in dataset, consider ignore it"""
-    ignore_first = False
-    if ignore_first:
-        start = 1
-        end = 11
-    else:
-        start = 0
-        end = 11
+    # angle 0, 1, 2, 3; 2 & 3 are the input angles
 
     """ee center error VS one angle"""
     ids = [0, 1, 2, 3]
@@ -116,8 +102,8 @@ def plot_ee():
             print("angle %d=" %angle_id, np.round(angle_i, 3), "Number of data: ", error_i.shape)
             error_1d.append(np.mean(error_i))
 
-        plt.plot(line_array[start:end], error_1d[start:end])
-        plt.xticks(line_array[start:end])
+        plt.plot(line_array, error_1d)
+        plt.xticks(line_array)
         plt.xlabel('angle %d' % np.round(angle_id, 3))
         plt.ylabel('MSE')
         plt.show()
@@ -133,10 +119,9 @@ def plot_ee():
             error_i = mse_error[mask2_i] # shape: (m,), m<=n
             error_1d.append(np.mean(error_i))
 
-        plt.plot(line_array[start:end], error_1d[start:end], label='angle %d' % np.round(angle_id, 3))
-        # plt.xlabel('angle %d' % np.round(angle_id, 3))
+        plt.plot(line_array, error_1d, label='angle %d' % np.round(angle_id, 3))
     plt.legend()
-    plt.xticks(line_array[start:end])
+    plt.xticks(line_array)
     plt.xlabel('angle')
     plt.ylabel('MSE')
     plt.show()
@@ -160,10 +145,10 @@ def plot_ee():
         fig, ax = plt.subplots()
         # cax = ax.matshow(error_2d[start:end, start:end], cmap='binary')
         # fig.colorbar(cax)
-        plt.imshow(error_2d[start:end, start:end], cmap='viridis')
+        plt.imshow(error_2d, cmap='viridis')
         plt.colorbar(label='MSE')
-        plt.xticks(range(len(line_array[start:end])), np.round(line_array[start:end], 2))
-        plt.yticks(range(len(line_array[start:end])), np.round(line_array[start:end], 2))
+        plt.xticks(range(len(line_array)), np.round(line_array, 2))
+        plt.yticks(range(len(line_array)), np.round(line_array, 2))
         plt.xlabel('angle %d' % angle_ids[0])
         plt.ylabel('angle %d' % angle_ids[1])
         plt.show()
@@ -171,18 +156,12 @@ def plot_ee():
 
     """ee center error VS ee abs distance"""
     abs_distance = np.linalg.norm(c_s, axis=1) # shape: (n,)
-    # angle1_mask, angle1 != -1
-    mask = np.isclose(workspace[:, 1], -1, atol=1e-3)
-    inv_mask = np.logical_not(mask)
-    abs_distance = abs_distance[inv_mask]
-    mse_error = mse_error[inv_mask]
     plt.scatter(abs_distance, mse_error)
     plt.xlabel('ee abs distance')
     plt.ylabel('MSE')
     plt.show()
 
     """ee center error VS ee axis distance"""
-    c_s = c_s[inv_mask]
     x = c_s[:, 0]
     y = c_s[:, 1]
     z = c_s[:, 2] # shape: (n,)
@@ -229,7 +208,7 @@ def error_robot_state():
         init_angle=[-0.5, -0.3, -0.5, -0.2])
     
     debug_id = None
-    for idx in min_10_idx:
+    for idx in max_10_idx:
 
         if debug_id is not None:
             p.removeUserDebugItem(debug_id)
@@ -238,12 +217,9 @@ def error_robot_state():
         print("max error command: ", angles)
         env.act(angles)
         env.get_obs()
-        # draw the ee center
-        debug_id = p.addUserDebugPoints([c_s[idx]], [[0, 1, 0]], pointSize=20)
-
-        # sim_pos, _ = query_simulator(env, angles)  
-        # debug_id = p.addUserDebugPoints([sim_pos], [[0, 1, 0]], pointSize=20)
-        time.sleep(20)
+        # draw the ee center, model prediction
+        debug_id = p.addUserDebugPoints([c_m[idx]], [[0, 1, 0]], pointSize=20)
+        time.sleep(1)
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -268,7 +244,7 @@ if __name__ == "__main__":
     # evaluate_ee(ee_model=model, env=env)
 
     """read workspace and centers, plot results"""
-    # plot_ee()
+    plot_ee()
 
     """visualize robot state"""
     error_robot_state()
