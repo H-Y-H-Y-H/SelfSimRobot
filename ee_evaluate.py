@@ -143,8 +143,6 @@ def plot_ee():
         error_2d = np.array(error_2d)
 
         fig, ax = plt.subplots()
-        # cax = ax.matshow(error_2d[start:end, start:end], cmap='binary')
-        # fig.colorbar(cax)
         plt.imshow(error_2d, cmap='viridis')
         plt.colorbar(label='MSE')
         plt.xticks(range(len(line_array)), np.round(line_array, 2))
