@@ -229,7 +229,7 @@ def error_robot_state():
         init_angle=[-0.5, -0.3, -0.5, -0.2])
     
     debug_id = None
-    for idx in max_10_idx:
+    for idx in min_10_idx:
 
         if debug_id is not None:
             p.removeUserDebugItem(debug_id)
@@ -243,7 +243,7 @@ def error_robot_state():
 
         # sim_pos, _ = query_simulator(env, angles)  
         # debug_id = p.addUserDebugPoints([sim_pos], [[0, 1, 0]], pointSize=20)
-        time.sleep(1)
+        time.sleep(20)
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -268,7 +268,7 @@ if __name__ == "__main__":
     # evaluate_ee(ee_model=model, env=env)
 
     """read workspace and centers, plot results"""
-    plot_ee()
+    # plot_ee()
 
     """visualize robot state"""
     error_robot_state()
