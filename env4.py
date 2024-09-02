@@ -115,11 +115,11 @@ class FBVSM_Env(gym.Env):
         currnet_obs = [np.array(joint_list), img]
         return currnet_obs
 
-    def act(self, action_norm, time_out_step_num=30):
+    def act(self, action_norm, time_out_step_num=1000):
         action_degree = action_norm * self.action_space
         action_rad = action_degree / 180 * np.pi
 
-        reached = True
+        reached = False
 
 
         if self.rotation_view:
@@ -133,6 +133,7 @@ class FBVSM_Env(gym.Env):
 
         if not self.show_moving_cam:
             for moving_times in range(time_out_step_num):
+            # while True:
                 joint_pos = []
                 for i_m in range(self.num_motor):
                     p.setJointMotorControl2(self.robot_id, i_m, controlMode=p.POSITION_CONTROL,
@@ -156,6 +157,8 @@ class FBVSM_Env(gym.Env):
                 joint_error = np.mean((joint_pos - action_rad[:len(joint_pos)]) ** 2)
 
                 if joint_error < 0.001:
+                    reached = True
+                    # print("reached")
                     break
 
                 if not self.dark_background:
