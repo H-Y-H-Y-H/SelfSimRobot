@@ -272,6 +272,3 @@ if __name__ == "__main__":
 
     """visualize robot state"""
     error_robot_state()
-
-
- 
