@@ -50,29 +50,39 @@ def query_simulator(env, angles):
     else:
         link_state = p.getLinkState(env.robot_id, link_index)
         xyz = np.array(link_state[4])
-    return xyz
+    return xyz, done
 
 
 def evaluate_ee(ee_model, env):
-    workspace = np.loadtxt(workspace_path)
+    workspace = np.loadtxt(workspace_path)[:]
     print(workspace.shape)
     record_c = []
+    record_ws = [] # record workspace
     for angles in tqdm.tqdm(workspace): # this takes an hour
+        # angles = np.array([0.6, 0.6, -1.00, -1.00])
+        # print(angles)
         degree_angles = angles * action_space
         degree_angles = torch.tensor(degree_angles).to(device)
-        xyz_center_m = query_models(degree_angles, ee_model, DOF, mean_ee=True, n_samples = 64)
-        xyz_center_m = xyz_center_m.detach().cpu().numpy()
 
-        xyz_center_s = query_simulator(env, angles)
+        xyz_center_m_list = query_models(degree_angles, ee_model, DOF, mean_ee=False, n_samples = 64)
+        xyz_center_m_list = xyz_center_m_list.detach().cpu().numpy()
+        
+        xyz_center_m = np.mean(xyz_center_m_list, axis=0) # shape: (3,)
+
+        # xyz_center_m_direct = query_models(degree_angles, ee_model, DOF, mean_ee=True, n_samples = 64)
+        # xyz_center_m_direct = xyz_center_m_direct.detach().cpu().numpy()
+
+        xyz_center_s, done_flag = query_simulator(env, angles)
         # combine the two centers
-        centers = np.concatenate([xyz_center_m, xyz_center_s]) 
-
-        # print('model-sim: ', centers)
-        record_c.append(centers)
+        centers = np.concatenate([xyz_center_m, xyz_center_s]) # angles, model, simulator
+        if done_flag:
+            record_c.append(centers)
+            record_ws.append(angles)
 
     record_c = np.array(record_c)
     print(record_c.shape)
     np.savetxt(centers_path, record_c, fmt="%.6f")
+    # np.savetxt(new_workspace_path, record_ws, fmt="%.2f")
 
 def plot_ee():
     workspace = np.loadtxt(workspace_path)
@@ -219,7 +229,7 @@ def error_robot_state():
         init_angle=[-0.5, -0.3, -0.5, -0.2])
     
     debug_id = None
-    for idx in min_10_idx:
+    for idx in max_10_idx:
 
         if debug_id is not None:
             p.removeUserDebugItem(debug_id)
@@ -230,7 +240,10 @@ def error_robot_state():
         env.get_obs()
         # draw the ee center
         debug_id = p.addUserDebugPoints([c_s[idx]], [[0, 1, 0]], pointSize=20)
-        time.sleep(10)
+
+        # sim_pos, _ = query_simulator(env, angles)  
+        # debug_id = p.addUserDebugPoints([sim_pos], [[0, 1, 0]], pointSize=20)
+        time.sleep(1)
 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -244,8 +257,9 @@ if __name__ == "__main__":
     pxs = 100
     height = pxs
     width = pxs
-    workspace_path = 'data/action/ee_workspace_10.csv'
-    centers_path = 'data/action/ee_centers(model-sim).csv'
+    workspace_path = 'data/action/ee_workspace_update.csv'
+    centers_path = 'data/action/ee_centers(model-sim)-2.csv'
+    # new_workspace_path = 'data/action/ee_workspace_update.csv'
 
     """read workspace, record the ee centers of model and simulator"""
     
@@ -254,7 +268,7 @@ if __name__ == "__main__":
     # evaluate_ee(ee_model=model, env=env)
 
     """read workspace and centers, plot results"""
-    # plot_ee()
+    plot_ee()
 
     """visualize robot state"""
     error_robot_state()
