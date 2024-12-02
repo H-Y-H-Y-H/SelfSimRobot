@@ -460,7 +460,7 @@ def model_forward(
         rgb_map, rgb_each_point = VRAT_rendering(raw, z_vals, rays_d)
     elif output_flag ==3:
         rgb_map,rgb_each_point, visibility = OM_rendering_split_output(raw)
-        return rgb_map,query_points,rgb_each_point, visibility
+        return rgb_map, query_points, rgb_each_point, visibility
 
 
     outputs = {

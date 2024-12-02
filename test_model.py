@@ -96,7 +96,9 @@ def query_models_separated_outputs( angle, model, DOF, n_samples = 64):
     all_points = query_points.reshape(-1, 3)
 
     rgb_each_point_density = density.reshape(-1)
-    rgb_each_point_visibility = visibility.reshape(-1)
+
+    weight_visibility = visibility*density
+    rgb_each_point_visibility = weight_visibility.reshape(-1)
 
     img_predicted = rgb_map
 
@@ -110,7 +112,7 @@ def query_models_separated_outputs( angle, model, DOF, n_samples = 64):
     mask1 = torch.where(rgb_each_point_density > 0.4, rgb_each_point_density, torch.zeros_like(rgb_each_point_density))
     occ_points_xyz_density = all_points_xyz[mask1.bool()]
 
-    mask2 = torch.where(rgb_each_point_visibility > 0.45, rgb_each_point_visibility, torch.zeros_like(rgb_each_point_visibility))
+    mask2 = torch.where(rgb_each_point_visibility > 0.25, rgb_each_point_visibility, torch.zeros_like(rgb_each_point_visibility))
     occ_points_xyz_visibility = all_points_xyz[mask2.bool() & mask1.bool()]
 
 
