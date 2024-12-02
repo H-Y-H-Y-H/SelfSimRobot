@@ -10,10 +10,12 @@ import random
 
 # changed Transparency in urdf, line181, Mar31
 
-def interact_env(sub_mode=0,n_samples=10):
+def interact_env(sub_mode=0,n_samples=10,sep_query=False):
 
     c_angle = env.init_obs[0]
-    debug_points = 0
+    debug_points1 = 0
+    debug_points2 = 0
+
     t = np.linspace(0, 1, n_samples).reshape(-1, 1)
 
 
@@ -56,25 +58,34 @@ def interact_env(sub_mode=0,n_samples=10):
         c_angle = torch.tensor(c_angle).to(device)
         degree_angles = c_angle*action_space
 
-        # occu_pts = test_model(degree_angles,model)
-        # t1 = time.time()
-        occu_pts = query_models(degree_angles,model,DOF,n_samples = 64)
-        # t2 = time.time()
-        # print("FPS:",1/(t2-t1))
-        occu_pts = occu_pts.detach().cpu().numpy()
+
+        occ_points_xyz_density, occ_points_xyz_visibility = query_models_separated_outputs(degree_angles, model, DOF, n_samples=64)
+        occu_pts = occ_points_xyz_density.detach().cpu().numpy()
+        occu_pts_visibility = occ_points_xyz_visibility.detach().cpu().numpy()
+
 
         if len(occu_pts)>10000:
             idx = np.arange(len(occu_pts))
             np.random.shuffle(idx)
             occu_pts = occu_pts[idx[:10000]]
 
+        if len(occu_pts_visibility)>10000:
+            idx = np.arange(len(occu_pts))
+            np.random.shuffle(idx)
+            occu_pts_visibility = occu_pts_visibility[idx[:10000]]
+
         p_rgb = [(0,1,0.5)]*len(occu_pts)
         p_rgb = np.asarray(p_rgb)
 
-        p.removeUserDebugItem(debug_points)  # update points every step
-        debug_points = p.addUserDebugPoints(occu_pts, p_rgb, pointSize=4)
 
-        # debug_points = p.addUserDebugPoints([occu_pts], [p_rgb], pointSize=10)
+        visual_p_rgb = [(1,0,0)]*len(occu_pts_visibility)
+        visual_p_rgb = np.asarray(visual_p_rgb)
+
+        p.removeUserDebugItem(debug_points1)  # update points every step
+        p.removeUserDebugItem(debug_points2)  # update points every step
+
+        debug_points2 = p.addUserDebugPoints(occu_pts_visibility, visual_p_rgb, pointSize=4)
+        debug_points1 = p.addUserDebugPoints(occu_pts, p_rgb, pointSize=4)
 
         c_angle_cmd = c_angle.detach().cpu().numpy()
         obs, _, _, _ = env.step(c_angle_cmd)
@@ -523,7 +534,8 @@ if __name__ == "__main__":
 
     # The ground truth Robot has a 3D model in transparent color and the model prediction is shown in green color dots.
 
-    test_model_pth = 'train_log_model/%s_id%d_8000(%d)_PE(arm)_cam1000(%d)_sep/best_model/' % (sim_real, robot_id, seed, seed)
+    # test_model_pth = 'train_log_model/%s_id%d_8000(%d)_PE(arm)_cam1000(%d)_sep/best_model/' % (sim_real, robot_id, seed, seed)
+    test_model_pth = 'train_log/%s_id%d_10000(%d)_PE/best_model/' % (sim_real, robot_id, seed)
 
     # For the planning we need both
     # end-effector model for calculating the target position
@@ -612,7 +624,7 @@ if __name__ == "__main__":
 
 
         # cmds = np.loadtxt('planning/trajectory/fcl_169.csv')
-        interact_env(2)
+        interact_env(2,sep_query=True)
 
     elif MODE == 1:
         env = FBVSM_Env(

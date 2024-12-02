@@ -1,4 +1,5 @@
-#  from notebook: https://towardsdatascience.com/its-nerf-from-nothing-build-a-vanilla-nerf-with-pytorch-7846e4c45666
+# Our implementation is based on the NeRF publicly available code from https://github.com/krrish94/nerf-pytorch/ and
+# https://github.com/bmild/nerf
 import random
 from model import FBV_SM, FBV_SM2, PositionalEncoder
 from func import *
@@ -24,16 +25,16 @@ def init_models(d_input, d_filter, pretrained_model_pth=None, lr=5e-4, output_si
     if FLAG_PositionalEncoder:
         encoder = PositionalEncoder(d_input, n_freqs=10, log_space=True)
 
-        # model = FBV_SM(encoder = encoder,
-        #                d_input=d_input,
-        #                d_filter=d_filter,
-        #                output_size=output_size)
-
-        # separate output
-        model = FBV_SM2(encoder = encoder,
+        model = FBV_SM(encoder = encoder,
                        d_input=d_input,
                        d_filter=d_filter,
                        output_size=output_size)
+
+        # separate output
+        # model = FBV_SM2(encoder = encoder,
+        #                d_input=d_input,
+        #                d_filter=d_filter,
+        #                output_size=output_size)
     else:
         # Models
         model = FBV_SM(d_input=d_input,
@@ -195,9 +196,9 @@ if __name__ == "__main__":
     tr = 0.8  # training ratio
     pxs = 100  # collected data pixels
 
-    # data = np.load('data/%s_data/%s_data_robo%d(%s).npz'%(sim_real,sim_real,robotid,arm_ee))
+    data = np.load('data/%s_data/%s_data_robo%d(%s).npz'%(sim_real,sim_real,robotid,arm_ee))
     # data = np.load('data/%s_data/%s_data_robo%d(%s)_cam%d.npz'%(sim_real,sim_real,robotid,arm_ee,cam_dist*1000))
-    data = np.load('data/%s_data/%s_data_robo%d(%s)_cam%d_test.npz'%(sim_real,sim_real,robotid,arm_ee,800)) # 800 test is 1000 ... local data, Jiong
+    # data = np.load('data/%s_data/%s_data_robo%d(%s)_cam%d_test.npz'%(sim_real,sim_real,robotid,arm_ee,800)) # 800 test is 1000 ... local data, Jiong
     num_raw_data = len(data["angles"])
 
     print("DOF, num_data, robot_id, PE",DOF,select_data_amount,robotid,FLAG_PositionalEncoder)

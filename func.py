@@ -305,11 +305,7 @@ def VRAT_rendering(
     return render_img, alpha_dense
 
 def OM_rendering(
-        raw: torch.Tensor,
-        x_vals: torch.Tensor,
-        rays_d: torch.Tensor,
-        raw_noise_std: float = 0.0,
-        white_bkgd: bool = False
+        raw: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor]:
 
     alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1]))
@@ -318,6 +314,12 @@ def OM_rendering(
 
     return render_img, rgb_each_point
 
+def OM_rendering_split_output(raw):
+    alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1]))
+    rgb_each_point = alpha*raw[..., 0]
+    render_img = torch.sum(rgb_each_point, dim=1)
+    visibility = raw[..., 0]
+    return render_img, rgb_each_point, alpha, visibility
 
 def sample_pdf(
         bins: torch.Tensor,
@@ -421,7 +423,7 @@ def model_forward(
         chunksize: int = 2 ** 15,
         n_samples: int = 64,
         output_flag: int = 0
-) -> dict:
+):
 
     # Sample query points along each ray.
     query_points, z_vals = sample_stratified(
@@ -444,11 +446,15 @@ def model_forward(
     raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 
     if output_flag ==0:
-        rgb_map, rgb_each_point = OM_rendering(raw, z_vals, rays_d)
+        rgb_map, rgb_each_point = OM_rendering(raw)
     elif output_flag ==1:
         rgb_map, rgb_each_point = VR_rendering(raw, z_vals, rays_d)
     elif output_flag ==2:
         rgb_map, rgb_each_point = VRAT_rendering(raw, z_vals, rays_d)
+    elif output_flag ==3:
+        rgb_map, rgb_each_point,density, visibility = OM_rendering_split_output(raw)
+        return rgb_map, rgb_each_point,query_points,density, visibility
+
 
     outputs = {
         'rgb_map': rgb_map,

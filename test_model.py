@@ -80,48 +80,42 @@ def test_model( angle_tensor,model,  save_offline_data=False):
     #     np.save(log_pth + '/pc_record/%04d.npy' % idx, occup_points)
     return query_xyz
 
-
-def query_models( angle, model, DOF, mean_ee = False, n_samples = 64):
+def query_models_separated_outputs( angle, model, DOF, n_samples = 64):
 
     rays_o, rays_d = get_rays(height, width, focal)
     rays_o = rays_o.reshape([-1, 3]).to(device)
     rays_d = rays_d.reshape([-1, 3]).to(device)
 
     angle_tensor = angle.to(device)
-    outputs = model_forward(rays_o, rays_d,
+    rgb_map, rgb_each_point, query_points, density, visibility = model_forward(rays_o, rays_d,
                            near, far, model, angle_tensor, DOF,
                            chunksize=chunksize,
-                            n_samples = n_samples)
+                            n_samples = n_samples,
+                            output_flag=3)
 
-    all_points = outputs["query_points"].reshape(-1, 3)
-    rgb_each_point = outputs["rgb_each_point"].reshape(-1)
-    img_predicted = outputs['rgb_map']
+    all_points = query_points.reshape(-1, 3)
+
+    rgb_each_point_both = rgb_each_point.reshape(-1)
+    rgb_each_point_density = density.reshape(-1)
+    rgb_each_point_visibility = visibility.reshape(-1)
+
+    img_predicted = rgb_map
 
     pose_matrix_tensor = pts_trans_matrix(angle_tensor[0],angle_tensor[1],no_inverse=False).to(device)
     # pose_matrix_tensor = torch.tensor(pose_matrix_array,dtype=torch.float32).to(device)
-    all_points_xyz =torch.cat((all_points, torch.ones((len(all_points),1)).to(device)),dim =1)
+    all_points_xyz = torch.cat((all_points, torch.ones((len(all_points),1)).to(device)),dim =1)
     all_points_xyz = torch.tensor(all_points_xyz,dtype=torch.float32)
     all_points_xyz = torch.matmul(pose_matrix_tensor,all_points_xyz.T).T[:,:3]
 
-    # mask = (rgb_each_point > 0.1).float()
-    mask = torch.where(rgb_each_point > 0.08, rgb_each_point, torch.zeros_like(rgb_each_point))
 
-    unmasked_occ_points_xyz = all_points_xyz[mask.bool()]
+    mask1 = torch.where(rgb_each_point_density > 0.4, rgb_each_point_density, torch.zeros_like(rgb_each_point_density))
+    occ_points_xyz_density = all_points_xyz[mask1.bool()]
 
-    # Use the mask to compute the weighted sum and mean
-    occ_points_xyz = all_points_xyz * mask.unsqueeze(-1)  # Assuming all_points_xyz has shape (N, 3)
-    occ_point_center_xyz = occ_points_xyz.sum(dim=0) / mask.sum()
+    mask2 = torch.where(rgb_each_point_visibility > 0.5, rgb_each_point_visibility, torch.zeros_like(rgb_each_point_visibility))
+    occ_points_xyz_visibility = all_points_xyz[mask2.bool() & mask1.bool()]
 
-    # rgb_each_point = torch.where(rgb_each_point>0.1,True, False)
-    #
-    # occ_points_xyz = all_points[rgb_each_point]
 
-    # occ_points_xyz = np.concatenate((occ_points_xyz, np.ones((len(occ_points_xyz), 1))), 1)
-    # occ_points_xyz = np.dot(pose_matrix, occ_points_xyz.T).T[:, :3]
-    if mean_ee:
-        return occ_point_center_xyz
-    else:
-        return unmasked_occ_points_xyz
+    return occ_points_xyz_density,occ_points_xyz_visibility
 
 
 
