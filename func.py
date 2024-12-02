@@ -319,14 +319,14 @@ def OM_rendering(
     rgb_each_point = alpha*raw[..., 0]
     render_img = torch.sum(rgb_each_point, dim=1)
 
-    return render_img, rgb_each_point
+    return render_img, alpha
 
 def OM_rendering_split_output(raw):
     alpha = 1.0 - torch.exp(-nn.functional.relu(raw[..., 1]))
     rgb_each_point = alpha*raw[..., 0]
     render_img = torch.sum(rgb_each_point, dim=1)
     visibility = raw[..., 0]
-    return render_img, rgb_each_point, alpha, visibility
+    return render_img, alpha, visibility
 
 def sample_pdf(
         bins: torch.Tensor,
@@ -459,8 +459,8 @@ def model_forward(
     elif output_flag ==2:
         rgb_map, rgb_each_point = VRAT_rendering(raw, z_vals, rays_d)
     elif output_flag ==3:
-        rgb_map, rgb_each_point,density, visibility = OM_rendering_split_output(raw)
-        return rgb_map, rgb_each_point,query_points,density, visibility
+        rgb_map,rgb_each_point, visibility = OM_rendering_split_output(raw)
+        return rgb_map,query_points,rgb_each_point, visibility
 
 
     outputs = {
