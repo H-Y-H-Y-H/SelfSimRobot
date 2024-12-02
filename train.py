@@ -167,9 +167,9 @@ def train(model, optimizer):
 if __name__ == "__main__":
 
     sim_real = 'sim'
-    arm_ee = 'arm'
+    arm_ee = 'ee'
     seed_num = 1
-    robotid = 0
+    robotid = 1
     FLAG_PositionalEncoder= True
 
     # 0:OM, 1:OneOut, 2: OneOut with distance
@@ -179,7 +179,7 @@ if __name__ == "__main__":
     np.random.seed(seed_num)
     random.seed(seed_num)
     torch.manual_seed(seed_num)
-    select_data_amount = 8000
+    select_data_amount = 10000
 
     DOF = 4  # the number of motors  # dof4 apr03
 
@@ -202,7 +202,7 @@ if __name__ == "__main__":
     num_raw_data = len(data["angles"])
 
     print("DOF, num_data, robot_id, PE",DOF,select_data_amount,robotid,FLAG_PositionalEncoder)
-    LOG_PATH = "train_log/%s_id%d_%d(%d)_%s(%s)_cam%d(%d)" % (sim_real,robotid,select_data_amount, seed_num,add_name,arm_ee,cam_dist*1000,seed_num)
+    LOG_PATH = "train_log/%s_id%d_%d(%d)_%s(%s)" % (sim_real,robotid,select_data_amount, seed_num,add_name,arm_ee)
     if different_arch != 0:
         LOG_PATH += 'diff_out_%d'%different_arch
     print("Data Loaded!")

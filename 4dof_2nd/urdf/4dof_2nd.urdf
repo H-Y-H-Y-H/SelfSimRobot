@@ -256,4 +256,58 @@
     <axis
       xyz="-1 0 0" />
   </joint>
+
+  <!-- to visualize ee only -->
+  <link
+      name="sphere_link">
+      <inertial>
+        <origin
+          xyz="0 0 0"
+          rpy="0 0 0" />
+        <mass
+          value="0.005" /> <!-- Adjust mass according to the sphere's size -->
+        <inertia
+          ixx="2.5e-6"
+          ixy="0"
+          ixz="0"
+          iyy="2.5e-6"
+          iyz="0"
+          izz="2.5e-6" /> <!-- Approximate values for a small sphere -->
+      </inertial>
+      <visual>
+        <origin
+          xyz="0 0 0"
+          rpy="0 0 0" />
+        <geometry>
+          <sphere radius="0.02" /> <!-- Specify the radius of the sphere -->
+        </geometry>
+        <material
+          name="red">
+          <color
+            rgba="1 0 0 1" /> <!-- Red color with full opacity -->
+        </material>
+      </visual>
+      <collision>
+        <origin
+          xyz="0 0 0"
+          rpy="0 0 0" />
+        <geometry>
+          <sphere radius="0.02" />
+        </geometry>
+      </collision>
+  </link>
+
+  <!-- New Joint to Connect Sphere to L4 -->
+  <joint
+      name="L4_sphere_joint"
+      type="fixed">
+      <origin
+        xyz="0 0 0.06"
+        rpy="0 0 0" />
+      <parent
+        link="L4" />
+      <child
+        link="sphere_link" />
+  </joint>
+
 </robot>
