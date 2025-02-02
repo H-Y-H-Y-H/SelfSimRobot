@@ -1,4 +1,4 @@
-# Fully_body_VSM: Teaching Robots to Build Simulations of Themselves
+# SelfSimRobot: Teaching Robots to Build Simulations of Themselves
 
 Fully_body_VSM is a project aimed at enabling robots to understand and predict their own physical presence in the world through a single camera. Our system teaches robots to build accurate simulations of themselves, enhancing their ability to interact with the real-world environment. This repository contains all the code and models to set up and reproduce our results.
 
