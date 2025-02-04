@@ -10,18 +10,22 @@ import cv2
 
 
 class FBVSM_Env(gym.Env):
+    """
+    Custom Gym environment that simulates a robot arm in PyBullet.
+    """
+
     def __init__(self,
-                 show_moving_cam,
-                 robot_ID,
-                 width=400, height=400,
-                 render_flag=False,
-                 num_motor=2,
-                 max_num_motor=4,
-                 init_angle = [0]*4,
-                 dark_background = False,
-                 rotation_view = False,
-                 cam_dist = 1.0
-                 ):
+                 show_moving_cam: bool,
+                 robot_ID: int,
+                 width: int = 400,
+                 height: int = 400,
+                 render_flag: bool = False,
+                 num_motor: int = 2,
+                 max_num_motor: int = 4,
+                 init_angle= [0]*4,
+                 dark_background: bool = False,
+                 rotation_view: bool = False,
+                 cam_dist: float = 1.0):
         self.robot_ID = robot_ID
         self.show_moving_cam = show_moving_cam
         self.camera_pos_inverse = None
@@ -77,9 +81,14 @@ class FBVSM_Env(gym.Env):
 
         self.reset()
 
-    def forward_matrix(self, theta, phi):
-        full_matrix = np.dot(rot_Z(theta / 180 * np.pi),
-                             rot_Y(phi / 180 * np.pi))
+    def forward_matrix(self, theta: float, phi: float) -> np.ndarray:
+        """
+        Compute the forward transformation matrix from the given angles.
+        """
+        full_matrix = np.dot(
+            rot_Z(theta / 180 * np.pi),
+            rot_Y(phi / 180 * np.pi)
+        )
         return full_matrix
 
 
@@ -312,26 +321,26 @@ class FBVSM_Env(gym.Env):
         self.move_frame_edges_back = []
         self.move_frame_edges_front=[]
 
-        # # box
-        # for eid in range(4):
-        #
-        #     # self.move_frame_edges_front.append(
-        #     #     p.addUserDebugLine(self.front_view_square[eid], self.front_view_square[(eid + 1) % 4], [1, 1, 1]))
-        #     # self.move_frame_edges_back.append(
-        #     #     p.addUserDebugLine(self.back_view_square[eid], self.back_view_square[(eid + 1) % 4], [1, 1, 1]))
-        #
-        #     self.fixed_frame_edges_front.append(
-        #         p.addUserDebugLine(self.front_view_square[eid], self.front_view_square[(eid + 1) % 4], [0, 0, 1]))
-        #     self.fixed_frame_edges_back.append(
-        #         p.addUserDebugLine(self.back_view_square[eid], self.back_view_square[(eid + 1) % 4], [0, 0, 1]))
-        #
-        # # camera to edges
-        # for eid in range(4):
-        #     # self.move_frame_edges_back.append(p.addUserDebugLine(self.camera_pos, self.back_view_square[eid], [1, 1, 0]))
-        #     self.fixed_frame_edges_back.append(p.addUserDebugLine(self.camera_pos, self.back_view_square[eid], [0, 0, 1]))
-        #
-        # # inverse camera line for updating
-        # self.camera_line_inverse = p.addUserDebugLine(self.camera_pos, [0, 0, 0], [0.0, 0.0, 1.0])
+        # box: for visualization
+        for eid in range(4):
+
+            # self.move_frame_edges_front.append(
+            #     p.addUserDebugLine(self.front_view_square[eid], self.front_view_square[(eid + 1) % 4], [1, 1, 1]))
+            # self.move_frame_edges_back.append(
+            #     p.addUserDebugLine(self.back_view_square[eid], self.back_view_square[(eid + 1) % 4], [1, 1, 1]))
+
+            self.fixed_frame_edges_front.append(
+                p.addUserDebugLine(self.front_view_square[eid], self.front_view_square[(eid + 1) % 4], [0, 0, 1]))
+            self.fixed_frame_edges_back.append(
+                p.addUserDebugLine(self.back_view_square[eid], self.back_view_square[(eid + 1) % 4], [0, 0, 1]))
+
+        # camera to edges
+        for eid in range(4):
+            # self.move_frame_edges_back.append(p.addUserDebugLine(self.camera_pos, self.back_view_square[eid], [1, 1, 0]))
+            self.fixed_frame_edges_back.append(p.addUserDebugLine(self.camera_pos, self.back_view_square[eid], [0, 0, 1]))
+
+        # inverse camera line for updating
+        self.camera_line_inverse = p.addUserDebugLine(self.camera_pos, [0, 0, 0], [0.0, 0.0, 1.0])
 
         # visualize sphere
         self.colSphereId_1 = p.createCollisionShape(p.GEOM_SPHERE, radius=0.01)
@@ -496,7 +505,7 @@ if __name__ == '__main__':
     obs = env.reset()
     c_angle = obs[0]
 
-    mode = 's'
+    mode = 'm'
     # manual: m
     # or automatic: a
     # or self check: s
@@ -510,8 +519,12 @@ if __name__ == '__main__':
 
         runTimes = 10000
         for i in range(runTimes):
-            for c_id in range(NUM_MOTOR):
-                c_angle[c_id] = p.readUserDebugParameter(m_list[c_id])
+            try:
+                for c_id in range(NUM_MOTOR):
+                    c_angle[c_id] = p.readUserDebugParameter(m_list[c_id])
+            except Exception as e:
+                print(e)
+                continue
             obs, _, _, _ = env.step(c_angle)
             print(obs[0])
 
@@ -524,8 +537,6 @@ if __name__ == '__main__':
                 obs, _, _, _ = env.step(c_angle)
                 print(env.get_obs()[0])
             print('finished all the commands!')
-
-
         for _ in range(1000000):
             p.stepSimulation()
             time.sleep(1 / 240)

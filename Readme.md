@@ -4,7 +4,7 @@ Fully_body_VSM is a project aimed at enabling robots to understand and predict t
 
 ## Environment Setup
 
-To run the Fully_body_VSM project, you need to have Python 3.9 installed on your system.
+To run the SelfSimRobot project, you need to have Python 3.9 installed on your system.
 
 ### Dependencies
 
@@ -15,7 +15,6 @@ pip install -r requirements.txt
 ```
 
 This command installs all the necessary Python packages listed in the requirements.txt file.
-
 
 
 ### Demo and Expected Output

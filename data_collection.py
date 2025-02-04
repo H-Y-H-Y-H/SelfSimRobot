@@ -8,15 +8,6 @@ import pybullet as p
 import time
 import matplotlib.pyplot as plt
 
-def rot_X(th):
-    matrix = ([
-        [1, 0, 0, 0],
-        [0, np.cos(th), -np.sin(th), 0],
-        [0, np.sin(th), np.cos(th), 0],
-        [0, 0, 0, 1]])
-    np.asarray(matrix)
-
-    return matrix
 
 
 def rot_Y(th):
@@ -40,32 +31,6 @@ def rot_Z(th):
 
     return matrix
 
-def transition_matrix(label, value):
-    if label == "rot_x":
-        return np.array([
-            [1, 0, 0, 0],
-            [0, np.cos(value), -np.sin(value), 0],
-            [0, np.sin(value), np.cos(value), 0],
-            [0, 0, 0, 1]])
-
-    if label == "rot_y":
-        return np.array([
-            [np.cos(value), 0, -np.sin(value), 0],
-            [0, 1, 0, 0],
-            [np.sin(value), 0, np.cos(value), 0],
-            [0, 0, 0, 1]])
-
-    if label == "tran_z":
-        return np.array([
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, value],
-            [0, 0, 0, 1]])
-
-    else:
-        return "wrong label"
-
-
 def w2c_matrix(theta, phi):
     # the coordinates in pybullet, camera is along X axis, but in the pts coordinates, the camera is along z axis
     full_matrix = np.dot(rot_Z(theta / 180 * np.pi),
@@ -73,15 +38,6 @@ def w2c_matrix(theta, phi):
     full_matrix = np.linalg.inv(full_matrix)
     return full_matrix
 
-
-def random_data(DOF, num_data):
-    log_angle_list = []
-
-    for i in range(num_data):
-        angle_list = np.random.rand(DOF) * 2 - 1
-        log_angle_list.append(angle_list)
-
-    return np.asarray(log_angle_list)
 
 
 def uniform_data(uniform_samples=10):
