@@ -1,12 +1,48 @@
-# SelfSimRobot: Teaching Robots to Build Simulations of Themselves
+# Teaching Robots to Build Simulations of Themselves
 
-Fully_body_VSM is a project aimed at enabling robots to understand and predict their own physical presence in the world through a single camera. Our system teaches robots to build accurate simulations of themselves, enhancing their ability to interact with the real-world environment. This repository contains all the code and models to set up and reproduce our results.
+Imagine a robot that can look into a mirror, understand its own shape, and even predict its next move—all without human intervention. SelfSimRobot is our cutting-edge, self-supervised framework that empowers robots to build internal simulations of themselves using only a single 2D camera. Inspired by human self-awareness, our system leverages the Free Form Kinematic Self-Model (FFKSM) to predict 3D morphology, plan motion trajectories, and even recover from damage.
+
+> "By empowering robots to simulate their own dynamics and structure, we open a new frontier in robotic autonomy and adaptive intelligence."  
+> – *Hod Lipson*
+
+![image](data/robot3.jpeg)
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Environment Setup](#environment-setup)
+- [Demo and Expected Output](#demo-and-expected-output)
+- [Training and Reproduction](#training-and-reproduction)
+- [Modifying Parameters](#modifying-parameters)
+- [Citation and References](#citation-and-references)
+- [License](#license)
+- [Contact](#contact)
+---
+## Overview
+
+SelfSimRobot transforms traditional robotics by allowing a machine to learn its own structure directly from visual data. Instead of relying on detailed mathematical models and handcrafted kinematic equations, our system uses a single RGB camera to capture raw video. The data is processed to form a self-model that:
+- **Predicts 3D Occupancy:** Through FFKSM, the robot estimates its own body structure in 3D space.
+- **Plans Complex Motions:** Using gradient-based optimization, the robot generates motor commands for intricate 3D trajectories.
+- **Adapts to Damage:** The model can detect abnormalities and adjust to physical changes in real time.
+
+(See **Figure 1** for a pipeline overview, **Figure 2** for morphology predictions, and **Figure 3** for motion planning demonstrations.)
+
+---
+
+## Key Features
+
+- **Visual Self-Modelling:** Learn your own body from video—just like looking in a mirror.
+- **Efficient Architecture:** FFKSM efficiently encodes spatial coordinates and joint angles into accurate 3D predictions.
+- **Motion Planning Without Explicit Kinematics:** Plan complex paths without manually defined equations.
+- **Resilient and Adaptive:** Detect and recover from damage with minimal intervention.
+- **Lightweight & Fast:** Designed to run efficiently even on modest hardware.
+
+---
 
 ## Environment Setup
-
-To run the SelfSimRobot project, you need to have Python 3.9 installed on your system.
-
-### Dependencies
 
 Once Python is installed, you will need to install the project dependencies. Clone this repository to your local machine, navigate to the cloned directory, and run the following command:
 
@@ -17,7 +53,7 @@ pip install -r requirements.txt
 This command installs all the necessary Python packages listed in the requirements.txt file.
 
 
-### Demo and Expected Output
+## Demo and Expected Output
 
 ```bash
 python visualize_bullet.py
@@ -36,20 +72,17 @@ Green dots will appear around the robot arm model. These dots represent the real
 ##### Action Command Bars:
 On the left side of the GUI, there are four bars that you can interact with. These bars allow you to modify the action commands sent to the robot. Adjusting these bars changes the robot's actions within the simulation, demonstrating how the system responds to different command inputs.
 
-We have provided pre-trained models to help you get started without the need to train the models from scratch. These models are located in the train_log folder. The visualize_bullet.py script automatically uses these models to run the simulations.
+##### Pre-trained Models
+We have provided pre-trained models to help you get started without the need to train the models from scratch. These models are located in the trained_model folder. The visualize_bullet.py script automatically uses these models to run the simulations.
 
-### Expected Run time:
-The demo will update the visualization every 0.38 seconds on a PC with a Nvidia Geforce RTX 3090 GPU and 12th Gen Intel i9-12900KF
-
-### Modifying Parameters
-To explore different robot models and tasks, adjust the following parameters in the visualize_bullet.py script:
-
-EndeffectorOnly: Set this to True or False to focus the simulation and predictions on the robot's end effector or the entire robot model, respectively.
-
-robot_id: Change this parameter to switch between different robot models.
-
-### Reproduction instructions:
+#### Reproduction instructions:
 To train a model from scratch, you can use the data in supplementary materials and use train.py to train the model by yourself.
+
+## Citation and References
+If you find SelfSimRobot useful, please cite our work:
+
+SelfSimRobot: Teaching Robots to Build Simulations of Themselves
+Published in Nature Machine Intelligence.
 
 ### License
 This project is open source and available under the MIT License.
