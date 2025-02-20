@@ -483,7 +483,7 @@ if __name__ == "__main__":
     }
 
     # Select configuration (modify this for different robots)
-    robot_type = "real_robot_3"  # Change as needed
+    robot_type = "sim_robot_1"  # Change as needed
 
     # Extract parameters
     robot_id = robot_configurations[robot_type]["robot_id"]

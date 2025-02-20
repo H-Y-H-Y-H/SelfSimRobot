@@ -60,7 +60,7 @@ python visualize_bullet.py
 
 When you run the visualize_bullet.py script, a GUI window displays a robot body and the model prediction. Here's what you can expect to see in the simulation:
 
-![image](https://github.com/H-Y-H-Y-H/fully_body_VSM/assets/48082207/4058e3c4-3c53-4ff7-8893-81ade678bef5)
+![image](data/sim_robot1.png)
 
 ##### Robot Arm 3D Model:
 A transparent 3D model of a robot arm will be visible in the center of the simulation environment. This model represents the physical structure of the robot being simulated.
