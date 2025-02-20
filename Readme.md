@@ -16,7 +16,6 @@ Imagine a robot that can look into a mirror, understand its own shape, and even 
 - [Environment Setup](#environment-setup)
 - [Demo and Expected Output](#demo-and-expected-output)
 - [Training and Reproduction](#training-and-reproduction)
-- [Modifying Parameters](#modifying-parameters)
 - [Citation and References](#citation-and-references)
 - [License](#license)
 - [Contact](#contact)
@@ -72,18 +71,21 @@ Green dots will appear around the robot arm model. These dots represent the real
 ##### Action Command Bars:
 On the left side of the GUI, there are four bars that you can interact with. These bars allow you to modify the action commands sent to the robot. Adjusting these bars changes the robot's actions within the simulation, demonstrating how the system responds to different command inputs.
 
-##### Pre-trained Models
+## Training and Reproduction:
 We have provided pre-trained models to help you get started without the need to train the models from scratch. These models are located in the trained_model folder. The visualize_bullet.py script automatically uses these models to run the simulations.
 
-#### Reproduction instructions:
 To train a model from scratch, you can use the data in supplementary materials and use train.py to train the model by yourself.
 
 ## Citation and References
-If you find SelfSimRobot useful, please cite our work:
+If you find our work useful and insightful, thank you for citing our work:
+Teaching Robots to Build Simulations of Themselves
 
-SelfSimRobot: Teaching Robots to Build Simulations of Themselves
-Published in Nature Machine Intelligence.
 
-### License
+## License
 This project is open source and available under the MIT License.
 
+##Contact
+For questions or further collaboration, please reach out to us:
+
+Yuhang Hu: yuhang.hu@columbia.edu
+Hod Lipson: hod.lipson@columbia.edu
