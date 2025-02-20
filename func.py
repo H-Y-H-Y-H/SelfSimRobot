@@ -7,44 +7,37 @@ from tqdm import trange
 import torch
 from torch import nn
 from typing import Optional, Tuple, List, Union, Callable
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
-
-
-# import torch
-
-def rot_X(th):
-    matrix = ([
+def rot_X(th: float) -> np.ndarray:
+    """Creates a 4x4 rotation matrix around the X-axis."""
+    return np.array([
         [1, 0, 0, 0],
         [0, np.cos(th), -np.sin(th), 0],
         [0, np.sin(th), np.cos(th), 0],
-        [0, 0, 0, 1]])
-    np.asarray(matrix)
+        [0, 0, 0, 1]
+    ])
 
-    return matrix
-
-
-def rot_Y(th):
-    matrix = ([
+def rot_Y(th: float) -> np.ndarray:
+    """Creates a 4x4 rotation matrix around the Y-axis."""
+    return np.array([
         [np.cos(th), 0, -np.sin(th), 0],
         [0, 1, 0, 0],
         [np.sin(th), 0, np.cos(th), 0],
-        [0, 0, 0, 1]])
-    np.asarray(matrix)
+        [0, 0, 0, 1]
+    ])
 
-    return matrix
-
-
-def rot_Z(th):
-    matrix = ([
+def rot_Z(th: float) -> np.ndarray:
+    """Creates a 4x4 rotation matrix around the Z-axis."""
+    return np.array([
         [np.cos(th), -np.sin(th), 0, 0],
         [np.sin(th), np.cos(th), 0, 0],
         [0, 0, 1, 0],
-        [0, 0, 0, 1]])
-    np.asarray(matrix)
+        [0, 0, 0, 1]
+    ])
 
-    return matrix
 
 def pts_trans_matrix_numpy(theta,phi,no_inverse=False):
     # the coordinates in pybullet, camera is along X axis, but in the pts coordinates, the camera is along z axis
@@ -203,15 +196,10 @@ def sample_stratified(
         x_vals = lower + (upper - lower) * t_rand
     x_vals = x_vals.expand(list(rays_o.shape[:-1]) + [n_samples])
 
-    # Apply scale from `rays_d` and offset from `rays_o` to samples
-    # pts: (width, height, n_samples, 3)
+
     pts = rays_o[..., None, :] + rays_d[..., None, :] * x_vals[..., :, None]
-    # pts = pts.view(-1,3)
 
-    # pose_matrix = pts_trans_matrix(arm_angle[0].item(),arm_angle[1].item())
     pose_matrix = pts_trans_matrix(arm_angle[0], arm_angle[1])
-
-    # pose_matrix = torch.from_numpy(pose_matrix)
 
     pose_matrix = pose_matrix.to(pts)
     # Transpose your transformation matrix for correct matrix multiplication
@@ -219,30 +207,6 @@ def sample_stratified(
 
     # Apply the transformation
     pts = torch.matmul(pts,transformation_matrix)
-
-
-    # # Visualization
-    # pts = pts.detach().cpu().numpy().reshape(-1,3)
-    # ax = plt.figure().add_subplot(projection='3d')
-    # ax.set_xlabel('X')
-    # ax.set_ylabel('y')
-    # ax.set_zlabel('Z')
-    # pts2 = pts[:32]
-    # print(pts2)
-    # select_idx = np.random.choice(list(np.arange(len(pts))), size=1000)
-    #
-    # pts = pts[select_idx]
-    # ax.scatter(pts[:,0],
-    #            pts[:,1],
-    #            pts[:,2],
-    #            s = 1)
-    # ax.scatter(pts2[:,0],
-    #            pts2[:,1],
-    #            pts2[:,2],
-    #            s = 5,
-    #            c = 'r')
-    # plt.show()
-    # quit()
 
     return pts, x_vals
 
@@ -446,34 +410,23 @@ def model_forward(
     return outputs
 
 
-
-def transition_matrix(label, value):
+# ---------------------------------------------------------
+# Transformation Matrices for 3D Space
+# ---------------------------------------------------------
+def transition_matrix(label: str, value: float) -> np.ndarray:
+    """Returns a 4x4 transformation matrix for rotation in 3D space."""
     if label == "rot_x":
-        return np.array([
-            [1, 0, 0, 0],
-            [0, np.cos(value), -np.sin(value), 0],
-            [0, np.sin(value), np.cos(value), 0],
-            [0, 0, 0, 1]])
-
-    if label == "rot_y":
-        return np.array([
-            [np.cos(value), 0, -np.sin(value), 0],
-            [0, 1, 0, 0],
-            [np.sin(value), 0, np.cos(value), 0],
-            [0, 0, 0, 1]])
-
-    if label == "rot_z":
-        return np.array([
-        [np.cos(value), -np.sin(value), 0, 0],
-        [np.sin(value), np.cos(value), 0, 0],
-        [0, 0, 1, 0],
-        [0, 0, 0, 1]])
-
+        return rot_X(value)
+    elif label == "rot_y":
+        return rot_Y(value)
+    elif label == "rot_z":
+        return rot_Z(value)
     else:
-        return "wrong label"
+        raise ValueError("Invalid label. Use 'rot_x', 'rot_y', or 'rot_z'.")
 
-def transition_matrix_torch(label, value):
-    # Initialize an identity matrix
+
+def transition_matrix_torch(label: str, value: torch.Tensor) -> torch.Tensor:
+    """Returns a 4x4 transformation matrix for rotation in 3D space using PyTorch tensors."""
     matrix = torch.eye(4, dtype=torch.float32)
 
     if label == "rot_x":
@@ -481,21 +434,18 @@ def transition_matrix_torch(label, value):
         matrix[1, 2] = -torch.sin(value)
         matrix[2, 1] = torch.sin(value)
         matrix[2, 2] = torch.cos(value)
-
     elif label == "rot_y":
         matrix[0, 0] = torch.cos(value)
         matrix[0, 2] = -torch.sin(value)
         matrix[2, 0] = torch.sin(value)
         matrix[2, 2] = torch.cos(value)
-
     elif label == "rot_z":
         matrix[0, 0] = torch.cos(value)
         matrix[0, 1] = -torch.sin(value)
         matrix[1, 0] = torch.sin(value)
         matrix[1, 1] = torch.cos(value)
-
     else:
-        raise ValueError("Wrong label")
+        raise ValueError("Invalid label. Use 'rot_x', 'rot_y', or 'rot_z'.")
 
     return matrix
 
@@ -532,26 +482,26 @@ if __name__ == "__main__":
     rays_o, rays_d = get_rays(HEIGHT, WIDTH, focal)
 
     # Visualization
-    # ax = plt.figure().add_subplot(projection='3d')
-    # rays_o = rays_o.detach().cpu().numpy()
-    # rays_d = rays_d.detach().cpu().numpy()
-    # rays_d = rays_d[:10]
-    # idx = np.random.choice(list(np.arange(len(rays_d))),size = 1000)
-    # rays_d = rays_d[idx]
-    # rays_o = rays_o[idx]
-    # for plt_i in range(len(rays_d)):
-    #     ax.plot3D([rays_d[plt_i, 0],0],
-    #               [rays_d[plt_i, 1],0],
-    #               [rays_d[plt_i, 2],0])
-    # print(rays_o)
-    # ax.set_xlabel('X')
-    # ax.set_ylabel('Y')
-    # ax.set_zlabel('Z')
-    # ax.scatter(rays_o[0][0],rays_o[0][1],rays_o[0][2])
-    # plt.show()
-    # quit()
+    ax = plt.figure().add_subplot(projection='3d')
+    rays_o = rays_o.detach().cpu().numpy()
+    rays_d = rays_d.detach().cpu().numpy()
+    rays_d = rays_d[:10]
+    idx = np.random.choice(list(np.arange(len(rays_d))),size = 1000)
+    rays_d = rays_d[idx]
+    rays_o = rays_o[idx]
+    for plt_i in range(len(rays_d)):
+        ax.plot3D([rays_d[plt_i, 0],0],
+                  [rays_d[plt_i, 1],0],
+                  [rays_d[plt_i, 2],0])
+    print(rays_o)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.scatter(rays_o[0][0],rays_o[0][1],rays_o[0][2])
+    plt.show()
+    quit()
 
-    data = np.load('data/data_uniform/dof%d_data%d_px%d.npz' % (DOF, num_data, pxs))
+    data = np.load('data/sim_data/sim_data_robo0(arm).npz' )
 
     training_angles = torch.from_numpy(data['angles'].astype('float32'))
     training_pose_matrix = torch.from_numpy(data['poses'].astype('float32'))
@@ -559,10 +509,8 @@ if __name__ == "__main__":
     idxx = 265
     angle = training_angles[idxx]
     print(angle/90)
-    matrix = pts_trans_matrix(angle[0],angle[1])
+    pose_matrix = pts_trans_matrix(angle[0],angle[1])
 
-    pose_matrix = torch.from_numpy(matrix)
-    # print(matrix - pose_matrix)
     near, far = cam_dist - nf_size, cam_dist + nf_size
     kwargs_sample_stratified = {
         'n_samples': 64,

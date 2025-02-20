@@ -2,7 +2,7 @@ import time
 import pyautogui
 import numpy as np
 import torch.optim as optim
-from env4 import FBVSM_Env
+from env import FBVSM_Env
 import pybullet as p
 from train import *
 from test_model import *
@@ -10,93 +10,41 @@ import random
 
 # changed Transparency in urdf, line181, Mar31
 
-def interact_env(sub_mode=0,n_samples=10,sep_query=False):
-
+def interact_env(show_n_points = 10000):
+    debug_points1= 0
     c_angle = env.init_obs[0]
-    debug_points1 = 0
-    debug_points2 = 0
-
-    t = np.linspace(0, 1, n_samples).reshape(-1, 1)
-
-
-    if sub_mode == 1:
-        for i in range(1,len(cmds)):
-            print(cmds[i])
-            traj_array = (1 - t) * cmds[i-1] + t * cmds[i]
-            for traj in traj_array:
-                obs, _, _, _ = env.step(traj)
-        quit()
 
     motor_input = []
-    if sub_mode ==2: # manually control the arm:
-        # input para
-        for m in range(DOF):
-            motor_input.append(p.addUserDebugParameter("motor%d:"%m, -1, 1, env.get_obs()[0][m]))
+    for m in range(DOF):
+        motor_input.append(p.addUserDebugParameter("motor%d:"%m, -1, 1, env.get_obs()[0][m]))
 
-
-    elif sub_mode ==3: # Auto for evaluations:
-        c_angle = torch.tensor(c_angle).to(device)
-        SAVE_PATH = "eval/paper_data/paper_fig_eval3d"
-
-        if EndeffectorOnly:
-            img_path = SAVE_PATH + "/robot%d_sim(ee)"%robot_id
-        else:
-            img_path = SAVE_PATH + "/robot%d_sim(arm)"%robot_id
-
-        os.makedirs(img_path, exist_ok= True)
-        os.makedirs(SAVE_PATH, exist_ok=True)
-
-    sep = 100
     angles_logger = []
     for i in range(2000):
-        if sub_mode == 2:
-            for dof_i in range(DOF):
-                c_angle[dof_i] = p.readUserDebugParameter(motor_input[dof_i])
-        elif sub_mode == 3:
-            c_angle = angles_input[i//sep] + (angles_input[i//sep+1] - angles_input[i//sep])*(i%sep)/sep
+        for dof_i in range(DOF):
+            c_angle[dof_i] = p.readUserDebugParameter(motor_input[dof_i])
+
         angles_logger.append(c_angle)
         c_angle = torch.tensor(c_angle).to(device)
         degree_angles = c_angle*action_space
-
 
         occ_points_xyz_density, occ_points_xyz_visibility = query_models_separated_outputs(degree_angles, model, DOF, n_samples=64)
         occu_pts = occ_points_xyz_density.detach().cpu().numpy()
         occu_pts_visibility = occ_points_xyz_visibility.detach().cpu().numpy()
 
-
-        if len(occu_pts)>10000:
+        if len(occu_pts)>show_n_points:
             idx = np.arange(len(occu_pts))
             np.random.shuffle(idx)
-            occu_pts = occu_pts[idx[:10000]]
-
-        if len(occu_pts_visibility)>10000:
-            idx = np.arange(len(occu_pts))
-            np.random.shuffle(idx)
-            occu_pts_visibility = occu_pts_visibility[idx[:10000]]
+            occu_pts = occu_pts[idx[:show_n_points]]
 
         p_rgb = [(0,1,0.5)]*len(occu_pts)
         p_rgb = np.asarray(p_rgb)
 
-
-        visual_p_rgb = [(1,0,0)]*len(occu_pts_visibility)
-        visual_p_rgb = np.asarray(visual_p_rgb)
-
         p.removeUserDebugItem(debug_points1)  # update points every step
-        p.removeUserDebugItem(debug_points2)  # update points every step
 
-        debug_points2 = p.addUserDebugPoints(occu_pts_visibility, visual_p_rgb, pointSize=4)
         debug_points1 = p.addUserDebugPoints(occu_pts, p_rgb, pointSize=4)
 
-        c_angle_cmd = c_angle.detach().cpu().numpy()
-        obs, _, _, _ = env.step(c_angle_cmd)
-
-        #Saving:
-        if sub_mode == 3:
-            screenshot = pyautogui.screenshot()
-            # Save the screenshot
-            screenshot.save(img_path+ "/%d.jpeg" % (i))
-            if not EndeffectorOnly:
-                np.savetxt(SAVE_PATH+'/robot%d.csv' % robot_id, angles_logger)
+        c_angle = c_angle.detach().cpu().numpy()
+        obs, _, _, _ = env.step(c_angle)
 
 
 def go_to_target_pos():
@@ -522,20 +470,31 @@ def shortcut_path(path):
 
 if __name__ == "__main__":
     DOF = 4
-    seed = 1
     action_space = 90
 
-    sim_real = 'sim' # Use the model trained by real robot data.
-    data_amount = 8000 # we used 10k data to train the model.
-    
-    
-    EndeffectorOnly = False
-    robot_id = 0  # Robot 0 1 2 represents Robot 1 2 3 in the paper
+    # Define robot configuration options
+    robot_configurations = {
+        "real_robot_1": {"robot_id": 1, "sim": False, "has_ee": False},
+        "sim_robot_1": {"robot_id": 1, "sim": True, "has_ee": False},
+        "sim_robot_2": {"robot_id": 2, "sim": True, "has_ee": False},
+        "real_robot_2": {"robot_id": 2, "sim": False, "has_ee": False},
+        "real_robot_2_ee": {"robot_id": 2, "sim": False, "has_ee": True},
+        "real_robot_3": {"robot_id": 3, "sim": False, "has_ee": False},
+    }
 
-    # The ground truth Robot has a 3D model in transparent color and the model prediction is shown in green color dots.
+    # Select configuration (modify this for different robots)
+    robot_type = "real_robot_3"  # Change as needed
 
-    # test_model_pth = 'train_log_model/%s_id%d_8000(%d)_PE(arm)_cam1000(%d)_sep/best_model/' % (sim_real, robot_id, seed, seed)
-    test_model_pth = 'train_log/%s_id%d_10000(%d)_PE/best_model/' % (sim_real, robot_id, seed)
+    # Extract parameters
+    robot_id = robot_configurations[robot_type]["robot_id"]
+    sim_real = "sim" if robot_configurations[robot_type]["sim"] else "real"
+    EndeffectorOnly = robot_configurations[robot_type]["has_ee"]
+
+    print(f"Running on {robot_type}: sim={sim_real}, EE model={EndeffectorOnly}")
+
+    # Define paths for model loading
+    test_model_pth = f'trained_model/{sim_real}_id{robot_id}/best_model/'
+    test_model_ee_pth = f'trained_model/{sim_real}_id{robot_id}_ee/best_model/'
 
     # For the planning we need both
     # end-effector model for calculating the target position
@@ -543,11 +502,6 @@ if __name__ == "__main__":
     both_models = False
 
 
-    # test_name = 'real_train_1_log0928_%ddof_%d(%d)/' % (data_point, 100, seed)
-    # test_model_pth = 'train_log/%s/best_model/' % test_name
-
-
-    # DOF + 3 -> xyz and angle2 or 3 -> xyz
     model, optimizer = init_models(d_input=(DOF - 2) + 3,
                                    d_filter=128,
                                    output_size=2,
@@ -558,7 +512,6 @@ if __name__ == "__main__":
     for param in model.parameters():
         param.requires_grad = False
 
-    test_model_ee_pth = 'train_log/%s_id%d_10000(%d)_PE(ee)/best_model/' % (sim_real, robot_id, seed)
     if EndeffectorOnly:
         model, _ = init_models(d_input=(DOF - 2) + 3,
                                   d_filter=128,
@@ -611,7 +564,6 @@ if __name__ == "__main__":
         # angles_input = np.loadtxt('eval/%s_robo_%d(arm)/test_angles.csv'%(sim_real,1))/90
         # angles_input = np.loadtxt('train_log/real_id2_10000(1)_PE(arm)/image/valid_angle.csv')[4]/90
         env = FBVSM_Env(
-            show_moving_cam=False,
             robot_ID=robot_id,
             width=width,
             height=height,
@@ -619,16 +571,13 @@ if __name__ == "__main__":
             num_motor=DOF,
             dark_background=True,
             # init_angle=angles_input,
-            rotation_view = True
+            rotation_view = True,
+            object_alpha=0.5
         )
-
-
-        # cmds = np.loadtxt('planning/trajectory/fcl_169.csv')
-        interact_env(2,sep_query=True)
+        interact_env()
 
     elif MODE == 1:
         env = FBVSM_Env(
-            show_moving_cam=False,
             robot_ID=robot_id,
             width=width,
             height=height,
@@ -641,7 +590,6 @@ if __name__ == "__main__":
 
     elif MODE == 2:
         env = FBVSM_Env(
-            show_moving_cam=False,
             robot_ID=robot_id,
             width=width,
             height=height,
@@ -670,7 +618,6 @@ if __name__ == "__main__":
         # weights = np.array([10.0, 0.8, 0.6, 0.4])
 
         env = FBVSM_Env(
-            show_moving_cam=False,
             robot_ID=robot_id,
             width=width,
             height=height,
@@ -697,7 +644,6 @@ if __name__ == "__main__":
         goal =  ( 0.5, -0.3, -0.5, -0.2)
         joint_interval = 0.1
         env = FBVSM_Env(
-            show_moving_cam=False,
             robot_ID=robot_id,
             width=width,
             height=height,

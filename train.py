@@ -1,7 +1,7 @@
 # Our implementation is based on the NeRF publicly available code from https://github.com/krrish94/nerf-pytorch/ and
 # https://github.com/bmild/nerf
 import random
-from model import FBV_SM, FBV_SM2, PositionalEncoder
+from model import FBV_SM, PositionalEncoder
 from func import *
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -30,11 +30,6 @@ def init_models(d_input, d_filter, pretrained_model_pth=None, lr=5e-4, output_si
                        d_filter=d_filter,
                        output_size=output_size)
 
-        # separate output
-        # model = FBV_SM2(encoder = encoder,
-        #                d_input=d_input,
-        #                d_filter=d_filter,
-        #                output_size=output_size)
     else:
         # Models
         model = FBV_SM(d_input=d_input,

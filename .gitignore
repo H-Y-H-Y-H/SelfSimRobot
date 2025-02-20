@@ -1,4 +1,3 @@
-/data/sim_data/
 /data/fixed_camera/
 /data/moving_camera/
 /__pycache__
@@ -12,3 +11,5 @@
 /.idea
 /backup/
 /.DS_Store
+/.pytest_cache/
+/archive/

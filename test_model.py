@@ -105,7 +105,6 @@ def query_models_separated_outputs( angle, model, DOF, n_samples = 64):
     pose_matrix_tensor = pts_trans_matrix(angle_tensor[0],angle_tensor[1],no_inverse=False).to(device)
     # pose_matrix_tensor = torch.tensor(pose_matrix_array,dtype=torch.float32).to(device)
     all_points_xyz = torch.cat((all_points, torch.ones((len(all_points),1)).to(device)),dim =1)
-    all_points_xyz = torch.tensor(all_points_xyz,dtype=torch.float32)
     all_points_xyz = torch.matmul(pose_matrix_tensor,all_points_xyz.T).T[:,:3]
 
 
