@@ -84,7 +84,7 @@ Teaching Robots to Build Simulations of Themselves
 ## License
 This project is open source and available under the MIT License.
 
-##Contact
+## Contact
 For questions or further collaboration, please reach out to us:
 
 Yuhang Hu: yuhang.hu@columbia.edu
