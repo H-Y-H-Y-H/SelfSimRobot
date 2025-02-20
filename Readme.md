@@ -1,6 +1,6 @@
 # Teaching Robots to Build Simulations of Themselves
 
-Imagine a robot that can look into a mirror, understand its own shape, and even predict its next move—all without human intervention. SelfSimRobot is our cutting-edge, self-supervised framework that empowers robots to build internal simulations of themselves using only a single 2D camera. Inspired by human self-awareness, our system leverages the Free Form Kinematic Self-Model (FFKSM) to predict 3D morphology, plan motion trajectories, and even recover from damage.
+Imagine robots learn their physical form and movement autonomously through vision alone. Previous robots relied on math, sensors, or engineers to define their bodies and controllers. Now, a robot can "figure itself out" in minutes, adapt to damage (like a bent arm), and even plan complex tasks — all by watching its own movements in a "mirror" (a regular camera).
 
 > "By empowering robots to simulate their own kinematics and structure, we open a new frontier in robotic autonomy and adaptive intelligence."  
 > – *Hod Lipson*
