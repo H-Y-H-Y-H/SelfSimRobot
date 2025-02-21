@@ -2,7 +2,8 @@
 
 Imagine robots learn their physical form and movement autonomously through vision alone. Previous robots relied on math, sensors, or engineers to define their bodies and controllers. Now, a robot can "figure itself out" in minutes, adapt to damage (like a bent arm), and even plan complex tasks — all by watching its own movements in a "mirror" (a regular camera).
 
-> "By empowering robots to simulate their own kinematics and structure, we open a new frontier in robotic autonomy and adaptive intelligence."  
+> "We humans cannot afford to constantly baby these robots, repair broken parts, and adjust performance. Robots need to learn to take care of themselves if they are going to become truly useful. That’s why self-modeling is so important. 
+"  
 > – *Hod Lipson*
 
 ![image](data/robot3.jpeg)
