@@ -97,7 +97,7 @@ class FBVSM_Env(gym.Env):
                                renderer=p.ER_BULLET_HARDWARE_OPENGL,
                                shadow=0)[2]
 
-        img = img[:, :, :3]
+        img = np.reshape(np.array(img, dtype=np.uint8), (self.height, self.width, 4))[:, :, :3]
         processed_img = green_black(img)
         # Annotate each image with a label.
         annotated_raw = img.copy()
